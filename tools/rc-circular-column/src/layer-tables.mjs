@@ -18,7 +18,7 @@ export function mountLayerTables(form, getState, changed) {
       while (group.children.length > 1) group.lastChild.remove();
       const table = document.createElement('table'); table.className = 'layer-table';
       table.setAttribute('aria-label', key === 'longitudinal' ? 'Longitudinal layers' : 'Transverse link layers');
-      const titles = key === 'longitudinal' ? ['Layer', 'Bars', 'Ø mm', 'Angle °', 'Radial clear mm', ''] : ['Layer', 'Link Ø mm', 'Vertical spacing mm', ''];
+      const titles = key === 'longitudinal' ? ['Layer', 'Bars', 'Ø mm', 'Angle °', 'Radial clear mm', ''] : ['Layer', 'Link Ø mm', 'Vertical spacing mm', 'Effective shear legs', ''];
       const head = table.createTHead().insertRow();
       titles.forEach(title => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = title; head.append(th); });
       const body = table.createTBody();
@@ -26,12 +26,13 @@ export function mountLayerTables(form, getState, changed) {
         const row = body.insertRow();
         const id = key === 'longitudinal' ? layer.id : layer.layer;
         row.insertCell().textContent = id;
-        const keys = key === 'longitudinal' ? ['count', 'diameter', 'angle', 'radialClear'] : ['diameter', 'spacing'];
+        const keys = key === 'longitudinal' ? ['count', 'diameter', 'angle', 'radialClear'] : ['diameter', 'spacing', 'effectiveLegs'];
         keys.forEach(field => {
           const cell = row.insertCell(), input = document.createElement('input');
-          input.type = 'number'; input.step = field === 'count' ? '1' : 'any';
+          input.type = 'number'; input.step = ['count', 'effectiveLegs'].includes(field) ? '1' : 'any';
+          if (field === 'effectiveLegs') { input.min = '0'; input.max = '2'; }
           input.setAttribute('aria-label', `${id} ${key} ${field}`);
-          if (field !== 'angle') input.min = field === 'count' ? '4' : field === 'radialClear' ? '0' : '0.01';
+          if (field !== 'angle' && field !== 'effectiveLegs') input.min = field === 'count' ? '4' : field === 'radialClear' ? '0' : '0.01';
           input.value = layer[field] ?? '';
           if (field === 'radialClear') { input.placeholder = i ? 'Auto' : '—'; input.disabled = i === 0; }
           input.addEventListener('input', () => {
@@ -56,7 +57,8 @@ export function mountLayerTables(form, getState, changed) {
           state.longitudinal.push({ id: 'L' + i, count: 12, diameter: 25, angle: 0, radialClear: null });
         } else {
           const layer = state.longitudinal.find(layer => !state.transverse.some(link => link.layer === layer.id));
-          if (layer) state.transverse.push({ layer: layer.id, diameter: 12, spacing: 150 });
+          if (layer) state.transverse.push({ layer: layer.id, diameter: 12, spacing: 150,
+            effectiveLegs: layer.id === state.longitudinal[0].id ? 2 : 0 });
         }
         render(); changed();
       });
@@ -66,7 +68,7 @@ export function mountLayerTables(form, getState, changed) {
       const note = document.createElement('p');
       note.textContent = key === 'longitudinal'
         ? 'Outside → inside. Radial clear: blank uses the §8.2 minimum for adjacent bar diameters. Angle rotates bars in the section. Add a corresponding link below.'
-        : 'One outside tangent link per associated longitudinal layer. + adds the first layer without a link. Closure and anchorage require review.';
+        : 'One outside tangent link per longitudinal layer. + adds the first missing link. Inner links receive no shear credit by default; verify anchorage and the common shear mechanism before entering effective legs.';
       group.append(note);
     }
   }

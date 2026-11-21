@@ -1,9 +1,9 @@
 {
   "id": "rc-circular-column",
   "name": "mConcreteCircCol",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "apiVersion": 1,
-  "schema": 2,
+  "schema": 3,
   "folder": "columns",
   "labels": [
     "member.column"

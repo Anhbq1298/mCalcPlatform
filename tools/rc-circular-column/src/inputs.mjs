@@ -27,7 +27,13 @@ export const inputGroups = [
   ]],
 ];
 export const fields = inputGroups.flatMap(([, group]) => group);
-export const defaults = { ...Object.fromEntries(fields.map(([id, , value]) => [id, value])), inputVersion: 2, ...exampleLayers() };
+export const defaults = { ...Object.fromEntries(fields.map(([id, , value]) => [id, value])), inputVersion: 3,
+  chartGrid: { pmP: null, pmM: null }, ...exampleLayers() };
+export function migrateSavedInputs(raw, from) {
+  if (from === 1) return { ...raw, transverse: raw.transverse ?? 'spirals' };
+  if (from === 2) return restoreInputs(raw);
+  throw new Error('Unsupported circular column migration.');
+}
 export function restoreInputs(raw) {
   const next = migrateInputs(raw, { ...legacyDefaults, ...defaults });
   if (raw.linkSteel === undefined && raw.spiralSteel !== undefined) next.linkSteel = raw.spiralSteel;
@@ -38,6 +44,11 @@ export function validateInputs(input) {
   for (const [id, label, , min = -Infinity, max = Infinity, step] of fields) {
     const value = input[id];
     if (!Number.isFinite(value) || value < min || value > max || (step === 1 && !Number.isInteger(value))) throw new Error('Check the value for ' + label + '.');
+  }
+  if (input.chartGrid && (typeof input.chartGrid !== 'object' || Array.isArray(input.chartGrid)
+    || ['pmP', 'pmM'].some(key => input.chartGrid[key] != null
+      && (!Number.isFinite(input.chartGrid[key]) || input.chartGrid[key] < 0)))) {
+    throw new Error('Enter a positive diagram grid spacing or leave it blank for automatic.');
   }
   validateLayers(input);
 }

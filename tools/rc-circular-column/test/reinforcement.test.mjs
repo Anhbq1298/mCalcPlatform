@@ -56,13 +56,13 @@ test('applies aggregate, entered NA parameters, reduced zones and per-layer link
 test('sequential legacy migration retains bar geometry and unknown fields', () => {
   const raw = { ...legacyDefaults, cages: 2, extension: { future: 42 } };
   const input = restoreInputs(raw), cages = cageGeometry(input);
-  assert.equal(input.inputVersion, 2); assert.deepEqual(input.extension, raw.extension);
+  assert.equal(input.inputVersion, 3); assert.deepEqual(input.extension, raw.extension);
   close(cages[0].barRadius, 489); close(cages[1].barRadius, 444.5);
   assert.equal(input.longitudinal[1].radialClear, 16);
   assert.match(input.migrationReview, /Legacy/);
   input.longitudinal[0].extension = 'retained'; input.transverse[0].extension = 123;
   assert.deepEqual(restoreInputs(JSON.parse(JSON.stringify(input))), input);
-  assert.throws(() => restoreInputs({ ...input, inputVersion: 3 }), /read-only/);
+  assert.throws(() => restoreInputs({ ...input, inputVersion: 4 }), /read-only/);
   assert.throws(() => restoreInputs({ ...input, inputVersion: 0 }), /Unsupported/);
   assert.throws(() => restoreInputs({ inputVersion: 2 }), /missing/);
   const duplicate = structuredClone(input); duplicate.transverse.push({ ...duplicate.transverse[0] });
@@ -84,7 +84,7 @@ test('all layers feed section resistance and per-layer conditional shear estimat
   const input = structuredClone(defaults);
   const original = solveColumn(input);
   input.longitudinal.push({ id: 'L3', count: 8, diameter: 20, angle: 10, radialClear: 50 });
-  input.transverse.push({ layer: 'L3', diameter: 10, spacing: 100 });
+  input.transverse.push({ layer: 'L3', diameter: 10, spacing: 100, effectiveLegs: 2 });
   const added = solveColumn(input);
   assert.equal(added.geometry.length, 3);
   assert.notEqual(added.combined, original.combined);

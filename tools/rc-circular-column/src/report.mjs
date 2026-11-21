@@ -23,7 +23,7 @@ export function buildReport(input, result) {
   add('image', { w: 440, h: 440, src: 'data:image/svg+xml;base64,' + svgBase64 });
   text('Reinforcement geometry', 2);
   for (const c of result.geometry) text(`${c.id}: ${c.count}Ø${c.bar}; angle ${c.angle}°; R_L=${c.barRadius.toFixed(2)} mm; radial clear=${c.radialClear ?? 'outer'} mm; `
-    + (c.link ? `closed link Ø${c.link.diameter} @ ${c.link.spacing} mm; R_S=${c.linkRadius.toFixed(2)} mm.` : 'NO LINK.'));
+    + (c.link ? `closed link Ø${c.link.diameter} @ ${c.link.spacing} mm; R_S=${c.linkRadius.toFixed(2)} mm; effective shear legs=${c.link.effectiveLegs}.` : 'NO LINK.'));
   text('Resistance estimates', 2);
   for (const [label, value] of [['P–M utilization', result.combined], ['Conditional link shear utilization', result.shear],
     ['Effective web width (mm)', result.width], ['cot θ', result.cot], ['Link shear resistance stress (MPa)', result.linkStress], ['Strut stress (MPa)', result.strutStress]]) {

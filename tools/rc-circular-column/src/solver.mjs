@@ -82,12 +82,12 @@ export function solveColumn(input) {
     const half = cap / (2 * tau);
     cot = tau * (cotMin + 1 / cotMin) <= cap ? cotMin : half >= 1 ? half + Math.sqrt(half ** 2 - 1) : 1;
     // Conditional two-leg equivalent; detailing explicitly prevents an overall compliant verdict.
-    const rho = 2 / width * input.transverse.reduce((sum, link) => sum + Math.PI * link.diameter ** 2 / 4 / link.spacing, 0);
+    const rho = 1 / width * input.transverse.reduce((sum, link) => sum + link.effectiveLegs * Math.PI * link.diameter ** 2 / 4 / link.spacing, 0);
     linkStress = rho * input.linkSteel / 1.15 * cot;
     strutStress = tau * (cot + 1 / cot);
     shear = linkStress > 0 ? Math.max(tau / linkStress, strutStress / cap) : null;
   }
-  const result = { combined, shear, width, cot, linkStress, strutStress, demand: [moment, axial], curve,
+  const result = { combined, shear, width, cot, linkStress, strutStress, demand: [moment, axial], thetaDeg: direction * 180 / Math.PI, curve,
     detailing: detailing.checks, geometry: cages, status: detailing.status };
   if ([combined, shear, width, cot, linkStress, strutStress].some(v => v !== null && !Number.isFinite(v))) {
     throw new Error('The worksheet model is outside its calculation range.');

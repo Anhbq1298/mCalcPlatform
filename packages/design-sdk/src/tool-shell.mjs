@@ -86,7 +86,7 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
       return doc;
     }
     await db.updateDesign(doc.id, latest => {
-      if (latest.schema > tool.schema || latest.tool !== tool.id
+      if (latest.schema !== current.schema || latest.tool !== tool.id
         || latest.pending !== current.pending || JSON.stringify(latest.inputs) !== JSON.stringify(current.inputs)) {
         throw new Error('This design changed in another tab. Reopen it before saving.');
       }

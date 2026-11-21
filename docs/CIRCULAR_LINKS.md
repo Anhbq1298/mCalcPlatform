@@ -1,6 +1,6 @@
 # Circular column closed links
 
-The stable module ID and route remain `rc-circular-column`. Manifest schema 2 stores
+The stable module ID and route remain `rc-circular-column`. Manifest schema 3 stores
 ordered `longitudinal` layers and `transverse` links associated by stable layer ID.
 Each longitudinal layer carries count, diameter, angular rotation and optional radial
 clearance. Each link carries its diameter and vertical spacing. A blank clearance
@@ -42,8 +42,8 @@ section estimate. It does not add a slenderness or full biaxial-equilibrium solv
 Interpolation outside the sampled resistance range is unavailable rather than
 extrapolated. Physical clashes prevent resistance evaluation.
 
-The inherited EN 1992-1-1:2023 shear model uses an equivalent two-leg contribution
-per entered circular link layer. This is explicitly a conditional estimate. The
+The inherited EN 1992-1-1:2023 shear model uses an entered effective-leg contribution per circular link layer (outer: 2, inner: 0
+by default). This is explicitly a conditional estimate. The
 effective legs, anchorage and common shear mechanism for nested cages require
 engineering verification. Neither the summary nor report gives an overall PASS
 while these applicability checks remain unresolved. The module does not claim
@@ -57,7 +57,7 @@ geometry and labels would be misleading for arbitrary closed-link layers.
 
 ## Migration and verification
 
-Schema 1 → 2 preserves legacy bar radii by retaining the former inner-layer radial
+Schema 1 → 2 → 3 preserves legacy bar radii by retaining the former inner-layer radial
 clearance, including inadequate values. A persistent migration review warning
 identifies the conversion from spiral inputs to closed links. Unknown top-level and
 layer fields survive capture/restore. Future manifest/input schemas are read-only.
@@ -70,3 +70,13 @@ tangency/intrusion, unequal rotated layers, clashes, chord spacing, aggregate/ND
 changes, reduced zones, additional layers, legacy/future schemas and report warnings.
 Browser tests cover live edits, independent layer controls, save/reopen, migration,
 portable packages, future-schema protection and report opening.
+
+Schema 2 combined `layers` inputs are migrated without changing their bar radii;
+unknown layer fields and the original configuration are retained. Inner links remain
+uncredited for shear unless the user explicitly enters verified effective legs.
+The former two-spiral-only worksheet integration and combined controls are superseded
+by the arbitrary-layer solver, independent tables and reviewed report snapshot.
+
+P–M presentation matches the rectangular tool: positive resultant moment to the right,
+P compression upward, 8% range padding, readable automatic or user grid intervals,
+axis arrows, direction angle, blue resistance and an amber outlined demand marker.

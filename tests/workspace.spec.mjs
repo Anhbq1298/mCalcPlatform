@@ -251,6 +251,13 @@ test('circular closed link layers update SVG, resistance, persistence and report
   const summary = page.locator('#column-check-summary');
   const status = page.locator('#calculation-status');
   await expect(status).toHaveText('Calculation complete.');
+  await expect(page.getByRole('heading', { name: 'P–M at governing angle' })).toBeVisible();
+  await expect(page.locator('#pm-caption')).toContainText('33.7°');
+  const chart = page.locator('#interaction-curve');
+  const automaticChart = await chart.evaluate(canvas => canvas.toDataURL());
+  await page.getByLabel('Grid P (kN)', { exact: true }).fill('2000');
+  expect(await chart.evaluate(canvas => canvas.toDataURL())).not.toBe(automaticChart);
+  await expect(status).toHaveText('Calculation complete.');
   await expect(page.locator('#circular-section svg')).toBeVisible();
   await expect(page.locator('[data-link="L1"]')).toHaveAttribute('r', '454');
   await expect(page.locator('[data-link="L2"]')).toHaveAttribute('r', '390');
@@ -274,6 +281,7 @@ test('circular closed link layers update SVG, resistance, persistence and report
   await save(page);
   await page.reload();
   await expect(page.getByLabel('L3 transverse spacing')).toHaveValue('125');
+  await expect(page.getByLabel('Grid P (kN)', { exact: true })).toHaveValue('2000');
   await expect(page.getByLabel('L2 longitudinal radialClear')).toHaveValue('50');
   await expect(status).toHaveText('Calculation complete.');
   await page.getByRole('button', { name: 'Remove L3 longitudinal layer', exact: true }).click();
@@ -315,7 +323,7 @@ test('migrates saved circular inputs and preserves unknown fields in portable pa
   expect((await circularRecord(page, design.id)).schema).toBe(1);
   await save(page);
   const stored = await circularRecord(page, design.id);
-  expect(stored.schema).toBe(2); expect(stored.inputs.unknown).toEqual({ retain: 42 });
+  expect(stored.schema).toBe(3); expect(stored.inputs.unknown).toEqual({ retain: 42 });
   const download = page.waitForEvent('download');
   await shell(page).getByRole('button', { name: 'Export .mcalc', exact: true }).click();
   const file = info.outputPath('circular-migration.mcalc'); await (await download).saveAs(file);
@@ -333,7 +341,7 @@ test('future circular document and input schemas are protected from writes', asy
   await save(page);
   const id = new URL(page.url()).searchParams.get('design');
   const saved = await circularRecord(page, id);
-  for (const future of [{ ...saved, schema: 3 }, { ...saved, inputs: { ...saved.inputs, inputVersion: 3 } }]) {
+  for (const future of [{ ...saved, schema: 4 }, { ...saved, inputs: { ...saved.inputs, inputVersion: 4 } }]) {
     await circularRecord(page, id, future);
     await page.reload();
     await expect(shell(page).getByRole('button', { name: 'Save', exact: true })).toBeDisabled();

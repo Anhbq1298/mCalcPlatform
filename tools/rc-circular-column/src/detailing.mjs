@@ -7,6 +7,7 @@ export function detailingChecks(input) {
   const bars = cages.flatMap(cage => cage.bars);
   for (const [i, cage] of cages.entries()) {
     const name = cage.id;
+    add(name + '-bar-count', cage.count >= 4 ? 'pass' : 'fail', name + ': at least four bars in a circular column, §9.5.2(4).');
     compare(name + '-fit', cage.barRadius - cage.bar / 2, 0, name + ': longitudinal layer fits inside the section.');
     const circumferential = 2 * cage.barRadius * Math.sin(Math.PI / cage.count) - cage.bar;
     compare(name + '-circumferential', circumferential, minimumClear(input, cage.bar),
@@ -53,7 +54,7 @@ export function detailingChecks(input) {
   add('restraint', 'review', '§9.5.3(2),(6): tangency alone does not prove restraint. Verify link closure, anchorage, bend radii and restraint of compression bars (150 mm rule where applicable).');
   add('applicability', 'review', 'Detailing: EN 1992-1-1:2004 recommended NDPs unless entered otherwise. PMM/shear: existing EN 1992-1-1:2023 worksheet. Project National Annex and mixed-edition applicability are unverified.');
   add('pmm-scope', 'review', 'P–M curve uses the applied bending direction and the existing first-order strain-pivot model. Check slenderness, second-order effects and full biaxial equilibrium separately.');
-  add('shear-model', 'review', 'Closed circular link shear is a conditional equivalent two-leg worksheet estimate per layer. Verify effective legs, anchorage and common shear mechanism before using the resistance.');
+  add('shear-model', 'review', 'Closed circular link shear uses entered effective legs (outer link: 2, inner links: 0 by default). Additional inner-link credit requires verified anchorage and a common shear mechanism. All link shear estimates remain conditional.');
   add('zones', 'review', 'Verify end/lap zones, at least three links in lap lengths where required, bar direction changes, seismic and pile-specific provisions.');
   if (input.migrationReview) add('migration', 'review', input.migrationReview);
   return { cages, checks, nearest, status: checks.some(c => c.status === 'fail') ? 'fail' : 'review' };

@@ -56,6 +56,10 @@ dd { margin: 0; font-variant-numeric: tabular-nums; }
 .layer-table + button { margin-top:.4rem; }
 details { margin-top: 1rem; }
 summary { cursor: pointer; color: var(--steel); }
+.charthead { display:flex; gap:.4rem .8rem; align-items:baseline; flex-wrap:wrap; }
+.charthead h2 { margin-right:auto; }
+.charthead label { display:flex; font-size:.75rem; }
+.charthead input { width:4rem; }
 .column-layout { grid-template-columns: minmax(25rem, 29rem) minmax(18rem, 1fr) minmax(18rem, 25rem); }
 @media(max-width:75rem) { .column-layout {grid-template-columns: minmax(25rem, 1fr) minmax(19rem, 1fr);} .checks {grid-column:2;grid-row:auto;} }
 @media(max-width:48rem) { .column-layout {grid-template-columns: minmax(0,1fr);} #column-inputs,.interaction,.checks {grid-column:1;grid-row:auto;} }

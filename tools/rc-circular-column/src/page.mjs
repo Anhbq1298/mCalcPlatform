@@ -1,7 +1,7 @@
 import { renderColumnSummary, resistanceRow } from '../../../apps/column-summary.mjs';
 import '../../../apps/column-summary.css';
 import { registerPage } from '../../../apps/tool-page.mjs';
-import { defaults, inputGroups, validateInputs, restoreInputs } from './inputs.mjs';
+import { defaults, inputGroups, validateInputs, restoreInputs, migrateSavedInputs } from './inputs.mjs';
 import { mountLayerTables } from './layer-tables.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { drawInteraction, drawSection } from './drawing.mjs';
@@ -72,7 +72,10 @@ function renderChecks(result, message) {
 }
 function draw() {
   drawSection(section, legend, state);
-  drawInteraction(curve, rendered);
+  drawInteraction(curve, rendered, state.chartGrid);
+  byId('pm-caption').textContent = rendered
+    ? 'Moment direction θ = ' + rendered.thetaDeg.toFixed(1) + '°, measured from +Mx toward +My. Demand is plotted at its resultant moment. Blue: resistance; amber: applied load.'
+    : 'P compression positive. The diagram updates automatically with the section.';
 }
 
 function refresh() {
@@ -82,8 +85,14 @@ function refresh() {
     else field.value = state[key];
   }
   renderLayers();
+  for (const [id, key] of [['gridPmP', 'pmP'], ['gridPmM', 'pmM']]) byId(id).value = state.chartGrid?.[key] ?? '';
   draw();
 }
+for (const [id, key] of [['gridPmP', 'pmP'], ['gridPmM', 'pmM']]) byId(id).addEventListener('input', event => {
+  const value = event.target.valueAsNumber;
+  state.chartGrid = { ...state.chartGrid, [key]: Number.isFinite(value) && value > 0 ? value : null };
+  draw();
+});
 
 function scheduleCalculation() {
   revision++;
@@ -192,10 +201,7 @@ refresh();
 scheduleCalculation();
 
 registerPage('rc-circular-column', {
-  migrate: (inputs, schema) => {
-    if (schema !== 1) throw new Error('Unsupported circular column migration.');
-    return restoreInputs(inputs);
-  },
+  migrate: migrateSavedInputs,
   snapshot: () => {
     validateInputs(state);
     return structuredClone(state);
@@ -208,5 +214,14 @@ registerPage('rc-circular-column', {
     scheduleCalculation();
     draw();
   },
-  report: async () => structuredClone(await calculateCurrent()),
+  report: async () => {
+    const document = structuredClone(await calculateCurrent());
+    const page = document.settings.pages;
+    document.shapes.push({ id: 'circular-pm-chart', type: 'image', x: 76, y: page * 1171 + 110,
+      props: { w: 642, h: Math.min(700, 642 * curve.clientHeight / curve.clientWidth), src: curve.toDataURL('image/png') } });
+    document.shapes.push({ id: 'circular-pm-caption', type: 'text', x: 76, y: page * 1171 + 64,
+      props: { w: 642, h: 36, html: 'P–M at governing angle — P compression positive; blue resistance; amber demand.', fontSize: 14, color: '#1f2a30' } });
+    document.settings.pages++;
+    return document;
+  },
 });

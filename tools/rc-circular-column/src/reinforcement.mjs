@@ -1,20 +1,30 @@
 // EN 1992-1-1:2004 §8.2 recommended NDPs; project applicability is reported separately.
-export const inputVersion = 2;
+export const inputVersion = 3;
 export const exampleLayers = () => ({
   longitudinal: [{ id: 'L1', count: 20, diameter: 32, angle: 0, radialClear: null },
     { id: 'L2', count: 12, diameter: 25, angle: 0, radialClear: null }],
-  transverse: [{ layer: 'L1', diameter: 12, spacing: 150 }, { layer: 'L2', diameter: 12, spacing: 150 }],
+  transverse: [{ layer: 'L1', diameter: 12, spacing: 150, effectiveLegs: 2 },
+    { layer: 'L2', diameter: 12, spacing: 150, effectiveLegs: 0 }],
 });
 
 export function migrateInputs(raw, base) {
   const version = raw.inputVersion ?? 1;
   if (version > inputVersion) throw new Error('Newer reinforcement inputs are read-only.');
-  if (![1, 2].includes(version)) throw new Error('Unsupported reinforcement input version.');
-  if (version === 2 && (!Array.isArray(raw.longitudinal) || !Array.isArray(raw.transverse))) {
+  if (![1, 2, 3].includes(version)) throw new Error('Unsupported reinforcement input version.');
+  if (version >= 2 && (!Array.isArray(raw.longitudinal) || !Array.isArray(raw.transverse))) {
     throw new Error('Saved reinforcement layers are missing.');
   }
   const next = { ...structuredClone(base), ...structuredClone(raw) };
-  if (version === 1 && !raw.longitudinal) {
+  if (version === 1 && raw.transverse === 'links' && Array.isArray(raw.layers)) {
+    // Main's schema 2 used a combined layer table with no inputVersion marker.
+    next.legacyReinforcement = structuredClone(raw);
+    next.longitudinal = raw.layers.map((layer, i) => ({ ...layer, id: 'L' + (i + 1),
+      diameter: layer.bar, angle: 0, radialClear: i
+        ? Math.max(minimumClear(next, raw.layers[i - 1].bar, layer.bar), layer.link) : null }));
+    next.transverse = raw.layers.map((layer, i) => ({ ...layer, layer: 'L' + (i + 1),
+      diameter: layer.link, effectiveLegs: i ? 0 : 2 }));
+    next.migrationReview = 'Schema 2 closed-link layers converted; original bar radii and outer-link-only shear credit retained. Verify detailing and code applicability.';
+  } else if (version === 1 && !raw.longitudinal) {
     next.longitudinal = Array.from({ length: raw.cages ?? 1 }, (_, i) => ({
       id: 'L' + (i + 1), count: raw['count' + (i + 1)] ?? base['count' + (i + 1)],
       diameter: raw['bar' + (i + 1)] ?? base['bar' + (i + 1)], angle: 0,
@@ -24,9 +34,12 @@ export function migrateInputs(raw, base) {
     next.transverse = next.longitudinal.map((layer, i) => ({ layer: layer.id,
       diameter: raw['spiral' + (i + 1)] ?? base['spiral' + (i + 1)],
       spacing: raw['pitch' + (i + 1)] ?? base['pitch' + (i + 1)],
+      effectiveLegs: i ? 0 : 2,
     }));
     next.migrationReview = 'Legacy spiral inputs converted to closed links; bar radii retained. Verify closure, anchorage and shear applicability.';
   }
+  next.transverse = next.transverse.map(link => ({ ...link,
+    effectiveLegs: link.effectiveLegs ?? (link.layer === next.longitudinal[0]?.id ? 2 : 0) }));
   next.inputVersion = inputVersion;
   return next;
 }
@@ -62,7 +75,7 @@ export function validateLayers(input) {
   let total = 0;
   for (const layer of input.longitudinal) {
     if (!layer || typeof layer.id !== 'string' || !/^[\w-]{1,40}$/.test(layer.id) || ids.has(layer.id)
-      || !Number.isInteger(layer.count) || layer.count < 4 || layer.count > 300
+      || !Number.isInteger(layer.count) || layer.count < 3 || layer.count > 300
       || !Number.isFinite(layer.diameter) || layer.diameter <= 0 || !Number.isFinite(layer.angle)
       || (layer.radialClear !== null && (!Number.isFinite(layer.radialClear) || layer.radialClear < 0))) {
       throw new Error('Check longitudinal layer IDs, counts, diameters, angles and radial clearances.');
@@ -73,7 +86,8 @@ export function validateLayers(input) {
   const linked = new Set();
   for (const link of input.transverse) {
     if (!link || !ids.has(link.layer) || linked.has(link.layer) || !Number.isFinite(link.diameter)
-      || link.diameter <= 0 || !Number.isFinite(link.spacing) || link.spacing <= 0) {
+      || link.diameter <= 0 || !Number.isFinite(link.spacing) || link.spacing <= 0
+      || !Number.isInteger(link.effectiveLegs) || link.effectiveLegs < 0 || link.effectiveLegs > 2) {
       throw new Error('Each link must have a unique longitudinal layer, positive diameter and positive vertical spacing.');
     }
     linked.add(link.layer);
