@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Structural engineering calculation tools and local project workspace.">
+  <title>mCalc Platform</title>
+  <script type="module" crossorigin src="./assets/page0-BOSldrhy.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/src-sgREFpJt.js">
+  <link rel="modulepreload" crossorigin href="./assets/registry-BOr5RrQ-.js">
+  <link rel="stylesheet" crossorigin href="./assets/style-EiB52JVZ.css">
+</head>
+<body class="hub">
+  <header class="masthead">
+    <a class="wordmark" href="./">mCalc <span>Platform</span></a>
+    <nav aria-label="Workspace sections"><a href="#tools">Tools</a><a href="#projects">Projects</a><a href="#designs">Designs</a></nav>
+  </header>
+  <main>
+    <section class="intro">
+      <h1>Structural design workspace</h1>
+      <div class="actions"><label class="button primary">Import .mcalc<input type="file" id="import" accept=".mcalc" hidden></label><a class="button" id="submit">Submit a tool</a></div>
+    </section>
+    <output id="status" aria-live="polite"></output>
+    <section id="tools" aria-labelledby="tool-heading"><h2 id="tool-heading">Calculation tools</h2><div class="catalog" id="catalog"></div></section>
+    <section id="projects" aria-labelledby="project-heading">
+      <div class="section-head"><h2 id="project-heading">Projects</h2><button id="new-project">New project</button></div>
+      <div id="project-list"></div>
+    </section>
+    <section id="designs" aria-labelledby="design-heading"><h2 id="design-heading">Saved designs</h2><div id="design-list"></div></section>
+  </main>
+  <dialog id="editor" aria-labelledby="dialog-title">
+    <form method="dialog">
+      <h2 id="dialog-title"></h2><div data-fields></div>
+      <div class="actions"><button value="cancel" formnovalidate>Cancel</button><button value="confirm" class="primary">Save</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
