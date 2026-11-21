@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { integrateCanvas, integrateSteel, integrateComposite, integrateColumn } from './prepare-tools.mjs';
+import { stageSharedSources } from './shared-sources.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const canvas = join(root, 'vendor/calccanvas');
@@ -36,13 +37,14 @@ async function prepare() {
     await put(join(canvas, path), path);
   }
   await symlink(join(canvas, 'node_modules'), join(stage, 'node_modules'), 'junction');
-  for (const path of ['apps', 'packages', 'tools']) await put(join(root, path), 'platform/' + path);
+  for (const path of ['apps', 'packages', 'tools', 'assets']) await put(join(root, path), 'platform/' + path);
   await put(join(root, 'apps/hub/index.html'), entries[0]);
   await put(join(canvas, 'index.html'), entries[1]);
   await put(join(canvas, 'steel/index.html'), entries[2]);
   await put(join(canvas, 'composite/index.html'), entries[3]);
   await put(join(column, 'index.html'), entries[4]);
   await put(join(root, 'apps/hub/package.html'), entries[5]);
+  await stageSharedSources(stage, canvas);
   await integrateCanvas(stage);
   await integrateSteel(stage);
   await integrateComposite(stage);

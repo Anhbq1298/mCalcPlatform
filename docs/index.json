@@ -42,6 +42,18 @@
       "dependsOn": [
         "design-sdk"
       ]
+    },
+    {
+      "id": "assets",
+      "purpose": "Shared typed structural section catalogue",
+      "entry": "packages/assets/src/index.ts",
+      "dependsOn": []
+    },
+    {
+      "id": "ui-kit",
+      "purpose": "Common drawing and engineering text UI",
+      "entry": "packages/ui-kit/src/index.ts",
+      "dependsOn": []
     }
   ]
 }
