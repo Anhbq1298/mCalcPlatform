@@ -175,9 +175,9 @@ export function buildScene(result) {
   const cover = slabInput.cover || 25;
   for (const link of result.layout?.links ?? []) {
     for (const leg of link.legs) {
-      lines.push({ kind: 'link', layer: link.layerId, points: [{ x: leg.x, y: leg.y, z: cover - hH }, { x: leg.x, y: leg.y, z: h - cover }], color: leg.effective ? COLORS.steel : COLORS.fail, width: 2 });
+      lines.push({ kind: 'link', layer: link.layerId, points: [{ x: leg.x, y: leg.y, z: cover - hH }, { x: leg.x, y: leg.y, z: h - cover }], color: leg.effective ? COLORS.link : COLORS.muted, width: 2 });
     }
-    if (link.legs.length === 2) lines.push({ kind: 'link', layer: link.layerId, points: link.legs.map(leg => ({ x: leg.x, y: leg.y, z: h - cover })), color: COLORS.steel, width: 1.2 });
+    if (link.legs.length === 2) lines.push({ kind: 'link', layer: link.layerId, points: link.legs.map(leg => ({ x: leg.x, y: leg.y, z: h - cover })), color: COLORS.link, width: 1.2 });
   }
   const load = result.loads?.find(entry => entry.name === result.governing?.load) ?? result.loads?.[0];
   if (load) {

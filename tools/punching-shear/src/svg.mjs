@@ -9,7 +9,24 @@ export const COLORS = {
   ink: '#141414', muted: '#6b7076', rule: '#c9ced3', steel: '#141414', concrete: '#ffffff',
   slab: '#ffffff', edge: '#b9bec4', u1: '#141414', uout: '#141414', fail: '#b3261e', governing: '#8a8f94', opening: '#141414',
   gridMinor: '#f0f2f4', gridMajor: '#dde1e5',
+  link: '#d32f2f', bar: '#7a8088',
 };
+
+// QLEADER-style callout: arrowhead at the feature, 45° leg of `run` px, horizontal landing, text on
+// the landing. dx, dy = ±1 give the direction of the 45° leg (screen axes).
+export function callout(x, y, dx, dy, run, lines, color = COLORS.ink) {
+  const ex = x + dx * run;
+  const ey = y + dy * run;
+  const width = Math.max(...lines.map(line => line.length)) * 6.2 + 6;
+  const lx = ex + dx * width;
+  const ux = -dx / Math.SQRT2;
+  const uy = -dy / Math.SQRT2;
+  const head = `<path d="M${n(x)} ${n(y)}L${n(x - ux * 7 - uy * 2.5)} ${n(y - uy * 7 + ux * 2.5)}L${n(x - ux * 7 + uy * 2.5)} ${n(y - uy * 7 - ux * 2.5)}Z" fill="${color}"/>`;
+  const anchor = dx > 0 ? 'start' : 'end';
+  const tx = ex + dx * 3;
+  const text = lines.map((line, i) => `<text class="small" x="${n(tx)}" y="${n(ey - 4 - (lines.length - 1 - i) * 11)}" text-anchor="${anchor}" fill="${COLORS.ink}">${esc(line)}</text>`).join('');
+  return `<g class="callout">${head}<path d="M${n(x)} ${n(y)}L${n(ex)} ${n(ey)}L${n(lx)} ${n(ey)}" fill="none" stroke="${COLORS.ink}" stroke-width=".7"/>${text}</g>`;
+}
 export const DASH = { hidden: '6 4', u1: '14 5', uout: '16 4 3 4 3 4', ext: '22 4 3 4', centre: '18 4 3 4', layer: '2 3' };
 
 // Model-space grid: minor every 100 mm, major every 500 mm, clipped to the drawing area.

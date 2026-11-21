@@ -25,7 +25,8 @@ test('plan draws one selectable group per physical link and marks ineffective le
   // A leg outside the effective path (slab edge, opening, shadow) is drawn in the failure colour.
   const links = result.layout.links.map((link, index) => (index ? link : { ...link, legs: link.legs.map(leg => ({ ...leg, effective: false, reason: 'Outside slab' })) }));
   const marked = planSvg({ ...result, layout: { ...result.layout, links } });
-  assert.ok(marked.includes('stroke="#b3261e"') && marked.includes('Ineffective leg'));
+  assert.ok(marked.includes('data-ineffective') && marked.includes('Ineffective leg'));
+  assert.ok(planSvg(result).includes('fill="#d32f2f"'), 'shear link legs are highlighted');
   assert.ok(!planSvg(result).includes('Ineffective leg'));
 });
 

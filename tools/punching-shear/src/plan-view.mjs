@@ -103,7 +103,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     const points = [];
     const steps = 40;
     for (let i = 0; i <= steps; i += 1) points.push(toGlobal(pathColumn, pointAt(pathColumn, gov.layer.offset, gov.gap.s0 + (gov.gap.length * i) / steps)));
-    parts.push(polyline(points, view, `fill="none" stroke="${gov.fails ? COLORS.fail : COLORS.governing}" stroke-width="4" stroke-opacity=".75" stroke-linecap="round" data-governing="${esc(gov.layer.id)}"`));
+    parts.push(polyline(points, view, `fill="none" stroke="${gov.fails ? COLORS.ink : COLORS.governing}" stroke-width="4" stroke-opacity=".75" stroke-linecap="round"${gov.fails ? ' stroke-dasharray="6 3"' : ''} data-governing="${esc(gov.layer.id)}"`));
   }
   const outline = column.shape === 'circular' ? pathPolyline(column, 0) : [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => toGlobal(column, { x: sx * column.cx / 2, y: sy * column.cy / 2 }));
   parts.push(polyline(outline, view, `fill="url(#concrete)" stroke="${COLORS.ink}" stroke-width="1.6"`, true));
@@ -117,13 +117,13 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     const radius = Math.max(2.4, (link.diameter / 2) * view.scale);
     const isSelected = selected === link.id;
     let body = '';
-    if (link.legs.length === 2) body += `<line x1="${n(view.x(link.legs[0].x))}" y1="${n(view.y(link.legs[0].y))}" x2="${n(view.x(link.legs[1].x))}" y2="${n(view.y(link.legs[1].y))}" stroke="${COLORS.steel}" stroke-width="1.4"/>`;
+    if (link.legs.length === 2) body += `<line x1="${n(view.x(link.legs[0].x))}" y1="${n(view.y(link.legs[0].y))}" x2="${n(view.x(link.legs[1].x))}" y2="${n(view.y(link.legs[1].y))}" stroke="${COLORS.link}" stroke-width="1.6"/>`;
     for (const leg of link.legs) {
       const x = view.x(leg.x);
       const y = view.y(leg.y);
       body += leg.effective
-        ? `<circle cx="${n(x)}" cy="${n(y)}" r="${n(radius)}" fill="white" stroke="${COLORS.ink}" stroke-width="1"/><line x1="${n(x - radius)}" y1="${n(y)}" x2="${n(x + radius)}" y2="${n(y)}" stroke="${COLORS.ink}" stroke-width=".8"/>`
-        : `<circle cx="${n(x)}" cy="${n(y)}" r="${n(radius)}" fill="white" stroke="${COLORS.fail}" stroke-width="1.2"/><path d="M${n(x - radius)} ${n(y - radius)}L${n(x + radius)} ${n(y + radius)}M${n(x - radius)} ${n(y + radius)}L${n(x + radius)} ${n(y - radius)}" stroke="${COLORS.fail}"/>`;
+        ? `<circle cx="${n(x)}" cy="${n(y)}" r="${n(radius + 0.6)}" fill="${COLORS.link}" stroke="white" stroke-width=".6"/>`
+        : `<circle data-ineffective="1" cx="${n(x)}" cy="${n(y)}" r="${n(radius)}" fill="white" stroke="${COLORS.muted}" stroke-width="1.1"/><path d="M${n(x - radius)} ${n(y - radius)}L${n(x + radius)} ${n(y + radius)}M${n(x - radius)} ${n(y + radius)}L${n(x + radius)} ${n(y - radius)}" stroke="${COLORS.muted}"/>`;
       if (isSelected) body += `<circle cx="${n(x)}" cy="${n(y)}" r="${n(radius + 4)}" fill="none" stroke="${COLORS.governing}" stroke-width="2"/>`;
     }
     parts.push(`<g class="link" data-link="${esc(link.id)}"><title>${esc(link.id)} · Ø${link.diameter}</title>${body}</g>`);
@@ -196,8 +196,8 @@ function axes(bottom, column) {
 function legend(width, height, legendHeight, show) {
   const y = height - legendHeight + 16;
   const entries = [
-    [true, `<circle cx="5" cy="0" r="4" fill="white" stroke="${COLORS.ink}"/><line x1="1" y1="0" x2="9" y2="0" stroke="${COLORS.ink}" stroke-width=".8"/>`, 'Link leg'],
-    [show.ineffective, `<circle cx="5" cy="0" r="4" fill="white" stroke="${COLORS.fail}"/>`, 'Ineffective leg'],
+    [true, `<circle cx="5" cy="0" r="4" fill="${COLORS.link}"/>`, 'Shear link leg'],
+    [show.ineffective, `<circle cx="5" cy="0" r="4" fill="white" stroke="${COLORS.muted}"/><path d="M2 -3L8 3M2 3L8 -3" stroke="${COLORS.muted}"/>`, 'Ineffective leg'],
     [true, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.ink}" stroke-dasharray="${DASH.u1}" stroke-width="1.3"/>`, 'u1'],
     [show.ext, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.ink}" stroke-dasharray="${DASH.ext}"/>`, 'u1,ext'],
     [show.out, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.ink}" stroke-dasharray="${DASH.uout}"/>`, 'u_out,ef'],
