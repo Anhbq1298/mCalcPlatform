@@ -1,0 +1,45 @@
+name: Prepare verified Pages snapshot
+on:
+  push:
+    branches: [publish/prepare-pages-0853eb3]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      BASE_COMMIT: 0853eb3f258bfb22c83c4c459984213937750695
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vendor/calccanvas/package-lock.json
+      - run: npm ci --prefix vendor/calccanvas
+      - run: npm run check-boundaries
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+        working-directory: vendor/calccanvas
+      - run: npm run test:browser
+      - name: Prepare a publishing commit atop main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$BASE_COMMIT"
+          test -f dist/index.html
+          test -f dist/.nojekyll
+          out="$RUNNER_TEMP/pages-snapshot"
+          git worktree add --detach "$out" "$BASE_COMMIT"
+          cp -a dist/. "$out/"
+          git -C "$out" add -A
+          if [[ -n "$(git -C "$out" diff --cached --name-only --diff-filter=DMRT)" ]]; then
+            echo "The generated snapshot would replace tracked source files."
+            exit 1
+          fi
+          git -C "$out" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Publish verified mCalc Platform build'
+          git -C "$out" push origin HEAD:refs/heads/publish/pages-site-0853eb3
