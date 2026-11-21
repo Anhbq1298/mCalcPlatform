@@ -1,3 +1,5 @@
+import { shearColumns } from './shear-view.mjs';
+
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
@@ -52,7 +54,7 @@ export function buildColumnReport(source) {
     add('image', { w, h, src: image.jpg });
   }
 
-  text('MBColumn Lite — Column check', 25, 1);
+  text('mConcreteRecCol — Column check', 25, 1);
   if (data.gov) text('Governing case ' + data.gov.name + ' · D/C ' + Number(data.gov.ratio).toFixed(3) + ' · ' + (data.gov.pass ? 'PASS' : 'FAIL'));
   section('Design basis', data.basis);
   section('Materials', data.materials);
@@ -63,13 +65,17 @@ export function buildColumnReport(source) {
   figure('Moment diagrams', images.sl);
   table('Load cases and capacity', headers.cases, data.cases, [.17,.105,.115,.115,.07,.09,.075,.13,.13]);
   text(data.range);
+  if (data.shearRows?.length || data.shearError) {
+    section('Directional shear design basis', [['Method', data.shearBasis], ...(data.shearError ? [['Status', data.shearError]] : [])]);
+    table('Directional shear results', shearColumns, data.shearRows, [.13,.055,.09,.08,.13,.125,.14,.105,.145]);
+  }
   figure('Biaxial interaction surface', images.d3);
   figure('Axial force–moment interaction', images.pm);
   figure('Moment–moment interaction', images.mm);
 
   const date = new Date().toISOString();
   return {
-    id: crypto.randomUUID(), title: 'MBColumn Lite — Column check', version: 3, shapes,
+    id: crypto.randomUUID(), title: 'mConcreteRecCol — Column check', version: 3, shapes,
     createdAt: date, updatedAt: date, metadata: {},
     settings: { unitSystem: 'SI', precision: 3, canvasMode: 'page', paper: 'A4', pageOrientation: 'portrait',
       showHeaderFooter: true, textFont: 'Inter', pages: page + 1, snapToGrid: false, optimizePrintLayout: false },

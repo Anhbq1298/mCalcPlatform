@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { integrateColumnWorkspace } from './column-workspace.mjs';
 
 function replaceOnce(text, needle, replacement) {
   if (text.split(needle).length !== 2) throw new Error('Source integration anchor changed: ' + needle);
@@ -173,4 +174,5 @@ export async function integrateColumn(root) {
   setTimeout(typesetLabels, 600);`],
     ['</script>\n</body>\n</html>', '</script>\n<script type="module" src="/platform/apps/mbcolumn-page.mjs"></script>\n</body>\n</html>'],
   ]);
+  await integrateColumnWorkspace(root, patch);
 }
