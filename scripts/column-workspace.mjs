@@ -130,6 +130,11 @@ export async function integrateColumnWorkspace(root, patch) {
   }
   await patch(root, path, [
     ['<html lang="en">\n<head>', '<html lang="en" data-theme="light">\n<head>'],
+    ['      <h2 id="h-rebar">Rebar coordinates</h2>', `      <section class="rect-column-summary" aria-labelledby="h-summary">
+        <h2 id="h-summary">Check summary</h2>
+        <div id="column-check-summary" aria-live="polite"><p>Click Calculate to check the section.</p></div>
+      </section>
+      <h2 id="h-rebar">Rebar coordinates</h2>`],
     ['      <div class="canvaswrap">', '      <p class="hint" id="shear-link-legend" hidden></p>\n      <div class="canvaswrap">'],
     ['aria-label="Column section with rebar positions"', 'aria-label="Column section with rebar and shear links" aria-describedby="shear-link-legend"'],
     ['    // link (stirrup) band', linkDrawing + '    // link (stirrup) band'],
@@ -162,13 +167,16 @@ export async function integrateColumnWorkspace(root, patch) {
     ["    $('loadCols').innerHTML", `    if (state.shear.enabled) cols.push(['vx', 'Vx (kN)'], ['vy', 'Vy (kN)']);
     $('loadCols').innerHTML`],
     ['      <div class="verdict" id="verdict">', '      <section id="column-shear-results" hidden></section>\n      <div class="verdict" id="verdict">'],
-    ['    runSeq++; lastResult = null; lastSlender = null; lastPhi = null;', '    runSeq++; lastResult = null; lastSlender = null; lastPhi = null;\n    window.mcalcColumnShear?.render();'],
+    ['    runSeq++; lastResult = null; lastSlender = null; lastPhi = null;', '    runSeq++; lastResult = null; lastSlender = null; lastPhi = null;\n    window.mcalcColumnShear?.render();\n    window.mcalcColumnSummary?.(null, null, null, false, \'Click Calculate to check the section.\');'],
     ['      const out = await solver.run(input);', `      if (state.shear.enabled) input.shear = {
         diameter: state.link, links: window.mcalcLinkLayout.resolve(state.shear, autoLinkLayout()),
         loads: state.loads.map(({ name, p, vx, vy }) => ({ name, p, vx, vy })),
       };
       const out = await solver.run(input);`],
-    ['      lastResult = out; renderResults(out);', '      lastResult = out; renderResults(out);\n      window.mcalcColumnShear.render(out.shear, out.shearError);'],
+    ['      lastResult = out; renderResults(out);', '      lastResult = out; renderResults(out);\n      window.mcalcColumnShear.render(out.shear, out.shearError);\n      window.mcalcColumnSummary(out, lastSlender, state.loads, state.shear.enabled);'],
+    ["    setStatus('Solving…', false, true);", "    setStatus('Solving…', false, true);\n    window.mcalcColumnSummary(null, null, null, false, 'Calculating…');"],
+    ['        setStatus(message, true);', '        setStatus(message, true);\n        window.mcalcColumnShear.render();\n        window.mcalcColumnSummary(null, null, null, false, message);'],
+    ['  function showInvalid(problem) {', '  function showInvalid(problem) {\n    window.mcalcColumnShear.render();\n    window.mcalcColumnSummary(null, null, null, false, problem);'],
     ['. Check Render service and ALLOWED_ORIGINS.', ''],
     ['[load.p, load.mx, load.my].every(finite)', '[load.p, load.mx, load.my, load.vx ?? 0, load.vy ?? 0].every(finite)'],
     ['      state = { ...state, ...structuredClone(inputs) };', `      const incoming = structuredClone(inputs);

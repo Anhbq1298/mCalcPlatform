@@ -1,3 +1,5 @@
+import { renderColumnSummary, resistanceRow } from '../../../apps/column-summary.mjs';
+import '../../../apps/column-summary.css';
 import { registerPage } from '../../../apps/tool-page.mjs';
 import { defaults, inputGroups, validateInputs } from './inputs.mjs';
 import { drawInteraction, drawSection } from './drawing.mjs';
@@ -13,6 +15,7 @@ const section = byId('circular-section');
 const legend = byId('section-legend');
 const curve = byId('interaction-curve');
 const checks = byId('checks');
+const summary = byId('column-check-summary');
 let state = { ...defaults };
 let rendered;
 let worker;
@@ -67,10 +70,12 @@ function scheduleCalculation() {
   if (pending) resetWorker('Inputs changed during calculation.');
   rendered = undefined;
   checks.replaceChildren();
+  renderColumnSummary(summary, [], 'Updating checks…');
   try {
     validateInputs(state);
   } catch (error) {
     status.textContent = error.message;
+    renderColumnSummary(summary, [], error.message);
     return;
   }
   status.textContent = 'Updating checks…';
@@ -119,10 +124,13 @@ function evaluate() {
 
 function display(result) {
   rendered = result;
+  renderColumnSummary(summary, [
+    resistanceRow('P–M utilization', result.combined),
+    resistanceRow('Shear utilization', result.shear),
+    ...result.detailing,
+  ]);
   checks.replaceChildren();
   for (const [label, value, unit] of [
-    ['P–M utilization', result.combined, ''],
-    ['Shear utilization', result.shear, ''],
     ['Effective web width', result.width, ' mm'],
     ['Compression field cot θ', result.cot, ''],
     ['Spiral shear resistance stress', result.linkStress, ' MPa'],
@@ -132,7 +140,6 @@ function display(result) {
     name.textContent = label;
     const cell = document.createElement('dd');
     cell.textContent = value === null ? '—' : value.toFixed(unit === ' mm' ? 1 : 3) + unit;
-    if (label.endsWith('utilization')) cell.dataset.check = value <= 1 ? 'pass' : 'fail';
     checks.append(name, cell);
   }
   draw();
@@ -151,6 +158,7 @@ function calculateCurrent() {
   }).catch(error => {
     if (revision === start) {
       status.textContent = error.message;
+      renderColumnSummary(summary, [], error.message);
       calculation = undefined;
     }
     throw error;

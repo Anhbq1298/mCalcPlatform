@@ -40,6 +40,16 @@ function calculate(values) {
     return result.value;
   }
 
+  function detailingCheck(latex, label, comparison) {
+    const shape = math.find(candidate => candidate.props.latex === latex);
+    const check = shape && engine.getResult(shape.id)?.check;
+    return {
+      label,
+      status: check ? (check.pass ? 'pass' : 'fail') : 'incomplete',
+      detail: check ? check.leftValue.text + ' ' + comparison + ' ' + check.rightValue.text : undefined,
+    };
+  }
+
   const moment = read('M_{Ed}').number;
   const axial = read('N_{Ed}').number;
   const momentValues = read('M_{v}=').items;
@@ -52,6 +62,12 @@ function calculate(values) {
     cot: values.shear === 0 ? null : read('\\mathrm{cot}_{\\theta}').number,
     linkStress: values.shear === 0 ? null : read('\\tau_{Rd.sy}').number,
     strutStress: values.shear === 0 ? null : read('\\sigma_{cd}').number,
+    detailing: [
+      detailingCheck(String.raw`s_{cl.1}\ge100\,\mathrm{mm}`, 'Outer bar clearance', '≥'),
+      ...(values.cages === 2 ? [
+        detailingCheck(String.raw`r_{2}\le r_{1}-\frac{\phi_{l1}+\phi_{l2}}{2}`, 'Inner cage fit', '≤'),
+      ] : []),
+    ],
     demand: [moment, axial],
     curve: momentValues.map((value, index) => [value, axialValues[index]]),
   };

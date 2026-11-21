@@ -1,4 +1,6 @@
 import { registerPage } from './tool-page.mjs';
+import { renderRectangularSummary } from '../tools/mbcolumn-lite/src/check-summary.mjs';
+import './column-summary.css';
 import { buildColumnReport } from '../tools/mbcolumn-lite/src/report.mjs';
 
 import { generateLinkLayout, resolveShearLinks, restoreShearSettings } from '../tools/mbcolumn-lite/src/link-layout.mjs';
@@ -10,6 +12,7 @@ import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import './mbcolumn-workspace.css';
 
+window.mcalcColumnSummary = renderRectangularSummary;
 window.mcalcColumnSolver = createColumnSolver();
 window.mcalcColumnShear = { render: renderShearResults, columns: shearColumns, rows: shearReportRows };
 
