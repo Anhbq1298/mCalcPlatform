@@ -1,5 +1,3 @@
-import { unverified } from './detailing.mjs';
-
 const yieldStrain = 0.045;
 const peakStrain = 0.002;
 const ultimateStrain = 0.0035;
@@ -112,24 +110,4 @@ export function sectionResistance(input, section) {
   }
   curve.push([0, compression]);
   return { compression, tension, axialRatio, combined, capacity, demand: [moment, axial], curve };
-}
-
-export function slendernessCheck(input, section) {
-  const label = 'Slenderness';
-  if (input.axial <= 0) return { label, status: 'pass', detail: 'No net axial compression for this load case.' };
-  if (input.secondOrderIncluded) return unverified(label, 'Entered design moments include externally assessed second-order effects.');
-  if (input.effectiveLengthX === null || input.effectiveLengthY === null) {
-    return unverified(label, 'Enter both effective lengths or supply externally assessed design moments.');
-  }
-  // EN 1992-1-1:2004 §5.8.3.1, recommended fallbacks A=0.7, B=1.1, C=0.7.
-  // Independent screening with the 2004 recommended alpha_cc = 1.0 and gamma_C = 1.5.
-  const grossArea = Math.PI * section.concreteRadius ** 2;
-  const n = input.axial * 1000 / (grossArea * input.concrete / 1.5);
-  const limit = 20 * 0.7 * 1.1 * 0.7 / Math.sqrt(n);
-  const ratios = [input.effectiveLengthX, input.effectiveLengthY].map(length => 4 * length / input.diameter);
-  const display = '2004 recommended screen: λx / λy = ' + ratios.map(value => value.toFixed(1)).join(' / ') +
-    ' · λlim = ' + limit.toFixed(1) + '.';
-  return Math.max(...ratios) < limit
-    ? { label, status: 'pass', detail: display + ' Supply design moments including applicable imperfections.' }
-    : unverified(label, display + ' Include second-order effects in the design moments.');
 }

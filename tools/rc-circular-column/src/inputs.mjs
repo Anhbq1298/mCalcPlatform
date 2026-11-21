@@ -57,11 +57,12 @@ export const newTransverse = index => ({ diameter: index ? 16 : 20, spacing: ind
 export const newDefaults = () => ({
   ...defaults, transverse: 'links', aggregate: 20, height: 3000,
   layers: [newLayer(0)], reinforcement: { links: [newTransverse(0)], spirals: [newTransverse(0)] },
-  effectiveLengthX: null, effectiveLengthY: null, secondOrderIncluded: 0,
+  effectiveLengthX: null, effectiveLengthY: null, creepRatio: 2, secondOrderIncluded: 0,
 });
 
 export function migrateInputs(inputs, from) {
   if (from === 1) return migrateInputs({ ...inputs, transverse: inputs.transverse ?? 'spirals' }, 2);
+  if (from === 3) return { ...newDefaults(), ...inputs };
   if (from !== 2) throw new Error('Unsupported circular column input version.');
   const old = { ...defaults, aggregate: 20, ...inputs };
   const links = old.transverse === 'links';
@@ -76,10 +77,10 @@ export function migrateInputs(inputs, from) {
     ...cage, radius: cage.barRadius, diameter: cage.spiral, spacing: cage.pitch,
   }));
   const transverse = source.map(({ diameter, spacing }) => ({ diameter, spacing }));
-  return { ...newDefaults(), ...inputs, transverse: old.transverse,
+  return migrateInputs({ ...inputs, transverse: old.transverse,
     layers: source.map(layer => ({ ...layer, offset: layer.offset ?? 0 })),
     reinforcement: { links: structuredClone(transverse), spirals: structuredClone(transverse) },
-  };
+  }, 3);
 }
 
 const legacyKey = /^(?:cages|(?:bar|count|spiral|pitch)[12]|spiralSteel|classA)$/;
@@ -97,6 +98,7 @@ export function validateInputs(input) {
   for (const value of [input.effectiveLengthX, input.effectiveLengthY]) {
     if (value !== null && !(Number.isFinite(value) && value > 0)) throw new Error('Check the effective lengths.');
   }
+  if (!(Number.isFinite(input.creepRatio) && input.creepRatio >= 0)) throw new Error('Check the effective creep ratio.');
   if (![0, 1].includes(input.secondOrderIncluded)) throw new Error('Check the action basis.');
   if (!['links', 'spirals'].includes(input.transverse) || !Array.isArray(input.layers)
     || input.layers.length < 1 || input.layers.length > maxLayers

@@ -1,5 +1,3 @@
-import { elevationGeometry } from './elevation.mjs';
-
 const layerColors = ['#214c7b', '#28664e', '#8b4d2b', '#624487'];
 const collisionColor = '#a12420';
 const svgNS = 'http://www.w3.org/2000/svg';
@@ -69,35 +67,4 @@ export function drawSection(svg, legend, input, geometry) {
     line.textContent = text;
     return line;
   }));
-}
-
-export function drawElevation(svg, legend, input, geometry) {
-  svg.replaceChildren();
-  legend.textContent = '';
-  if (!geometry) return;
-  const { preview, layers } = elevationGeometry(input, geometry.rings);
-  const radius = geometry.concreteRadius;
-  const margin = Math.max(radius * 0.2, preview * 0.04);
-  svg.setAttribute('viewBox', [-radius - margin, -margin, 2 * (radius + margin), preview + 2 * margin].join(' '));
-  svgElement(svg, 'rect', { x: -radius, y: 0, width: radius * 2, height: preview, fill: '#fcfcfa',
-    stroke: '#26333e', 'vector-effect': 'non-scaling-stroke', 'stroke-width': 1 });
-  svgElement(svg, 'path', { d: 'M0 ' + (-margin / 2) + 'V' + (preview + margin / 2),
-    stroke: '#939fa7', 'stroke-dasharray': '6 4', 'vector-effect': 'non-scaling-stroke' });
-  const closed = input.transverse === 'links';
-  for (const [index, { ring, links, turns }] of layers.entries()) {
-    const color = ring.collision || ring.turnClear < 0 ? collisionColor : layerColors[index % layerColors.length];
-    for (const y of links) {
-      svgElement(svg, 'line', { class: 'elevation-link', 'data-layer': index + 1,
-        x1: -ring.linkRadius, x2: ring.linkRadius, y1: y, y2: y, stroke: color, 'stroke-width': ring.link });
-    }
-    for (const { rear, points } of turns) {
-      const line = svgElement(svg, 'polyline', { class: rear ? 'helix-rear' : 'helix-front',
-        'data-layer': index + 1, points: points.map(point => point.join(',')).join(' '), fill: 'none',
-        stroke: color, 'stroke-width': ring.link, 'stroke-linejoin': 'round' });
-      if (rear) line.setAttribute('stroke-dasharray', 3 * ring.link + ' ' + 2 * ring.link);
-    }
-  }
-  legend.textContent = (preview < input.height ? 'First ' + mm(preview) + ' shown. ' : '') +
-    (closed ? 'Regular link spacing. Verify closure hooks and end zones separately.'
-      : 'Dashed lines show the rear half-turns. Verify end turns and anchorage separately.');
 }

@@ -4,7 +4,7 @@ import { registerPage } from '../../../apps/tool-page.mjs';
 import { migrateInputs, newDefaults, validateInputs, visibleGroups } from './inputs.mjs';
 import { mountLayers } from './layer-controls.mjs';
 import { drawInteraction } from './drawing.mjs';
-import { drawElevation, drawSection } from './cad-drawing.mjs';
+import { drawSection } from './cad-drawing.mjs';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
@@ -20,8 +20,6 @@ const plotGridP = byId('plot-grid-p');
 const plotGridM = byId('plot-grid-m');
 const plotCaption = byId('interaction-caption');
 for (const input of [plotGridP, plotGridM]) input.addEventListener('input', draw);
-const elevation = byId('circular-elevation');
-const elevationLegend = byId('elevation-legend');
 const summary = byId('column-check-summary');
 let state = newDefaults();
 let rendered;
@@ -60,19 +58,18 @@ const refreshLayers = mountLayers(form, () => state, () => {
 });
 const optionalFields = new Set(['effectiveLengthX', 'effectiveLengthY']);
 const scalarFields = [...visibleGroups.flatMap(([, group]) => group.map(([key]) => key)),
-  'aggregate', 'height', ...optionalFields, 'secondOrderIncluded'];
+  'aggregate', 'height', 'creepRatio', ...optionalFields, 'secondOrderIncluded'];
 
 function draw() {
   let geometry;
   try { geometry = validateInputs(state); } catch { /* Temporarily invalid input clears CAD views. */ }
   drawSection(section, legend, state, geometry);
-  drawElevation(elevation, elevationLegend, state, geometry);
-  const angle = rendered && (state.mx || state.my)
-    ? (Math.atan2(state.my, state.mx) * 180 / Math.PI + 360) % 360 : null;
+  const [mx, my] = rendered?.moments ?? [0, 0];
+  const angle = mx || my ? (Math.atan2(my, mx) * 180 / Math.PI + 360) % 360 : null;
   drawInteraction(curve, rendered, { gridP: plotGridP.valueAsNumber, gridM: plotGridM.valueAsNumber, angle });
   plotCaption.textContent = !rendered ? '' : angle == null
-    ? 'Pure axial demand. Gold marker: applied load.'
-    : 'Moment direction θ = ' + angle.toFixed(1) + '°, measured from +Mx toward +My. Gold marker: applied load.';
+    ? 'Pure axial demand. Gold marker: design demand.'
+    : 'Moment direction θ = ' + angle.toFixed(1) + '°, measured from +Mx toward +My. Gold marker: design demand.';
 }
 
 function refresh() {

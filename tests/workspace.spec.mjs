@@ -331,15 +331,12 @@ test('calculates, switches, and saves Circular RC Column reinforcement', async (
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
   const linksMode = page.getByRole('radio', { name: 'Circular Stirrups (Closed Links)' });
   const helixMode = page.getByRole('radio', { name: 'Continuous Spiral (Helix)' });
-  const elevation = page.locator('#circular-elevation');
   const pmm = summary.getByRole('row', { name: /Biaxial bending/ });
   await expect(linksMode).toBeChecked();
-  await expect(elevation.locator('.elevation-link').first()).toBeAttached();
+  await expect(page.locator('#circular-elevation')).toHaveCount(0);
   const originalRatio = await pmm.locator('td').first().textContent();
   await expect(summary.getByRole('row', { name: /Shear Design/ })).toContainText('Not Verified');
   await helixMode.check();
-  await expect(elevation.locator('.helix-front').first()).toBeVisible();
-  await expect(elevation.locator('.helix-rear').first()).toBeVisible();
   await page.getByLabel('L1 Helix pitch (mm)', { exact: true }).fill('112');
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
   await expect(pmm.locator('td').first()).toHaveText(originalRatio);
@@ -360,7 +357,12 @@ test('calculates, switches, and saves Circular RC Column reinforcement', async (
   const mobilePlot = await curve.boundingBox();
   expect(mobilePlot.x + mobilePlot.width).toBeLessThanOrEqual(375);
   await page.setViewportSize(viewport);
-
+  await page.getByLabel('Effective length X (mm)', { exact: true }).fill('9000');
+  await page.getByLabel('Effective length Y (mm)', { exact: true }).fill('1000');
+  const slenderness = summary.getByRole('row', { name: /Slenderness/ });
+  await expect(slenderness).toContainText('Second order applied');
+  await expect(slenderness.locator('td').first()).toHaveText('');
+  await expect(pmm.locator('td').first()).not.toHaveText(originalRatio);
 
   await add.click();
   await add.click();
@@ -383,6 +385,7 @@ test('calculates, switches, and saves Circular RC Column reinforcement', async (
   await page.reload();
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
   await expect(page.getByLabel('L2 Link spacing (mm)', { exact: true })).toHaveValue('140');
+  await expect(page.getByLabel('Effective length X (mm)', { exact: true })).toHaveValue('9000');
   await helixMode.check();
   await expect(page.getByLabel('L1 Helix pitch (mm)', { exact: true })).toHaveValue('112');
   await page.getByText('Advanced reinforcement coordinates', { exact: true }).click();
