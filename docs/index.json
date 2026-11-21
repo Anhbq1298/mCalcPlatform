@@ -1,0 +1,47 @@
+{
+  "modules": [
+    {
+      "id": "design-sdk",
+      "entry": "packages/design-sdk/src/index.mjs",
+      "api": "packages/design-sdk/src/index.d.mts",
+      "purpose": "Design lifecycle and local persistence",
+      "dependsOn": []
+    },
+    {
+      "id": "hub",
+      "entry": "apps/hub/main.mjs",
+      "purpose": "Project workspace and tool catalog",
+      "dependsOn": [
+        "design-sdk"
+      ]
+    },
+    {
+      "id": "calccanvas",
+      "entry": "tools/calccanvas/tool.json",
+      "dependsOn": [
+        "design-sdk"
+      ]
+    },
+    {
+      "id": "steel-beam-column",
+      "entry": "tools/steel-beam-column/tool.json",
+      "dependsOn": [
+        "design-sdk"
+      ]
+    },
+    {
+      "id": "composite-beam",
+      "entry": "tools/composite-beam/tool.json",
+      "dependsOn": [
+        "design-sdk"
+      ]
+    },
+    {
+      "id": "mbcolumn-lite",
+      "entry": "tools/mbcolumn-lite/tool.json",
+      "dependsOn": [
+        "design-sdk"
+      ]
+    }
+  ]
+}

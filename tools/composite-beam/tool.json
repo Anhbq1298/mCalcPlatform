@@ -1,0 +1,19 @@
+{
+  "id": "composite-beam",
+  "name": "mCompositeBeamDesign",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "schema": 1,
+  "folder": "beams",
+  "labels": [
+    "member.beam"
+  ],
+  "entry": "t/composite-beam/",
+  "discipline": "Composite · Eurocode 4",
+  "description": "Composite beam design with construction-stage, strength, and serviceability checks.",
+  "inputs": {
+    "type": "object"
+  },
+  "outputs": {},
+  "permissions": []
+}

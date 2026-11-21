@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+:root { background:#f1f2ed; color:#182622; font:16px 'Instrument Sans',system-ui,sans-serif; }
+body.hub { margin:0; }
+.hub * { box-sizing:border-box; }
+.hub a { color:inherit; }
+.masthead { display:flex; align-items:center; justify-content:space-between; gap:1rem; background:#192b24; color:#f7faf3; padding:1.25rem max(5vw,calc((100vw - 76rem)/2)); }
+.masthead a { text-decoration:none; }
+.wordmark { font-weight:700; font-size:1.2rem; white-space:nowrap; }
+.wordmark span { font-weight:400; color:#a9c7aa; }
+.masthead nav { display:flex; gap:clamp(.65rem,3vw,2rem); font-size:.92rem; }
+.hub main { width:min(90%,76rem); margin:auto; padding-bottom:5rem; }
+.intro { padding:clamp(2.5rem,7vw,6rem) 0 2.5rem; display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:1.25rem; border-bottom:1px solid #b5c0b3; }
+.hub h1,.hub h2,.hub h3 { margin:0; }
+.hub h1 { font-size:clamp(2.5rem,6vw,5rem); max-width:12ch; line-height:.99; letter-spacing:-.055em; }
+.hub h2 { font-size:1.45rem; letter-spacing:-.03em; }
+.hub section[id] { margin-top:2rem; scroll-margin-top:1rem; }
+.actions,.section-head { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+.section-head { justify-content:space-between; }
+.hub button,.hub .button { cursor:pointer; font:inherit; font-weight:600; font-size:.9rem; text-decoration:none; background:#fff; color:#192b24; padding:.55rem .8rem; border:1px solid #a5b1a5; border-radius:4px; }
+.hub .primary { background:#21513d; color:#fff; border-color:#21513d; }
+.hub button:hover,.hub .button:hover { box-shadow:inset 0 0 0 1px #a9c7aa; }
+.hub a:focus-visible,.hub button:focus-visible,.hub input:focus-visible,.hub select:focus-visible,.hub label:focus-within { outline:2px solid #306851; outline-offset:3px; }
+.catalog { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap:.85rem; margin:1rem 0 2.75rem; }
+.card { padding:1.25rem; background:#fff; border:1px solid #c7cec4; border-top:3px solid #609074; display:flex; flex-direction:column; align-items:start; min-height:13rem; }
+.card .discipline { font: .73rem 'IBM Plex Mono',monospace; color:#38644c; text-transform:uppercase; letter-spacing:.07em; margin-bottom:1.3rem; }
+.card h3 { font-size:1.15rem; }
+.card p { margin:.5rem 0 1rem; color:#4c5e54; line-height:1.45; }
+.card .button { margin-top:auto; }
+.hub #status { display:block; margin-top:.7rem; color:#315c45; }
+.project,.saved { border:1px solid #c7cec4; background:#fafbf8; margin-top:.65rem; padding:.85rem; }
+.project summary { cursor:pointer; font-weight:700; }
+.folder { margin:.5rem 0 0; padding:.35rem 0 .35rem .75rem; border-left:1px solid #a9c7aa; }
+.saved { display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
+.muted { color:#4c5e54; }
+.hub dialog { width:min(92vw,29rem); border:1px solid #a5b1a5; padding:1.35rem; color:inherit; border-radius:5px; }
+.hub dialog::backdrop { background:#14261cb0; }
+.hub dialog label { display:grid; gap:.25rem; margin:1rem 0; font-weight:600; }
+.hub input,.hub select { font:inherit; padding:.5rem; border:1px solid #a5b1a5; background:white; color:inherit; }
+@media print { .hub .masthead,.hub .intro,.hub button,.hub .button { display:none; } }
+

@@ -1,0 +1,19 @@
+{
+  "id": "calccanvas",
+  "name": "mCalcCanvas",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "schema": 1,
+  "folder": "design-basis",
+  "labels": [
+    "worksheet.general"
+  ],
+  "entry": "calc/",
+  "discipline": "Calculation worksheets",
+  "description": "Editable engineering worksheets with units, charts, and calculation templates.",
+  "inputs": {
+    "type": "object"
+  },
+  "outputs": {},
+  "permissions": []
+}

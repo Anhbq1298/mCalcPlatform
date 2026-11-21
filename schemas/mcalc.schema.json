@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mCalc package manifest",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "items"
+  ],
+  "properties": {
+    "format": {
+      "const": "mcalc"
+    },
+    "version": {
+      "const": 1
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "tool",
+          "toolVersion",
+          "schema",
+          "meta"
+        ]
+      }
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "settings",
+        "folders"
+      ]
+    }
+  }
+}
