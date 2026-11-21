@@ -1,0 +1,13 @@
+:root[data-theme="light"] {
+  color-scheme: light;
+  accent-color: var(--steel);
+  --column-ui-font: 'Roboto', system-ui, 'Segoe UI', sans-serif;
+}
+
+body, label.f select, table.faces, .tag { font-family: var(--column-ui-font); }
+
+#shear-link-legend {
+  margin: 0;
+  padding: .5rem 1rem;
+  border-bottom: 1px solid var(--rule);
+}

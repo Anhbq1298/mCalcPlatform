@@ -12,7 +12,7 @@ const stage = join(root, '.stage/calccanvas');
 const dev = process.argv.includes('--dev');
 const flags = process.argv.slice(2).filter(arg => arg !== '--dev');
 const entries = ['index.html', 'calc/index.html', 't/steel-beam-column/index.html', 't/composite-beam/index.html',
-  't/mbcolumn-lite/index.html', 'package/index.html'];
+  't/mbcolumn-lite/index.html', 'package/index.html', 't/rc-circular-column/index.html'];
 
 async function put(from, to) {
   const file = join(stage, to);
@@ -45,6 +45,7 @@ async function prepare() {
   await put(join(canvas, 'composite/index.html'), entries[3]);
   await put(join(column, 'index.html'), entries[4]);
   await put(join(root, 'apps/hub/package.html'), entries[5]);
+  await put(join(root, 'tools/rc-circular-column/index.html'), entries[6]);
   await stageSharedSources(stage, canvas);
   await integrateCanvas(stage);
   await integrateSteel(stage);
