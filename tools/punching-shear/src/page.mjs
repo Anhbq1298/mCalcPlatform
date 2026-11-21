@@ -5,7 +5,7 @@ import { calculateDesign as calculate } from './head.mjs';
 import { EXAMPLES, exampleById } from './examples.mjs';
 import { buildForm } from './form.mjs';
 import { htmlSubscripts } from './subscript.mjs';
-import { newDefaults, restoreInputs } from './inputs.mjs';
+import { LINK_DIAMETERS, newDefaults, restoreInputs } from './inputs.mjs';
 import { newLayer } from './layout.mjs';
 import { planSvg } from './plan-view.mjs';
 import { renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
@@ -46,7 +46,7 @@ const layerTableHost = document.createElement('div');
 layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons'));
 const refreshLayers = mountTable(layerTableHost, {
   caption: 'Link layers',
-  columns: [['offset', 'Offset', number], ['diameter', '$\\phi$', 'select', [6, 8, 10, 12, 16, 20].map(value => ({ value, label: String(value) }))],
+  columns: [['offset', 'Offset', number], ['diameter', '$\\phi$', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
     ['shape', 'Shape', 'select', [{ value: 'single', label: '1-leg' }, { value: 'double', label: '2-leg' }]], ['links', 'Links', number], ['start', 'Start', number]],
   getRows: () => state.reinforcement.layers,
   newRow: (index, previous) => {

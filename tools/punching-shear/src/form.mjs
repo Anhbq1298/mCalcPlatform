@@ -1,6 +1,7 @@
 // Input form built from field definitions, following the mConcreteCircCol layout (fieldset, legend,
 // label > span + control). Values are read from and written to a nested state object by path.
 // Labels are plain text with $…$ LaTeX spans rendered as MathML.
+import { LINK_DIAMETERS } from './inputs.mjs';
 import { labelHtml, labelText } from './tex.mjs';
 
 const get = (state, path) => path.split('.').reduce((value, key) => value?.[key], state);
@@ -75,7 +76,7 @@ export const GROUPS = [
   ]],
   ['Punching reinforcement', [
     ['reinforcement.mode', 'Mode', 'select', [option('auto', 'Auto design'), option('provided', 'Check provided')]],
-    ['reinforcement.diameter', 'Link $\\phi$ (mm)', 'select', [6, 8, 10, 12, 16, 20].map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
+    ['reinforcement.diameter', 'Link $\\phi$ (mm)', 'select', LINK_DIAMETERS.map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
     ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg link'), option('double', 'Two-leg link')], s => s.reinforcement.mode === 'auto'],
     ['reinforcement.legGap', 'Two-leg link width $b_l$ (mm)', 'number'],
     ['reinforcement.anchorage.type', 'Link anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')]],

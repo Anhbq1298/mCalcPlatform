@@ -34,7 +34,7 @@ test('half section shows every layer once on the interior side with dashed (unve
   const result = design();
   const svg = sectionSvg(result);
   assert.equal((svg.match(/data-layer="/g) || []).length, result.layout.layers.length);
-  assert.ok(svg.includes('anchorage requires detailing confirmation'));
+  assert.ok(svg.includes('anchorage requires detailing confirmation') && !svg.includes('stroke-dasharray="2.5 1.5"'));
   assert.ok(balanced(svg));
 });
 

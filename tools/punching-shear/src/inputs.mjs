@@ -1,6 +1,9 @@
 // Input model (schema 1), defaults, restore and validation. Units: mm, kN, kN·m, MPa.
 // Unknown fields are preserved on restore. Each issue carries the state it produces.
 
+// Link bar diameters (mm); 13 covers H13 to SS 560 (Singapore).
+export const LINK_DIAMETERS = [6, 8, 10, 12, 13, 16, 20];
+
 export const STATES = {
   pass: 'Pass',
   fail: 'Fail',
@@ -139,7 +142,7 @@ export function validateBeta(beta = {}) {
 export function validateReinforcement(reinforcement = {}) {
   const issues = [];
   if (reinforcement.mode === 'auto') {
-    if (![6, 8, 10, 12, 16, 20].includes(reinforcement.diameter)) issues.push({ state: STATES.incomplete, message: 'Select a link diameter.' });
+    if (!LINK_DIAMETERS.includes(reinforcement.diameter)) issues.push({ state: STATES.incomplete, message: 'Select a link diameter.' });
   } else if (reinforcement.mode === 'provided') {
     for (const [index, layer] of (reinforcement.layers || []).entries()) {
       if (!positive(layer.offset) || !positive(layer.diameter) || !Number.isInteger(layer.links) || layer.links < 1 || !finite(layer.start)) {
