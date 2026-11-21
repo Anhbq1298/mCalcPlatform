@@ -1,7 +1,7 @@
 {
   "id": "mbcolumn-lite",
-  "name": "MBColumn Lite",
-  "version": "0.1.0",
+  "name": "mConcreteRecCol",
+  "version": "0.2.0",
   "apiVersion": 1,
   "schema": 1,
   "folder": "columns",
@@ -9,21 +9,22 @@
     "member.column"
   ],
   "entry": "t/mbcolumn-lite/",
-  "description": "Rectangular reinforced concrete column checks with biaxial interaction diagrams.",
+  "description": "Rectangular reinforced concrete column interaction, slenderness, and directional shear checks.",
   "inputs": {
     "type": "object"
   },
   "outputs": {},
-  "permissions": [
-    "calculation-api"
-  ],
+  "permissions": [],
   "title": "RC Column",
   "code": "EC2",
   "keywords": [
     "eurocode 2",
     "reinforced concrete",
     "biaxial",
-    "interaction"
+    "interaction",
+    "MBColumn Lite",
+    "shear",
+    "links"
   ],
   "localDraft": "Open local draft"
 }

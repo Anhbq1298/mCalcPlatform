@@ -178,3 +178,23 @@ test('opens the original flat project format and preserves unavailable calculati
   const card = page.getByRole('article').filter({ hasText: 'Older check' });
   await expect(card.getByText('Module unavailable')).toBeVisible();
 });
+
+test('solves mConcreteRecCol locally and restores shear inputs by design ID', async ({ page }) => {
+  test.setTimeout(120000);
+  await page.route('https://mbcolumnlite-api-sg.onrender.com/**', route => route.abort());
+  await page.goto('t/mbcolumn-lite/?new=1');
+  await expect(page).toHaveTitle('mConcreteRecCol');
+  const enable = page.getByLabel('Check directional shear (EC2 2023)');
+  await enable.check();
+  await page.getByLabel('Link spacing (mm)', { exact: true }).fill('125');
+  await page.getByLabel('ULS 1 Vy (kN)', { exact: true }).fill('350');
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const shear = page.locator('#column-shear-results');
+  await expect(shear.getByRole('heading', { name: 'Directional shear' })).toBeVisible({ timeout: 60000 });
+  await expect(shear.getByRole('row').filter({ hasText: '350.0' })).toContainText('ULS 1');
+  await save(page);
+  await page.reload();
+  await expect(enable).toBeChecked();
+  await expect(page.getByLabel('Link spacing (mm)', { exact: true })).toHaveValue('125');
+  await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('350');
+});

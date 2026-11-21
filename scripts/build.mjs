@@ -38,6 +38,7 @@ async function prepare() {
   }
   await symlink(join(canvas, 'node_modules'), join(stage, 'node_modules'), 'junction');
   for (const path of ['apps', 'packages', 'tools', 'assets']) await put(join(root, path), 'platform/' + path);
+  await put(join(root, 'vendor/mbcolumn-solver'), 'platform/vendor/mbcolumn-solver');
   await put(join(root, 'apps/hub/index.html'), entries[0]);
   await put(join(canvas, 'index.html'), entries[1]);
   await put(join(canvas, 'steel/index.html'), entries[2]);
