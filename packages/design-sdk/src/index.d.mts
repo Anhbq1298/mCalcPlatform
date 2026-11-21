@@ -28,6 +28,7 @@ export interface WorkspaceStore {
   getProject(id: string): Promise<ProjectDoc | undefined>;
   listProjects(): Promise<ProjectDoc[]>;
   saveProject(project: ProjectDoc): Promise<void>;
+  moveDesign(projectId: string, designId: string, folderId: string): Promise<void>;
   importPackage(contents: PackageContents): Promise<void>;
 }
 export interface ToolPageAdapter {
@@ -47,5 +48,5 @@ export declare function createStore(factory?: IDBFactory): WorkspaceStore;
 export declare function exportPackage(contents: PackageContents): Promise<Blob>;
 export declare function importPackage(file: Blob): Promise<PackageContents>;
 export declare function mountToolShell(options: {
-  tool: ToolManifest; getAdapter(): ToolPageAdapter | undefined; home: URL; reportUrl: URL;
+  tool: ToolManifest; getAdapter(): ToolPageAdapter | undefined; home: URL; reportUrl: URL; reportOwner?: DesignDoc;
 }): void;

@@ -37,9 +37,11 @@ export function initDocuments(): Promise<void> {
 async function initPlatform(): Promise<void> {
   const params = new URLSearchParams(window.location.search);
   const reportId = params.get('report');
+  let reportOwner;
   if (reportId) {
     const design = await createStore().getDesign(reportId);
     if (!design?.report) throw new Error('Saved report is unavailable.');
+    reportOwner = design;
     await engine.ready();
     await restorePlatformWorksheet(design.report, true);
     if (params.has('print')) {
@@ -59,7 +61,7 @@ async function initPlatform(): Promise<void> {
   registerPage('calccanvas', {
     snapshot: () => ({ ...currentDocument(), updatedAt: useAppStore.getState().savedAt ?? useAppStore.getState().createdAt }),
     restore: restorePlatformWorksheet,
-  });
+  }, reportOwner);
 }
 
 async function initLegacyDocuments(): Promise<void> {`],
@@ -71,7 +73,8 @@ export async function integrateSteel(root) {
   await patch(root, 'src/tools/steel/App.tsx', [
     ["import { sectionById }", prefix + "import { sectionById }"],
     ["window.open('../?open=handoff'", "window.open('../../calc/?open=handoff'"],
-    ["useState<Page>(load)", "useState<Page>(() => new URLSearchParams(window.location.search).has('new') ? DEFAULT : load())"],
+    ["useState<Page>(load)", "useState<Page>(() => new URLSearchParams(window.location.search).has('legacy') ? load() : DEFAULT)"],
+    ["    try { localStorage.setItem(STORE_KEY, JSON.stringify(page)); } catch { /* private mode */ }\n", ""],
     ["  const download = () =>", `  useEffect(() => {
     registerPage('steel-beam-column', {
       snapshot: () => page,
@@ -131,7 +134,9 @@ export async function integrateComposite(root) {
 export async function integrateColumn(root) {
   await patch(root, 't/mbcolumn-lite/index.html', [
     ["    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');",
-      "    const saved = new URLSearchParams(location.search).has('new') ? null : JSON.parse(localStorage.getItem(STORE_KEY) || 'null');"],
+      "    const saved = new URLSearchParams(location.search).has('legacy') ? JSON.parse(localStorage.getItem(STORE_KEY) || 'null') : null;"],
+    ["  const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {} };",
+      "  const save = () => {}; // Workspace designs are saved explicitly through the shared shell."],
     ['  setTimeout(typesetLabels, 600);', `  window.mcalcColumnAdapter = {
     snapshot: () => structuredClone(state),
     restore: inputs => {

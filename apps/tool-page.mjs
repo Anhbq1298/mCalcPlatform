@@ -4,13 +4,13 @@ import '../packages/ui-kit/shell.css';
 
 let active;
 
-export function registerPage(id, adapter) {
+export function registerPage(id, adapter, reportOwner) {
   if (!active) {
     const tool = findTool(id);
     if (!tool) throw new Error('Missing tool registration: ' + id);
     const home = new URL('../'.repeat(tool.entry.split('/').length - 1), document.baseURI);
     active = { adapter };
-    mountToolShell({ tool, getAdapter: () => active?.adapter, home, reportUrl: new URL('calc/', home) });
+    mountToolShell({ tool, getAdapter: () => active?.adapter, home, reportUrl: new URL('calc/', home), reportOwner });
   } else active.adapter = adapter;
 }
 

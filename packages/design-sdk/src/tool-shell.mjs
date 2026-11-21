@@ -8,7 +8,7 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
+export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner }) {
   const db = createStore();
   const bar = document.createElement('nav');
   bar.className = 'mcalc-shell';
@@ -22,16 +22,19 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
   const status = bar.querySelector('output');
   const action = name => bar.querySelector('[data-' + name + ']');
   action('hub').href = home.href;
-  named.value = tool.name;
-  let current, busy = false, locked = false;
+  named.value = reportOwner ? reportOwner.meta.name + ' · Report' : tool.name;
+  let current = reportOwner, busy = false, locked = false;
   const location = new URL(window.location.href);
   const key = location.searchParams.get('design');
   const message = value => { status.textContent = value; };
   const setBusy = value => {
     busy = value;
-    named.disabled = busy || locked;
+    named.disabled = busy || locked || !!reportOwner;
     for (const key of ['save', 'copy', 'project', 'report']) action(key).disabled = busy || locked;
     action('export').disabled = busy || (locked && !current);
+    action('copy').disabled ||= !!reportOwner;
+    action('project').disabled ||= !!reportOwner;
+    action('report').disabled ||= !!reportOwner;
   };
 
   async function capture(includeReport = false) {
@@ -40,13 +43,25 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
     const inputs = structuredClone(await adapter.snapshot());
     const name = named.value.trim() || tool.name;
     const previous = current;
+    if (reportOwner) {
+      const owner = await db.getDesign(reportOwner.id);
+      if (!owner?.report || owner.reportHash !== reportOwner.reportHash
+        || JSON.stringify(owner.report) !== JSON.stringify(current?.report)
+        || JSON.stringify(owner.inputs) !== JSON.stringify(reportOwner.inputs)) {
+        throw new Error('This report changed in another tab. Open the latest worksheet before saving.');
+      }
+      return { ...owner, report: inputs };
+    }
     const doc = previous ? { ...previous, inputs, meta: { ...previous.meta, name } } : createDesign(tool, name, inputs);
     if (previous && JSON.stringify(previous.inputs) !== JSON.stringify(inputs)) {
       delete doc.report;
       delete doc.reportHash;
     }
     if (tool.id === 'calccanvas') doc.report = inputs;
-    else if (includeReport && adapter.report) doc.report = await adapter.report();
+    else if (includeReport && adapter.report) {
+      doc.report = await adapter.report();
+      delete doc.reportHash;
+    }
     if (doc.report && !doc.reportHash) doc.reportHash = await hashReport(doc.report);
     return doc;
   }
@@ -55,8 +70,10 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
     const doc = await capture();
     await db.saveDesign(doc);
     current = doc;
+    if (reportOwner) { message('Report saved.'); return doc; }
     location.searchParams.set('design', doc.id);
     location.searchParams.delete('new');
+    location.searchParams.delete('legacy');
     location.searchParams.delete('report');
     history.replaceState(null, '', location);
     message('Design saved.');
@@ -108,6 +125,7 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
     current = doc;
     location.searchParams.set('design', doc.id);
     location.searchParams.delete('new');
+    location.searchParams.delete('legacy');
     location.searchParams.delete('report');
     history.replaceState(null, '', location);
     const url = new URL(reportUrl);
@@ -123,7 +141,10 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
   setBusy(true);
   (async () => {
     try {
-      if (key) {
+      if (reportOwner) {
+        const changed = reportOwner.reportHash && await hashReport(reportOwner.report) !== reportOwner.reportHash;
+        message(changed ? 'Edited report snapshot.' : 'Saved report snapshot.');
+      } else if (key) {
         current = await db.getDesign(key);
         if (!current || current.tool !== tool.id) {
           current = undefined;

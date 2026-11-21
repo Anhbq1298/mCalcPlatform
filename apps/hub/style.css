@@ -38,3 +38,5 @@ body.hub { margin:0; }
 .hub input,.hub select { font:inherit; padding:.5rem; border:1px solid #a5b1a5; background:white; color:inherit; }
 @media print { .hub .masthead,.hub .intro,.hub button,.hub .button { display:none; } }
 
+.card .legacy-draft { color:#38644c; display:inline-block; font-size:.84rem; margin-top:.7rem; }
+

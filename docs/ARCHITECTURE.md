@@ -1,6 +1,6 @@
 # Architecture
 
-The hub discovers manifests. The Design SDK owns IndexedDB, the design and project models, the shell, and the portable ZIP format. Each route supplies an adapter for its complete inputs. Saved Canvas reports reopen as editable worksheets. The package viewer reuses the Canvas print geometry to assemble saved reports in project order.
+The hub discovers manifests. The Design SDK owns IndexedDB, the design and project models, the shell, and the portable ZIP format. Each route supplies an adapter for its complete inputs. Saved reports reopen as editable Canvas worksheets. Saving from the report view updates its snapshot while retaining the originating calculation inputs and the hash of the generated snapshot. The package viewer reuses the Canvas print geometry to assemble saved reports in project order.
 
 Two pinned Git submodules retain upstream history. The build stages their native entry points and integration changes in a disposable directory. Extraction of the shared engine, report, visualization, and assets into independent packages remains a separate migration. The boundary checker covers platform source. Existing Canvas imports remain inside the pinned dependency.
 

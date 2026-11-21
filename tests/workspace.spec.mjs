@@ -15,12 +15,16 @@ test('opens, saves and reopens each integrated tool under a Pages project path',
     await page.goto(route + '?new=1');
     const shell = page.getByRole('navigation', { name: 'Design workspace' });
     await shell.getByLabel('Design name').fill(name, { timeout: 45000 });
+    if (route.includes('mbcolumn-lite')) await page.locator('#b').fill('700');
+    if (route.includes('steel-beam-column')) await page.getByLabel('Family', { exact: true }).selectOption('UB');
     await shell.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(shell.getByText('Design saved.')).toBeVisible();
     await expect(page).toHaveURL(/\?design=[a-z0-9-]+$/);
     await page.reload();
     await expect(shell.getByLabel('Design name')).toHaveValue(name, { timeout: 45000 });
     await expect(shell.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+    if (route.includes('mbcolumn-lite')) await expect(page.locator('#b')).toHaveValue('700');
+    if (route.includes('steel-beam-column')) await expect(page.getByLabel('Family', { exact: true })).toHaveValue('UB');
     await expect(shell.getByText(/unavailable|invalid|did not/i)).toHaveCount(0);
   }
 

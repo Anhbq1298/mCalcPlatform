@@ -38,6 +38,21 @@ export function createStore(factory = globalThis.indexedDB) {
     getProject: id => transaction(['projects'], 'readonly', store => store('projects').get(id)),
     listProjects: () => transaction(['projects'], 'readonly', store => store('projects').getAll()),
     saveProject: project => transaction(['projects'], 'readwrite', store => store('projects').put(validateProject(project))),
+    moveDesign: (projectId, designId, folderId) => transaction(['designs', 'projects'], 'readwrite', store => {
+      const projects = store('projects');
+      const project = projects.get(projectId);
+      const design = store('designs').get(designId);
+      const update = () => {
+        if (project.readyState !== 'done' || design.readyState !== 'done') return;
+        const doc = project.result;
+        const target = doc?.folders.find(folder => folder.id === folderId);
+        if (!target || !design.result) { project.transaction.abort(); return; }
+        for (const folder of doc.folders) folder.designs = folder.designs.filter(id => id !== designId);
+        target.designs.push(designId);
+        projects.put(validateProject(doc));
+      };
+      project.onsuccess = design.onsuccess = update;
+    }),
     importPackage: ({ designs, project }) => transaction(['designs', 'projects'], 'readwrite', store => {
       const ids = new Map();
       for (const doc of designs) {

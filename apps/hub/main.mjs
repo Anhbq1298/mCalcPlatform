@@ -86,13 +86,8 @@ function renderDesign(doc, project, folder) {
 }
 
 async function placeDesign(projectId, designId, folderId) {
-  const project = await db.getProject(projectId);
-  const target = project?.folders.find(f => f.id === folderId);
-  if (!target) throw new Error('Project folder is unavailable.');
-  for (const folder of project.folders) folder.designs = folder.designs.filter(id => id !== designId);
-  target.designs.push(designId);
-  await db.saveProject(project);
-  status('Design added to ' + project.name + '.');
+  await db.moveDesign(projectId, designId, folderId);
+  status('Project updated.');
   await refresh();
 }
 
@@ -125,7 +120,14 @@ function renderProject(project, docs) {
   details.dataset.project = project.id;
   const actions = el('div', undefined, 'actions');
   const ordered = () => project.folders.flatMap(folder => folder.designs.map(id => docs.get(id))).filter(Boolean);
-  actions.append(button('Export project', () => saveFile(project.name, { designs: ordered(), project })));
+  actions.append(button('Add folder', async () => {
+    const data = await dialog('Add project folder', [['Folder name']]);
+    if (!data) return;
+    const current = await db.getProject(project.id);
+    current.folders.push({ id: crypto.randomUUID(), name: String(data.get('Folder name')).trim(), designs: [] });
+    await db.saveProject(current);
+    await refresh();
+  }), button('Export project', () => saveFile(project.name, { designs: ordered(), project })));
   const hadReports = ordered().some(doc => doc.report);
   if (hadReports) {
     const url = new URL('package/', document.baseURI);
@@ -160,6 +162,11 @@ for (const tool of tools) {
   url.searchParams.set('new', '1');
   card.append(el('span', tool.discipline, 'discipline'), el('h3', tool.name), el('p', tool.description),
     link('New design', url, 'button'));
+  if (tool.id === 'calccanvas' || tool.id === 'steel-beam-column' || tool.id === 'mbcolumn-lite') {
+    const legacy = new URL(tool.entry, document.baseURI);
+    legacy.searchParams.set('legacy', '1');
+    card.append(link(tool.id === 'calccanvas' ? 'Open local worksheets' : 'Open local draft', legacy, 'legacy-draft'));
+  }
   qs('catalog').append(card);
 }
 qs('submit').href = 'mailto:buiquanganh1298@gmail.com?subject=' + encodeURIComponent('[mCalc Tool Submission] <Tool name>')
