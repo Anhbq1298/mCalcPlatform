@@ -11,7 +11,7 @@ const cases = [
 test('opens, saves and reopens each integrated tool under a Pages project path', async ({ page }) => {
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Tool Library' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(4);
+  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(5);
   const beamIcon = module => page.locator('.thumbnail[data-module="' + module + '"] i:nth-child(2)');
   const profileStyle = element => {
     const { width, height, clipPath, backgroundColor } = getComputedStyle(element);
@@ -217,4 +217,29 @@ test('solves mConcreteRecCol locally and restores shear inputs by design ID', as
   await expect(legend).toContainText('X legs: 4 · Y legs: 2');
   await expect(page.getByLabel('Link spacing (mm)', { exact: true })).toHaveValue('125');
   await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('350');
+});
+
+test('calculates and saves a Circular RC Column using the reference worksheet', async ({ page }) => {
+  test.setTimeout(120000);
+  await page.goto('./');
+  await page.getByRole('article').filter({ hasText: 'mConcreteCircCol' }).getByRole('link', { name: 'New design' }).click();
+  await expect(page).toHaveTitle('mConcreteCircCol');
+  const count = page.getByLabel('Reinforcement cages', { exact: true });
+  await expect(page.getByLabel('Inner spiral pitch (mm)')).toBeHidden();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.', { timeout: 65000 });
+  await expect(page.locator('#checks')).toContainText('0.769');
+  await expect(page.locator('#checks')).toContainText('0.872');
+  await expect(page.locator('#checks')).toContainText('1022.4 mm');
+
+  await count.fill('2');
+  await page.getByLabel('Inner spiral pitch (mm)').fill('140');
+  await expect(page.locator('#section-legend')).toContainText('Inner (green)');
+  await expect(page.locator('#checks')).toBeEmpty();
+  await save(page);
+  await page.reload();
+  await expect(count).toHaveValue('2');
+  await expect(page.getByLabel('Inner spiral pitch (mm)')).toHaveValue('140');
+  await shell(page).getByRole('button', { name: 'Report', exact: true }).click();
+  await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
 });

@@ -93,7 +93,7 @@ export async function integrateColumnWorkspace(root, patch) {
     throw new Error('The upstream column solver integration changed.');
   }
   await patch(root, path, [
-    ['<html lang="en">', '<html lang="en" data-theme="light">'],
+    ['<html lang="en">\n<head>', '<html lang="en" data-theme="light">\n<head>'],
     ['      <div class="canvaswrap">', '      <p class="hint" id="shear-link-legend" hidden></p>\n      <div class="canvaswrap">'],
     ['aria-label="Column section with rebar positions"', 'aria-label="Column section with rebar and shear links" aria-describedby="shear-link-legend"'],
     ['    // centroid axes', linkDrawing + '    // centroid axes'],

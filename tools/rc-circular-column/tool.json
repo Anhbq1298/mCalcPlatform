@@ -1,0 +1,17 @@
+{
+  "id": "rc-circular-column",
+  "name": "mConcreteCircCol",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "schema": 1,
+  "folder": "columns",
+  "labels": ["member.column"],
+  "entry": "t/rc-circular-column/",
+  "description": "Circular reinforced concrete column interaction and spiral shear checks.",
+  "inputs": { "type": "object" },
+  "outputs": {},
+  "permissions": [],
+  "title": "Circular RC Column",
+  "code": "EC2",
+  "keywords": ["eurocode 2", "reinforced concrete", "circular", "spiral", "shear", "pile"]
+}
