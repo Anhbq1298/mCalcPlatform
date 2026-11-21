@@ -52,9 +52,6 @@ async function initPlatform(): Promise<void> {
       }
       return;
     }
-    const url = new URL(window.location.href);
-    url.searchParams.delete('report');
-    window.history.replaceState(null, '', url);
   } else if (params.has('new')) {
     await engine.ready();
     await newDocument();
@@ -81,7 +78,7 @@ export async function integrateSteel(root) {
       restore: raw => {
         const next = raw as unknown as Page;
         const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-        if (!['I', 'RHS', 'CHS'].includes(next.shape) || !I_FAMILIES.includes(next.family)
+        if (!['I', 'RHS', 'CHS'].includes(next.shape) || !I_FAMILIES.some(family => family === next.family)
           || !next.rhs || !next.chs || !next.member || !Array.isArray(next.combos)
           || !next.combos.every(combo => combo && typeof combo.name === 'string' && COLS.every(([key]) => finite(combo[key])))
           || ![next.rhs.h, next.rhs.b, next.rhs.t, next.chs.d, next.chs.t, next.fyNom, next.gammaM0, next.eta].every(finite)) {
@@ -150,7 +147,11 @@ export async function integrateColumn(root) {
       state = { ...state, ...structuredClone(inputs) };
       clearSel(); syncInputs(); renderRebarTable(); renderLoadTable(); layout(); changed();
     },
-    openNativeReport: () => exportHtml(),
+    reportData: () => {
+      if (!lastResult) throw new Error('Run the column calculation before generating a report.');
+      return { data: reportData(), images: captureImages(),
+        headers: { bars: BAR_HEAD, slenderness: SL_HEAD, cases: state.slender.on ? CASE_HEAD_SL : CASE_HEAD_FIRST } };
+    },
   };
   setTimeout(typesetLabels, 600);`],
     ['</script>\n</body>\n</html>', '</script>\n<script type="module" src="/platform/apps/mbcolumn-page.mjs"></script>\n</body>\n</html>'],

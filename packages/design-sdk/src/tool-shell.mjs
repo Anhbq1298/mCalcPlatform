@@ -57,6 +57,7 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
     current = doc;
     location.searchParams.set('design', doc.id);
     location.searchParams.delete('new');
+    location.searchParams.delete('report');
     history.replaceState(null, '', location);
     message('Design saved.');
     return doc;
@@ -107,6 +108,7 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
     current = doc;
     location.searchParams.set('design', doc.id);
     location.searchParams.delete('new');
+    location.searchParams.delete('report');
     history.replaceState(null, '', location);
     const url = new URL(reportUrl);
     url.searchParams.set('report', doc.id);
@@ -137,6 +139,7 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl }) {
       }
     } catch (error) {
       locked = true;
+      for (const element of document.body.children) if (element !== bar && element instanceof HTMLElement) element.inert = true;
       message(error.message);
     } finally {
       setBusy(false);

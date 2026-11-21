@@ -28,7 +28,14 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
         working-directory: vendor/calccanvas
+      - run: npm run test:browser
       - run: npm run test:legacy
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: workspace-browser-traces
+          path: test-results
+          if-no-files-found: ignore
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
