@@ -316,7 +316,7 @@ test('keeps the rectangular section preview compact and the editor reachable on 
   await expect(dialog).toBeHidden();
 });
 
-test('calculates and saves a Circular RC Column using the reference worksheet', async ({ page }) => {
+test('calculates, switches, and saves Circular RC Column reinforcement', async ({ page }) => {
   test.setTimeout(120000);
   await page.goto('./');
   await page.getByRole('article').filter({ hasText: 'mConcreteCircCol' }).getByRole('link', { name: 'New design' }).click();
@@ -329,10 +329,23 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   expect((await summary.boundingBox()).x).toBeGreaterThan((await section.boundingBox()).x);
   await expect(remove).toBeDisabled();
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
-  await expect(summary).toContainText('0.769');
-  await expect(summary.locator('[data-overall-ur]')).toHaveText('0.872');
+  const linksMode = page.getByRole('radio', { name: 'Circular Stirrups (Closed Links)' });
+  const helixMode = page.getByRole('radio', { name: 'Continuous Spiral (Helix)' });
+  const elevation = page.locator('#circular-elevation');
+  const pmm = summary.getByRole('row', { name: /Biaxial bending/ });
+  await expect(linksMode).toBeChecked();
+  await expect(elevation.locator('.elevation-link').first()).toBeVisible();
+  const originalRatio = await pmm.locator('td').first().textContent();
+  await expect(summary.getByRole('row', { name: /Shear Design/ })).toContainText('Not Verified');
+  await helixMode.check();
+  await expect(elevation.locator('.helix-front').first()).toBeVisible();
+  await expect(elevation.locator('.helix-rear').first()).toBeVisible();
+  await page.getByLabel('L1 Helix pitch (mm)', { exact: true }).fill('112');
+  await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
+  await expect(pmm.locator('td').first()).toHaveText(originalRatio);
+  await linksMode.check();
+  await expect(page.getByLabel('L1 Link spacing (mm)', { exact: true })).toHaveValue('85');
   await expect(summary.getByRole('row').filter({ hasText: 'L1 bar clearance' })).toContainText('Pass');
-  await expect(page.locator('#checks')).toContainText('1022.4 mm');
   await expect(page.locator('#interaction-caption')).toContainText('θ = 33.7°');
   const curve = page.locator('#interaction-curve');
   const automaticGrid = await curve.evaluate(canvas => canvas.toDataURL());
@@ -355,7 +368,7 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   await remove.click();
   await expect(section.locator('[data-layer]')).toHaveCount(2);
   await page.getByLabel('L2 Link spacing (mm)', { exact: true }).fill('140');
-  await expect(page.locator('#section-legend')).toContainText('radial clear 32.0 mm');
+  await expect(page.locator('#section-legend')).toContainText('radial clear 48.0 mm');
   const tangent = await section.locator('[data-layer="2"]').evaluate(layer => {
     const link = layer.querySelector('.section-link');
     const bar = layer.querySelector('.section-bar');
@@ -364,12 +377,17 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   });
   expect(tangent).toBeCloseTo(0, 10);
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
-  await expect(summary).not.toContainText('0.769');
+  await expect(pmm.locator('td').first()).not.toHaveText(originalRatio);
   await expect(summary.getByRole('row').filter({ hasText: 'L1–L2 radial clearance' })).toContainText('Pass');
   await save(page);
   await page.reload();
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
   await expect(page.getByLabel('L2 Link spacing (mm)', { exact: true })).toHaveValue('140');
+  await helixMode.check();
+  await expect(page.getByLabel('L1 Helix pitch (mm)', { exact: true })).toHaveValue('112');
+  await page.getByText('Advanced reinforcement coordinates', { exact: true }).click();
+  await page.getByLabel('L2 Angular offset (°)', { exact: true }).fill('27');
+  await expect(section.locator('[data-layer="2"] .section-bar').first()).not.toHaveAttribute('cy', '0');
   await shell(page).getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
 });

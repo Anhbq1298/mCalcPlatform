@@ -1,3 +1,5 @@
+import { geometry } from "./geometry.mjs";
+
 // The variable names identify editable definitions in the pinned Canvas worksheet.
 export const inputGroups = [
   ['Materials', [
@@ -46,98 +48,70 @@ export function cageGeometry(input) {
   }));
 }
 
-export function validateInputs(input) {
-  for (const [id, label, , , , min = -Infinity, max = Infinity, step] of fields) {
-    if (input.transverse === 'links' && /^(?:cages|(?:bar|count|spiral|pitch)[12])$/.test(id)) continue;
-    const value = input[id];
-    if (!Number.isFinite(value) || value < min || value > max || (step === 1 && !Number.isInteger(value))) {
-      throw new Error('Check the value for ' + label + '.');
-    }
-  }
-  if (input.transverse === 'links') {
-    if (!Number.isFinite(input.aggregate) || input.aggregate <= 0) throw new Error('Enter a positive maximum aggregate size.');
-    if (!Array.isArray(input.layers) || input.layers.length < 1 || input.layers.length > maxLayers) {
-      throw new Error('Enter between 1 and ' + maxLayers + ' reinforcement layers.');
-    }
-    for (const [index, layer] of input.layers.entries()) {
-      if (!layer || layerColumns.some(([key, , min, max = Infinity]) =>
-        !Number.isFinite(layer[key]) || layer[key] < min || layer[key] > max
-        || (key === 'count' && !Number.isInteger(layer[key])))) {
-        throw new Error('Check the bar and link inputs for L' + (index + 1) + '.');
-      }
-    }
-    if (linkGeometry(input).some(ring => ring.barRadius <= 0 || ring.clear < 0)) {
-      throw new Error('The specified bars overlap or do not fit within the section.');
-    }
-    return;
-  }
-  for (const cage of cageGeometry(input)) {
-    const separation = 2 * cage.barRadius * Math.sin(Math.PI / cage.count);
-    if (cage.barRadius <= 0 || separation < cage.bar) throw new Error('The specified bars overlap or do not fit within the section.');
-  }
-}
 
 export const maxLayers = 8;
-export const layerColumns = [
-  ['count', 'Bars', 4, 300],
-  ['bar', 'Bar Ø (mm)', 1],
-  ['link', 'Link Ø (mm)', 1],
-  ['spacing', 'Link spacing (mm)', 1],
-];
+export const newLayer = index => ({ count: index ? Math.max(4, 20 - 4 * index) : 22,
+  bar: index ? 25 : 32, offset: 0, radius: null });
+export const newTransverse = index => ({ diameter: index ? 16 : 20, spacing: index ? 150 : 85 });
 
-const defaultLayer = index => index === 0
-  ? { count: 22, bar: 32, link: 20, spacing: 85 }
-  : { count: Math.max(4, 20 - 4 * index), bar: 25, link: 16, spacing: 150 };
+export const newDefaults = () => ({
+  ...defaults, transverse: 'links', aggregate: 20, height: 3000,
+  layers: [newLayer(0)], reinforcement: { links: [newTransverse(0)], spirals: [newTransverse(0)] },
+  effectiveLengthX: null, effectiveLengthY: null, secondOrderIncluded: 0,
+});
 
-export const newLayer = defaultLayer;
-export const newDefaults = () => ({ ...defaults, transverse: 'links', aggregate: 20, layers: [defaultLayer(0)] });
-
-export function restoreInputs(inputs) {
-  return { ...newDefaults(), ...inputs, transverse: inputs.transverse ?? 'spirals' };
-}
-
-// EN 1992-1-1:2004 §8.2(2), recommended coefficients. Apply the larger
-// longitudinal diameter to a pair of layers and reserve room for the inner link.
-export function minimumClearance(bar, adjacentBar, aggregate) {
-  return Math.max(20, bar, adjacentBar, aggregate + 5);
-}
-
-export function linkGeometry(input) {
+export function migrateInputs(inputs, from) {
+  if (from === 1) return migrateInputs({ ...inputs, transverse: inputs.transverse ?? 'spirals' }, 2);
+  if (from !== 2) throw new Error('Unsupported circular column input version.');
+  const old = { ...defaults, aggregate: 20, ...inputs };
+  const links = old.transverse === 'links';
   let previous;
-  return input.layers.map(layer => {
-    const required = previous ? minimumClearance(previous.bar, layer.bar, input.aggregate) : null;
-    const radialClear = previous ? Math.max(required, layer.link) : null;
-    const barRadius = previous
-      ? previous.barRadius - previous.bar / 2 - radialClear - layer.bar / 2
-      : input.diameter / 2 - input.cover - layer.link - layer.bar / 2;
-    const ring = {
-      ...layer, barRadius, linkRadius: barRadius + (layer.bar + layer.link) / 2, radialClear, required,
-      clear: 2 * barRadius * Math.sin(Math.PI / layer.count) - layer.bar,
-    };
-    previous = ring;
-    return ring;
-  });
+  const source = links ? old.layers.map((layer, index) => {
+    const gap = index ? Math.max(20, previous.bar, layer.bar, old.aggregate + 5, layer.link) : null;
+    const radius = index ? previous.radius - previous.bar / 2 - gap - layer.bar / 2
+      : old.diameter / 2 - old.cover - layer.link - layer.bar / 2;
+    previous = { ...layer, radius };
+    return { ...previous, diameter: layer.link };
+  }) : cageGeometry(old).map(cage => ({
+    ...cage, radius: cage.barRadius, diameter: cage.spiral, spacing: cage.pitch,
+  }));
+  const transverse = source.map(({ diameter, spacing }) => ({ diameter, spacing }));
+  return { ...newDefaults(), ...inputs, transverse: old.transverse,
+    layers: source.map(layer => ({ ...layer, offset: layer.offset ?? 0 })),
+    reinforcement: { links: structuredClone(transverse), spirals: structuredClone(transverse) },
+  };
 }
 
-export function linkChecks(input, rings = linkGeometry(input)) {
-  const maximumSpacing = Math.min(20 * Math.min(...rings.map(ring => ring.bar)), input.diameter, 400);
-  const minimumLink = Math.max(6, Math.max(...rings.map(ring => ring.bar)) / 4);
-  const mm = value => value.toFixed(1) + ' mm';
-  const row = (label, detail, pass) => ({ label, detail, status: pass ? 'pass' : 'fail' });
-  return [
-    { label: 'Nominal cover', detail: mm(input.cover) + ' to outside of outer link', status: 'off', statusLabel: 'Input' },
-    ...rings.flatMap((ring, index) => {
-      const mark = 'L' + (index + 1);
-      const min = minimumClearance(ring.bar, ring.bar, input.aggregate);
-      const checks = [
-        row(mark + ' bar clearance', mm(ring.clear) + ' / min ' + mm(min), ring.clear >= min - 1e-8),
-        row(mark + ' link diameter', mm(ring.link) + ' / min ' + mm(minimumLink), ring.link >= minimumLink),
-        row(mark + ' link spacing', mm(ring.spacing) + ' / ' + mm(ring.link) + ' to ' + mm(maximumSpacing),
-          ring.spacing >= ring.link && ring.spacing <= maximumSpacing),
-      ];
-      if (index) checks.push(row('L' + index + '–' + mark + ' radial clearance',
-        mm(ring.radialClear) + ' / min ' + mm(ring.required), ring.radialClear >= ring.required));
-      return checks;
-    }),
-  ];
+const legacyKey = /^(?:cages|(?:bar|count|spiral|pitch)[12]|spiralSteel|classA)$/;
+export const visibleGroups = inputGroups.filter(([title]) => !title.endsWith('cage')).map(([title, group]) =>
+  [title, group.filter(([id]) => !legacyKey.test(id)).map(field =>
+    field[0] === 'cover' ? ['cover', 'Nominal cover (mm)', ...field.slice(2)] : field)]);
+
+export function validateInputs(input) {
+  for (const [id, label, , , , min = -Infinity, max = Infinity] of visibleGroups.flatMap(([, group]) => group)) {
+    if (!Number.isFinite(input[id]) || input[id] < min || input[id] > max) throw new Error('Check ' + label + '.');
+  }
+  if (!(Number.isFinite(input.height) && input.height > 0 && Number.isFinite(input.aggregate) && input.aggregate > 0)) {
+    throw new Error('Enter a positive cage height and maximum aggregate size.');
+  }
+  for (const value of [input.effectiveLengthX, input.effectiveLengthY]) {
+    if (value !== null && !(Number.isFinite(value) && value > 0)) throw new Error('Check the effective lengths.');
+  }
+  if (![0, 1].includes(input.secondOrderIncluded)) throw new Error('Check the action basis.');
+  if (!['links', 'spirals'].includes(input.transverse) || !Array.isArray(input.layers)
+    || input.layers.length < 1 || input.layers.length > maxLayers
+    || !['links', 'spirals'].every(mode => Array.isArray(input.reinforcement?.[mode])
+      && input.reinforcement[mode].length === input.layers.length)) {
+    throw new Error('Provide one transverse layer per longitudinal layer in each mode.');
+  }
+  for (const [index, layer] of input.layers.entries()) {
+    if (!layer || !Number.isInteger(layer.count) || layer.count < 3 || layer.count > 300
+      || !Number.isFinite(layer.bar) || layer.bar <= 0 || !Number.isFinite(layer.offset)
+      || (layer.radius !== null && !(Number.isFinite(layer.radius) && layer.radius > 0))
+      || !['links', 'spirals'].every(mode => {
+        const row = input.reinforcement[mode][index];
+        return row && [row.diameter, row.spacing].every(value => Number.isFinite(value) && value > 0);
+      })) throw new Error('Check reinforcement inputs for L' + (index + 1) + '.');
+  }
+  return geometry(input);
 }

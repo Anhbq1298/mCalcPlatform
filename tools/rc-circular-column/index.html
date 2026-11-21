@@ -13,35 +13,64 @@
   <main class="column-layout">
     <form id="column-inputs" aria-label="Column inputs">
       <fieldset id="layer-inputs">
-        <legend>Reinforcement layers</legend>
-        <label><span>Maximum aggregate size (mm)</span><input id="aggregate" type="number" min="1" step="any"></label>
-        <table class="layer-table">
-          <thead><tr><th scope="col">Layer</th><th scope="col">Bars</th><th scope="col">Bar Ø</th><th scope="col">Link Ø</th><th scope="col">Spacing</th></tr></thead>
+        <legend>Longitudinal Reinforcement</legend>
+        <table class="layer-table" id="longitudinal-table">
+          <thead><tr><th scope="col">Layer</th><th scope="col">Bars</th><th scope="col">Bar Ø</th></tr></thead>
           <tbody></tbody>
         </table>
         <div class="layer-buttons">
           <button type="button" data-add-layer aria-label="Add reinforcement layer">+ Layer</button>
           <button type="button" data-remove-layer aria-label="Remove innermost reinforcement layer">− Layer</button>
         </div>
-        <p>Diameters and spacing in mm. Enter layers from outside to inside.</p>
+        <details id="coordinate-editor">
+          <summary>Advanced reinforcement coordinates</summary>
+          <table class="layer-table" id="coordinate-table">
+            <thead><tr><th scope="col">Layer</th><th scope="col">Offset (°)</th><th scope="col">Radius (mm)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p>Leave radius blank for automatic positioning.</p>
+        </details>
       </fieldset>
-      <div id="legacy-links" hidden>
-        <p>Saved spiral layout</p>
-        <button type="button" id="convert-links">Convert to closed links</button>
-      </div>
+      <fieldset id="transverse-inputs">
+        <legend>Transverse Reinforcement</legend>
+        <label class="mode-choice"><input type="radio" name="transverse" value="links">Circular Stirrups (Closed Links)</label>
+        <label class="mode-choice"><input type="radio" name="transverse" value="spirals">Continuous Spiral (Helix)</label>
+        <table class="layer-table" id="transverse-table">
+          <thead><tr><th scope="col">Layer</th><th scope="col">Diameter (mm)</th><th id="transverse-interval" scope="col">Spacing (mm)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="layer-buttons">
+          <button type="button" data-add-pair>+ Paired layer</button>
+          <button type="button" data-remove-pair>− Paired layer</button>
+        </div>
+        <p>Layers are paired from outside to inside. Automatic radii reserve the larger transverse diameter across both modes.</p>
+        <label><span>Maximum aggregate size (mm)</span><input id="aggregate" type="number" min="1" step="any"></label>
+        <label><span>Cage height (mm)</span><input id="height" type="number" min="1" step="any"></label>
+      </fieldset>
+      <fieldset id="slenderness-inputs">
+        <legend>Slenderness</legend>
+        <details>
+          <summary>Effective lengths and action basis</summary>
+          <label><span>Effective length X (mm)</span><input id="effectiveLengthX" type="number" min="1" step="any"></label>
+          <label><span>Effective length Y (mm)</span><input id="effectiveLengthY" type="number" min="1" step="any"></label>
+          <label><span>Entered moments include externally assessed second-order effects</span><input id="secondOrderIncluded" type="checkbox"></label>
+        </details>
+      </fieldset>
     </form>
     <section class="section-view" aria-labelledby="section-title">
-      <h2 id="section-title">Section and spirals</h2>
+      <h2 id="section-title">Reinforcement section</h2>
       <svg id="circular-section" viewBox="0 0 500 460" role="img" aria-label="Circular concrete section" aria-describedby="section-legend"></svg>
       <p id="section-legend"></p>
+      <details class="cage-elevation" open>
+        <summary>Reinforcement elevation</summary>
+        <svg id="circular-elevation" role="img" aria-label="Circular reinforcement elevation" aria-describedby="elevation-legend"></svg>
+        <p id="elevation-legend"></p>
+      </details>
     </section>
     <section class="checks" aria-labelledby="results-title">
       <h2 id="results-title">Check summary</h2>
-      <p>EN 1992-1-1:2023 · One design load case</p>
+      <p>Section resistance · 2004 recommended detailing screen</p>
       <div id="column-check-summary" aria-live="polite"></div>
-      <h2 class="detail-title">Shear details</h2>
-      <p id="shear-basis"></p>
-      <dl id="checks"></dl>
     </section>
     <section class="interaction" aria-labelledby="interaction-title">
       <h2 id="interaction-title">P–M at governing angle</h2>
