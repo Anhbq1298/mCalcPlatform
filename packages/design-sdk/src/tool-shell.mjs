@@ -21,11 +21,17 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
   const named = bar.querySelector('input');
   const status = bar.querySelector('output');
   const action = name => bar.querySelector('[data-' + name + ']');
-  action('hub').href = home.href;
+
   named.value = reportOwner ? reportOwner.meta.name + ' · Report' : tool.name;
   let current = reportOwner, busy = false, locked = false;
   const location = new URL(window.location.href);
   const key = location.searchParams.get('design');
+  const workspace = new URL(home);
+  for (const param of ['project', 'folder']) {
+    if (location.searchParams.has(param)) workspace.searchParams.set(param, location.searchParams.get(param));
+  }
+  if (workspace.searchParams.has('project')) workspace.hash = 'projects';
+  action('hub').href = workspace.href;
   const message = value => { status.textContent = value; };
   const setBusy = value => {
     busy = value;
@@ -40,7 +46,8 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
   async function capture(includeReport = false) {
     const adapter = getAdapter();
     if (!adapter) throw new Error('Wait for the tool to finish opening.');
-    const inputs = structuredClone(await adapter.snapshot());
+    const snapshot = structuredClone(await adapter.snapshot());
+    const inputs = { ...current?.inputs, ...snapshot };
     const name = named.value.trim() || tool.name;
     const previous = current;
     if (reportOwner) {
@@ -50,9 +57,10 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
         || JSON.stringify(owner.inputs) !== JSON.stringify(reportOwner.inputs)) {
         throw new Error('This report changed in another tab. Open the latest worksheet before saving.');
       }
-      return { ...owner, report: inputs };
+      return { ...owner, report: snapshot };
     }
     const doc = previous ? { ...previous, inputs, meta: { ...previous.meta, name } } : createDesign(tool, name, inputs);
+    delete doc.pending;
     if (previous && JSON.stringify(previous.inputs) !== JSON.stringify(inputs)) {
       delete doc.report;
       delete doc.reportHash;
@@ -66,9 +74,31 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
     return doc;
   }
 
+  async function persist(doc) {
+    if (!current || reportOwner) {
+      await db.saveDesign(doc);
+      return doc;
+    }
+    await db.updateDesign(doc.id, latest => {
+      if (latest.schema > tool.schema || latest.tool !== tool.id
+        || latest.pending !== current.pending || JSON.stringify(latest.inputs) !== JSON.stringify(current.inputs)) {
+        throw new Error('This design changed in another tab. Reopen it before saving.');
+      }
+      const name = doc.meta.name === current.meta.name ? latest.meta.name : doc.meta.name;
+      doc = { ...doc, meta: { ...latest.meta, name } };
+      if (doc.report === current.report && JSON.stringify(doc.inputs) === JSON.stringify(current.inputs)
+        && JSON.stringify(latest.report) !== JSON.stringify(current.report)) {
+        doc.report = latest.report;
+        doc.reportHash = latest.reportHash;
+      }
+      return doc;
+    });
+    named.value = doc.meta.name;
+    return doc;
+  }
+
   async function save() {
-    const doc = await capture();
-    await db.saveDesign(doc);
+    const doc = await persist(await capture());
     current = doc;
     if (reportOwner) { message('Report saved.'); return doc; }
     location.searchParams.set('design', doc.id);
@@ -96,8 +126,8 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
     window.location.assign(url);
   });
   handler('open', () => {
-    const url = new URL(home);
-    url.hash = 'designs';
+    const url = new URL(workspace);
+    url.hash ||= 'designs';
     window.location.assign(url);
   });
   handler('save', save);
@@ -119,9 +149,9 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
       await getAdapter()?.openNativeReport?.();
       return;
     }
-    const doc = await capture(true);
+    let doc = await capture(true);
     if (!doc.report) throw new Error('Run the calculation before opening a report.');
-    await db.saveDesign(doc);
+    doc = await persist(doc);
     current = doc;
     location.searchParams.set('design', doc.id);
     location.searchParams.delete('new');
@@ -130,6 +160,7 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
     history.replaceState(null, '', location);
     const url = new URL(reportUrl);
     url.searchParams.set('report', doc.id);
+    for (const [param, value] of workspace.searchParams) url.searchParams.set(param, value);
     window.location.assign(url);
   });
   handler('export', async () => {
@@ -154,7 +185,10 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
         if (current.schema > tool.schema) throw new Error('This design was created in a newer version. Export it from this read-only view.');
         const adapter = getAdapter();
         if (!adapter) throw new Error('The tool did not finish opening.');
-        await adapter.restore(structuredClone(current.inputs));
+        if (current.pending) {
+          await adapter.reset?.();
+          message('Save to keep your calculation inputs.');
+        } else await adapter.restore(structuredClone(current.inputs));
       } else if (location.searchParams.has('new')) {
         await getAdapter()?.reset?.();
       }

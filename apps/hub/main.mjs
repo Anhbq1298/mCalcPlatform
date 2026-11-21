@@ -1,197 +1,227 @@
-import { createProject, createStore, duplicateDesign, exportPackage, importPackage } from '../../packages/design-sdk/src/index.mjs';
-import { tools, findTool } from '../registry.mjs';
+import { createDesign, createProject, createStore, duplicateDesign, importPackage } from '../../packages/design-sdk/src/index.mjs';
+import { findTool } from '../registry.mjs';
+import { button, dialog, el, link, qs, saveFile, status } from './dom.mjs';
+import { pickModule, renderCatalog, thumbnail } from './module-cards.mjs';
+import { folderBreadcrumb, renderTree } from './project-tree.mjs';
 import './style.css';
 
 const db = createStore();
-const qs = id => document.getElementById(id);
-const namedUrl = new URL(location.href);
-const pending = namedUrl.searchParams.get('add');
-const status = value => { qs('status').textContent = value; };
-const el = (tag, text, className) => {
-  const element = document.createElement(tag);
-  if (text !== undefined) element.textContent = text;
-  if (className) element.className = className;
-  return element;
-};
-const link = (name, href, css) => Object.assign(el('a', name, css), { href });
-const button = (name, run) => {
-  const item = el('button', name);
-  item.type = 'button';
-  item.onclick = async () => {
-    item.disabled = true;
-    try { await run(); }
-    catch (error) { status(error.message); }
-    finally { item.disabled = false; }
-  };
-  return item;
-};
+const expanded = new Set();
+let projects = [], designs = new Map();
+let refreshId = 0;
+let projectId, folderId;
 
-function dialog(title, fields) {
-  const panel = qs('editor'), form = panel.querySelector('form');
-  qs('dialog-title').textContent = title;
-  form.reset();
-  panel.returnValue = 'cancel';
-  form.querySelector('[data-fields]').replaceChildren(...fields.map(([name, options, value]) => {
-    const label = el('label', name);
-    const input = el(options ? 'select' : 'input');
-    input.name = name;
-    input.required = true;
-    if (options) for (const [id, label] of options) input.append(Object.assign(el('option', label), { value: id }));
-    else { input.maxLength = 200; input.value = value ?? ''; }
-    if (options && value) input.value = value;
-    label.append(input);
-    return label;
-  }));
-  return new Promise(resolve => {
-    panel.addEventListener('close', () => resolve(panel.returnValue === 'confirm' ? new FormData(form) : null), { once: true });
-    panel.showModal();
-  });
-}
-
-async function saveFile(name, contents) {
-  const url = URL.createObjectURL(await exportPackage(contents));
-  const action = link('Download', url);
-  action.download = name + '.mcalc';
-  action.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function designUrl(design, parameter = 'design') {
-  const tool = findTool(design.tool);
-  if (!tool && parameter === 'design') return;
-  const url = new URL(parameter === 'report' ? 'calc/' : tool.entry, document.baseURI);
-  url.searchParams.set(parameter, design.id);
+function projectUrl(project, folder, route = './') {
+  const url = new URL(route, document.baseURI);
+  if (project) url.searchParams.set('project', project.id);
+  if (folder) url.searchParams.set('folder', folder.id);
   return url;
 }
 
-function renderDesign(doc, project, folder) {
-  const item = el('div', undefined, 'saved');
-  const info = el('div');
-  const url = designUrl(doc);
-  info.append(url ? link(doc.meta.name, url) : el('strong', doc.meta.name),
-    el('span', ' · ' + (findTool(doc.tool)?.name ?? doc.tool), 'muted'));
-  const actions = el('div', undefined, 'actions');
-  if (doc.report) actions.append(link('Worksheet', designUrl(doc, 'report'), 'button'));
-  if (project) actions.append(button('Move', async () => {
-    const data = await dialog('Move design', [['Folder', project.folders.map(f => [f.id, f.name]), folder.id]]);
-    if (!data || data.get('Folder') === folder.id) return;
-    await placeDesign(project.id, doc.id, data.get('Folder'));
-  }));
-  else actions.append(button('Add to project', () => chooseProject(doc)), button('Duplicate', async () => {
-    await db.saveDesign(duplicateDesign(doc));
-    await refresh();
-  }), button('Export', () => saveFile(doc.meta.name, { designs: [doc] })));
-  item.append(info, actions);
-  return item;
-}
-
-async function placeDesign(projectId, designId, folderId) {
-  await db.moveDesign(projectId, designId, folderId);
-  status('Project updated.');
-  await refresh();
-}
-
-async function chooseProject(doc) {
-  let projects = await db.listProjects();
-  if (!projects.length) {
-    const project = await newProject();
-    if (!project) return;
-    projects = [project];
+function select(project, folder, focus) {
+  projectId = project?.id;
+  folderId = folder?.id;
+  if (project) {
+    expanded.add(project.id);
+    let branch = folder;
+    while (branch) {
+      expanded.add(project.id + '/' + branch.id);
+      branch = project.folders.find(item => item.id === branch.parentId);
+    }
   }
-  const data = await dialog('Add design to project', [['Project', projects.map(p => [p.id, p.name])]]);
-  if (!data) return;
-  const project = projects.find(p => p.id === data.get('Project'));
-  const preferred = findTool(doc.tool)?.folder;
-  const result = await dialog('Choose project folder', [['Folder', project.folders.map(f => [f.id, f.name]), preferred]]);
-  if (result) await placeDesign(project.id, doc.id, result.get('Folder'));
+  const url = projectUrl(project, folder);
+  url.hash = 'projects';
+  history.replaceState(null, '', url);
+  render();
+  if (focus) qs('project-list').querySelector('[aria-current]')?.focus();
 }
+
+async function refresh() {
+  const request = ++refreshId;
+  const [saved, allProjects] = await Promise.all([db.listDesigns(), db.listProjects()]);
+  if (request !== refreshId) return;
+  projects = allProjects;
+  designs = new Map(saved.map(doc => [doc.id, doc]));
+  render();
+}
+
+const folderOptions = project => project.folders.map(folder => [folder.id, folderBreadcrumb(project, folder)]);
+const named = async (title, label, initial) => (await dialog(title, [[label, null, initial]]))?.get(label).trim();
 
 async function newProject() {
-  const data = await dialog('New project', [['Project name']]);
-  if (!data) return;
-  const project = createProject(String(data.get('Project name')).trim());
+  const name = await named('New project', 'Project name');
+  if (!name) return;
+  const project = createProject(name);
   await db.saveProject(project);
+  select(project);
   await refresh();
   return project;
 }
 
-function renderProject(project, docs) {
-  const details = el('details', undefined, 'project');
-  details.dataset.project = project.id;
+async function addFolder(project, parent) {
+  const name = await named(parent ? 'Add subfolder' : 'Add folder', 'Folder name');
+  if (!name) return;
+  const folder = { id: crypto.randomUUID(), name, designs: [], ...(parent ? { parentId: parent.id } : {}) };
+  await db.updateProject(project.id, current => ({ ...current, folders: [...current.folders, folder] }));
+  await refresh();
+  select(await db.getProject(project.id), folder, true);
+}
+
+async function renameFolder(project, folder) {
+  const name = await named('Rename folder', 'Folder name', folder.name);
+  if (!name) return;
+  await db.updateProject(project.id, current => ({
+    ...current, folders: current.folders.map(item => item.id === folder.id ? { ...item, name } : item),
+  }));
+  await refresh();
+}
+
+async function addDesign(project, folder) {
+  const result = await pickModule(folderBreadcrumb(project, folder));
+  if (!result) return;
+  const design = { ...createDesign(result.tool, result.name, {}), pending: true };
+  await db.addProjectDesign(project.id, folder.id, design);
+  await refresh();
+  document.getElementById('design-' + design.id)?.focus();
+  status('Calculation added.');
+}
+
+async function chooseProject(doc, project) {
+  if (!project) {
+    if (!projects.length) project = await newProject();
+    else {
+      const data = await dialog('Add design to project', [['Project', projects.map(item => [item.id, item.name])]]);
+      project = projects.find(item => item.id === data?.get('Project'));
+    }
+  }
+  if (!project) return;
+  const choice = await dialog('Choose project folder', [
+    ['Folder', folderOptions(project), project.id === projectId && folderId || findTool(doc.tool)?.folder],
+  ]);
+  if (!choice) return;
+  const folder = project.folders.find(item => item.id === choice.get('Folder'));
+  await db.moveDesign(project.id, doc.id, folder.id);
+  await refresh();
+  select(project, folder);
+  status('Project updated.');
+}
+
+function designUrl(doc, project, folder, report = false) {
+  const url = projectUrl(project, folder, report ? 'calc/' : findTool(doc.tool).entry);
+  url.searchParams.set(report ? 'report' : 'design', doc.id);
+  return url;
+}
+
+function calculationCard(doc, project, folder) {
+  const tool = findTool(doc.tool);
+  const card = el('article', undefined, 'calculation-card saved');
+  const title = el('h3');
+  const open = tool ? link(doc.meta.name, designUrl(doc, project, folder)) : el('span', doc.meta.name);
+  open.id = 'design-' + doc.id;
+  title.append(open);
+  const info = el('div', undefined, 'calculation-info');
+  info.append(title, el('p', tool?.title ?? tool?.name ?? 'Module unavailable', 'muted'));
   const actions = el('div', undefined, 'actions');
-  const ordered = () => project.folders.flatMap(folder => folder.designs.map(id => docs.get(id))).filter(Boolean);
-  actions.append(button('Add folder', async () => {
-    const data = await dialog('Add project folder', [['Folder name']]);
-    if (!data) return;
-    const current = await db.getProject(project.id);
-    current.folders.push({ id: crypto.randomUUID(), name: String(data.get('Folder name')).trim(), designs: [] });
-    await db.saveProject(current);
+  const rename = button('Rename', async () => {
+    const name = await named('Rename calculation', 'Calculation name', doc.meta.name);
+    if (!name) return;
+    await db.updateDesign(doc.id, current => ({ ...current, meta: { ...current.meta, name } }));
     await refresh();
-  }), button('Export project', () => saveFile(project.name, { designs: ordered(), project })));
-  const hadReports = ordered().some(doc => doc.report);
-  if (hadReports) {
-    const url = new URL('package/', document.baseURI);
-    url.searchParams.set('project', project.id);
-    actions.append(link('Print calc package', url, 'button'));
-  }
-  details.append(el('summary', project.name), actions);
-  for (const folder of project.folders) {
-    const target = el('div', undefined, 'folder');
-    target.append(el('strong', folder.name));
-    for (const id of folder.designs) if (docs.has(id)) target.append(renderDesign(docs.get(id), project, folder));
-    details.append(target);
-  }
-  return details;
+    document.getElementById(open.id)?.focus();
+  });
+  rename.setAttribute('aria-label', 'Rename ' + doc.meta.name);
+  actions.append(rename);
+  if (doc.report) actions.append(link('Worksheet', designUrl(doc, project, folder, true), 'button'));
+  if (project) actions.append(button('Move', () => chooseProject(doc, project)));
+  else actions.append(button('Add to project', () => chooseProject(doc)), button('Duplicate', async () => {
+    await db.saveDesign(duplicateDesign(doc));
+    await refresh();
+  }));
+  actions.append(button('Export', () => saveFile(doc.meta.name, { designs: [doc] })));
+  card.append(thumbnail(tool), info, actions);
+  return card;
 }
 
-async function refresh() {
-  const [designs, projects] = await Promise.all([db.listDesigns(), db.listProjects()]);
-  const byId = new Map(designs.map(doc => [doc.id, doc]));
-  const expanded = new Set([...qs('project-list').querySelectorAll('details[open]')].map(node => node.dataset.project));
-  qs('project-list').replaceChildren(...(projects.length ? projects.map(project => {
-    const details = renderProject(project, byId);
-    details.open = expanded.has(project.id) || projects.length === 1;
-    return details;
-  }) : [el('p', 'Create a project to group and order designs.', 'muted')]));
-  qs('design-list').replaceChildren(...(designs.length ? designs.map(doc => renderDesign(doc)) : [el('p', 'Saved designs appear here.', 'muted')]));
+async function saveProject(id) {
+  const project = await db.getProject(id);
+  if (!project) throw new Error('This project is unavailable.');
+  const ids = project.folders.flatMap(item => item.designs);
+  const docs = await Promise.all(ids.map(id => db.getDesign(id)));
+  if (docs.some(doc => !doc)) throw new Error('This project references an unavailable calculation.');
+  await saveFile(project.name, { project, designs: docs });
+  status('Project file saved.');
 }
 
-for (const tool of tools) {
-  const card = el('article', undefined, 'card');
-  const url = new URL(tool.entry, document.baseURI);
-  url.searchParams.set('new', '1');
-  card.append(el('span', tool.discipline, 'discipline'), el('h3', tool.name), el('p', tool.description),
-    link('New design', url, 'button'));
-  if (tool.id === 'calccanvas' || tool.id === 'steel-beam-column' || tool.id === 'mbcolumn-lite') {
-    const legacy = new URL(tool.entry, document.baseURI);
-    legacy.searchParams.set('legacy', '1');
-    card.append(link(tool.id === 'calccanvas' ? 'Open local worksheets' : 'Open local draft', legacy, 'legacy-draft'));
-  }
-  qs('catalog').append(card);
+function render() {
+  const inProjects = ['#projects', '#designs'].includes(location.hash);
+  qs('tools').hidden = inProjects;
+  qs('projects').hidden = !inProjects;
+  qs('nav-tools').setAttribute('aria-current', inProjects ? 'false' : 'page');
+  qs('nav-projects').setAttribute('aria-current', inProjects ? 'page' : 'false');
+  if (!inProjects) return;
+  const project = projects.find(item => item.id === projectId);
+  const folder = project?.folders.find(item => item.id === folderId);
+  const toggle = key => {
+    if (!expanded.delete(key)) expanded.add(key);
+    render();
+    qs('project-list').querySelector('[data-disclosure="' + key + '"]')?.focus();
+  };
+  qs('project-list').replaceChildren(...renderTree({
+    projects, project, folder, expanded, toggle,
+    select: (owner, target) => select(owner, target, true),
+    showSaved: () => select(undefined, undefined, true),
+  }));
+  qs('breadcrumb').textContent = folder ? folderBreadcrumb(project, folder) : project?.name ?? 'Saved designs';
+  qs('folder-actions').replaceChildren(...(folder ? [
+    button('Add subfolder', () => addFolder(project, folder)),
+    button('Rename folder', () => renameFolder(project, folder)),
+    button('+ Add design module', () => addDesign(project, folder)),
+  ] : project ? [button('Add folder', () => addFolder(project))] : []));
+  qs('folder-actions').querySelector('button:last-child')?.classList.toggle('primary', true);
+
+  const cards = folder ? folder.designs.map(id => designs.get(id)).filter(Boolean)
+    : project ? [] : [...designs.values()];
+  qs('design-list').replaceChildren(...(cards.length ? cards.map(doc => calculationCard(doc, project, folder)) :
+    [el('p', folder ? 'Add a design module to start a calculation.' : project ? 'Select or add a folder.' : 'Saved calculations appear here.', 'muted')]));
+  qs('save-project').disabled = !project;
+  qs('save-project').onclick = () => saveProject(project.id).catch(error => status(error.message));
+  const print = qs('print-project');
+  print.hidden = !project?.folders.some(item => item.designs.some(id => designs.get(id)?.report));
+  if (!print.hidden) print.href = projectUrl(project, undefined, 'package/');
 }
-qs('submit').href = 'mailto:buiquanganh1298@gmail.com?subject=' + encodeURIComponent('[mCalc Tool Submission] <Tool name>')
-  + '&body=' + encodeURIComponent("Hi Anh,\n\nI'd like to share a design tool for mCalc Platform.\n\n"
-    + "- Tool name:\n- What it checks:\n- Design code:\n- Source code:\n- Checked against:\n\n"
-    + "I agree that the admin may review this tool and, if approved, adapt it and publish it on the platform for all users.\n\nThanks,\n<Name>\n<Email>");
+
+renderCatalog();
+qs('nav-projects').onclick = event => {
+  event.preventDefault();
+  const project = projects.find(item => item.id === projectId);
+  select(project, project?.folders.find(item => item.id === folderId));
+};
 qs('new-project').onclick = () => newProject().catch(error => status(error.message));
+qs('open-project').onclick = () => qs('import').click();
 qs('import').onchange = async event => {
   const [file] = event.target.files;
   if (!file) return;
   try {
-    await db.importPackage(await importPackage(file));
+    const contents = await importPackage(file);
+    const id = await db.importPackage(contents);
     await refresh();
-    status('Imported ' + file.name + '.');
+    const project = projects.find(item => item.id === id);
+    select(project);
+    status('Opened ' + file.name + '.');
   } catch (error) { status(error.message); }
   finally { event.target.value = ''; }
 };
+window.addEventListener('hashchange', render);
 
 async function start() {
+  const params = new URL(location.href).searchParams;
   await refresh();
-  if (pending) {
-    namedUrl.searchParams.delete('add');
-    history.replaceState(null, '', namedUrl);
-    const design = await db.getDesign(pending);
-    if (design) await chooseProject(design);
+  const project = projects.find(item => item.id === params.get('project'));
+  if (project) select(project, project.folders.find(item => item.id === params.get('folder')));
+  if (params.has('add')) {
+    const design = designs.get(params.get('add'));
+    select(project, project?.folders.find(item => item.id === folderId));
+    if (design) await chooseProject(design, project);
   }
 }
 void start().catch(error => status(error.message));

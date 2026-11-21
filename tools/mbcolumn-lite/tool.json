@@ -9,7 +9,6 @@
     "member.column"
   ],
   "entry": "t/mbcolumn-lite/",
-  "discipline": "Concrete · Eurocode 2",
   "description": "Rectangular reinforced concrete column checks with biaxial interaction diagrams.",
   "inputs": {
     "type": "object"
@@ -17,5 +16,14 @@
   "outputs": {},
   "permissions": [
     "calculation-api"
-  ]
+  ],
+  "title": "RC Column",
+  "code": "EC2",
+  "keywords": [
+    "eurocode 2",
+    "reinforced concrete",
+    "biaxial",
+    "interaction"
+  ],
+  "localDraft": "Open local draft"
 }
