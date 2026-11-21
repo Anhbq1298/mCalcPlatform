@@ -82,7 +82,7 @@ async function addModule(page, filter, title, name) {
   await expect(search).toBeFocused();
   await search.fill(filter);
   await picker.getByRole('heading', { name: title, exact: true }).click();
-  await expect(picker.getByRole('radio', { name: title })).toBeChecked();
+  await expect(picker.getByRole('radio', { name: title, exact: true })).toBeChecked();
   const field = picker.getByLabel('Design name', { exact: true });
   await expect(field).toHaveValue(title);
   await field.fill(name);
@@ -123,6 +123,7 @@ test('saves independent calculations in nested folders and reopens the file in f
     ['Calculation Worksheet', 'mCalcCanvas', 'Design worksheet'],
     ['Composite Beam', 'serviceability', 'Composite check in L3'],
     ['RC Column', 'EC2', 'Column check in L3'],
+    ['Circular RC Column', 'spiral', 'Circular check in L3'],
   ]) {
     await addModule(page, search, title, name);
     await page.getByRole('link', { name, exact: true }).click();
