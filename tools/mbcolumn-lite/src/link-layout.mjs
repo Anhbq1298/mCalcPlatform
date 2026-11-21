@@ -56,8 +56,8 @@ export function generateLinkLayout({ b, h, cover, link, bars }) {
   if (![b, h, cover, link, radius].every(Number.isFinite) || cover < 0 || link <= 0 || radius <= 0) {
     return { error: 'Enter a valid section, reinforcement, cover and link diameter.' };
   }
-  if (bars.some(bar => bar.bundle || bar.radius !== radius)) {
-    return { error: 'Automatic links require unbundled bars of one diameter. Use manual legs for this layout.' };
+  if (bars.some(bar => bar.radius !== radius)) {
+    return { error: 'Automatic links require one perimeter bar or bundle size. Use manual legs for mixed sizes.' };
   }
   const x = b / 2 - cover - link - radius;
   const y = h / 2 - cover - link - radius;
@@ -81,7 +81,10 @@ export function generateLinkLayout({ b, h, cover, link, bars }) {
   appendLinks(shapes, yLegPositions, 'x', y);
   appendLinks(shapes, xLegPositions, 'y', x);
   return {
-    shapes, bendRadius: radius + link / 2, extension: Math.max(5 * link, 50),
+    // The editor already reserves the bundle's enclosing radius for cover.
+    // Wrap that envelope rather than the smaller equivalent-area diameter.
+    shapes, bundles: bars.some(bar => bar.bundle),
+    bendRadius: radius + link / 2, extension: Math.max(5 * link, 50),
     legsX: 2 + xLegPositions.length, legsY: 2 + yLegPositions.length,
   };
 }

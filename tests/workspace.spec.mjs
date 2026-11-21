@@ -220,6 +220,14 @@ test('solves mConcreteRecCol locally and restores shear inputs by design ID', as
   await expect(legend).toContainText('X legs: 4 · Y legs: 4');
   await expect(page.getByLabel('Link spacing (mm)', { exact: true })).toHaveValue('125');
   await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('350');
+
+  for (const face of ['Top', 'Bottom', 'Left', 'Right']) {
+    await page.getByLabel(face + ' face bar size', { exact: true }).selectOption('2T16');
+  }
+  await page.getByRole('button', { name: 'Replace bars', exact: true }).click();
+  await expect(legend).toContainText('X legs: 4 · Y legs: 4 · Bundled bars');
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(shear.getByRole('row').filter({ hasText: '350.0' })).toContainText('ULS 1', { timeout: 60000 });
 });
 
 test('calculates and saves a Circular RC Column using the reference worksheet', async ({ page }) => {

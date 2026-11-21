@@ -45,3 +45,21 @@ test('unable to align both anchorage bars returns an error instead of default le
   assert.throws(() => checkColumnShear(section,
     resolveShearLinks({ ...shearDefaults, enabled: true }, layout), []), /150 mm/);
 });
+
+test('wrap each uniform bundle envelope and count a leg once per restrained bundle', () => {
+  for (const radius of [20, 10 + 20 / Math.sqrt(3), 10 + 10 * Math.SQRT2]) {
+    const section = perimeter(151, 300, [0], [-100, 100]);
+    section.b += 2 * (radius - 10);
+    section.h += 2 * (radius - 10);
+    for (const bar of section.bars) Object.assign(bar, { radius, bundle: true });
+
+    const layout = generateLinkLayout(section);
+    assert.equal(layout.bundles, true);
+    assert.equal(layout.bendRadius, radius + section.link / 2);
+    assert.deepEqual(layout.shapes.map(shape => shape.type), ['outer', 'cross', 'inner']);
+    assert.deepEqual([layout.legsX, layout.legsY], [4, 3]);
+
+    section.bars[0].radius = 10;
+    assert.match(generateLinkLayout(section).error, /manual legs for mixed sizes/);
+  }
+});

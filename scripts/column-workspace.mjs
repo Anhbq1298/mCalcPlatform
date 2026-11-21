@@ -70,7 +70,8 @@ const linkDrawing = `    // Generated links use the same geometry as the effecti
       const { spacing } = state.shear;
       const caption = automaticLinks?.error ?? (automaticLinks
         ? 'Auto · Link Ø' + state.link + ' @ ' + spacing + ' mm · X legs: ' + automaticLinks.legsX
-          + ' · Y legs: ' + automaticLinks.legsY + ' · Outer link / inner links / cross-ties'
+          + ' · Y legs: ' + automaticLinks.legsY
+          + (automaticLinks.bundles ? ' · Bundled bars: links wrap the bundle envelope' : ' · Outer link / inner links / cross-ties')
         : 'Preparing link layout…');
       if (shearLegend.textContent !== caption) shearLegend.textContent = caption;
       shearLegend.classList.toggle('error', Boolean(automaticLinks?.error));
