@@ -1,4 +1,5 @@
 // Flowing A4 page layout for a generated Canvas worksheet (text, math, image and table shapes).
+import { htmlStringSubscripts } from './subscript.mjs';
 // Page geometry is passed in (A4 height and gap from the Canvas page model) so the builder stays pure.
 
 const MARGIN_X = 76;
@@ -48,12 +49,12 @@ export function createDocument({ pageHeight, pageGap, title }) {
     text(html, fontSize = 13) {
       const estimate = Math.ceil((html.length * fontSize * 0.5) / CONTENT_W) * fontSize * 1.45 + 6;
       const top = ensure(estimate);
-      y += textShape(MARGIN_X, top, html, fontSize) + 4;
+      y += textShape(MARGIN_X, top, htmlStringSubscripts(html), fontSize) + 4;
     },
     // Label on the left, math region on the right.
     math(label, latex, { displayUnit = '', mode = 'formulaResult', precision = 3 } = {}) {
       const top = ensure(34);
-      if (label) shapes.push({ id: id(), type: 'text', x: MARGIN_X, y: top + 4, props: { w: 250, h: 22, html: label, fontFamily: 'Inter', fontSize: 12, color: '#475569', align: 'left' } });
+      if (label) shapes.push({ id: id(), type: 'text', x: MARGIN_X, y: top + 4, props: { w: 250, h: 22, html: htmlStringSubscripts(label), fontFamily: 'Inter', fontSize: 12, color: '#475569', align: 'left' } });
       shapes.push({ id: id(), type: 'math', x: MARGIN_X + 260, y: top, props: mathProps(latex, displayUnit, mode, precision) });
       y += 34;
       return shapes.at(-1);

@@ -20,7 +20,7 @@ test('plan draws one selectable group per physical link and marks ineffective le
   const result = design();
   const svg = planSvg(result, { selected: result.layout.links[0].id });
   assert.equal((svg.match(/data-link="/g) || []).length, result.layout.links.length);
-  assert.ok(svg.includes('u1 (2d)') && svg.includes('u_out,ef') && svg.includes('data-governing'));
+  assert.ok(svg.includes('font-size="78%">1</tspan> (2d)') && svg.includes('font-size="78%">out,ef</tspan>') && svg.includes('data-governing'));
   assert.ok(balanced(svg));
   // A leg outside the effective path (slab edge, opening, shadow) is drawn in the failure colour.
   const links = result.layout.links.map((link, index) => (index ? link : { ...link, legs: link.legs.map(leg => ({ ...leg, effective: false, reason: 'Outside slab' })) }));

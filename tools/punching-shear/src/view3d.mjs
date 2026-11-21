@@ -1,5 +1,6 @@
 // Interactive 3D geometry on a 2D canvas (no dependency). Orbit: drag. Pan: Shift+drag or right
 // drag. Zoom: wheel. Geometry is schematic; no stress distribution is drawn.
+import { fillSubscripted } from './subscript.mjs';
 import { pathPolyline, toGlobal } from './geometry.mjs';
 import { intervalPolylines } from './perimeters.mjs';
 import { COLORS } from './svg.mjs';
@@ -97,7 +98,7 @@ export function mountView3d(canvas, controls) {
         const p = P(line.points.at(-1));
         ctx.fillStyle = line.color;
         ctx.font = '11px Roboto, system-ui, sans-serif';
-        ctx.fillText(line.label, p.x + 4, p.y - 4);
+        fillSubscripted(ctx, line.label, p.x + 4, p.y - 4, Number(/(\d+)px/.exec(ctx.font)?.[1] ?? 11));
       }
     }
     triad(ctx, size);
@@ -110,7 +111,7 @@ export function mountView3d(canvas, controls) {
       const q = { x: origin.x + (p.x - camera.panX) * 0.9, y: origin.y + (p.y - camera.panY) * 0.9 };
       ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(q.x, q.y); ctx.stroke();
-      ctx.font = '11px Roboto, system-ui, sans-serif'; ctx.fillText(label, q.x + 2, q.y - 2);
+      ctx.font = '11px Roboto, system-ui, sans-serif'; fillSubscripted(ctx, label, q.x + 2, q.y - 2, 11);
     };
     const zoom = camera.zoom;
     camera.zoom = 1;

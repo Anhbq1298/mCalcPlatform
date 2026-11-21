@@ -4,6 +4,7 @@ import { A4, PAGE_GAP } from '../../../../src/export/pageGeometry.ts';
 import { calculateDesign as calculate } from './head.mjs';
 import { EXAMPLES, exampleById } from './examples.mjs';
 import { buildForm } from './form.mjs';
+import { htmlSubscripts } from './subscript.mjs';
 import { newDefaults, restoreInputs } from './inputs.mjs';
 import { newLayer } from './layout.mjs';
 import { planSvg } from './plan-view.mjs';
@@ -161,6 +162,7 @@ function render() {
     : 'Select a link in the plan to inspect it.';
   byId('omit-link').disabled = !(link && state.reinforcement.mode === 'provided');
   byId('restore-links').disabled = !(state.reinforcement.mode === 'provided' && (link || /^L\d+$/.test(selected ?? '')));
+  for (const id of ['column-check-summary', 'design-status', 'messages', 'checks', 'code-basis', 'layer-schedule', 'selection-info', 'example-note']) htmlSubscripts(byId(id));
 }
 
 form.addEventListener('submit', event => event.preventDefault());

@@ -369,7 +369,7 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await page.getByLabel('Load a worked case').selectOption('drop-large');
   await expect(status).toContainText('Pass');
   await expect(page.locator('#plan-view')).toContainText('u1,ext');
-  await expect(page.locator('#section-view')).toContainText('h_H');
+  await expect(page.locator('#section-view')).toContainText('hH');
   await expect(page.locator('#section-view')).toContainText('u1,ext');
   await expect(page.getByLabel('Include a drop panel (concentric)')).toBeChecked();
   await expect(page.locator('#punching-inputs')).not.toContainText('accepted');

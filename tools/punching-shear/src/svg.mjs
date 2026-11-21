@@ -5,6 +5,8 @@ export const n = value => Number(value).toFixed(1);
 
 // Monochrome CAD palette: elements are told apart by line type and weight. Red is kept only for
 // failed items (ineffective legs, failing gaps) so that a failure is never hidden.
+import { svgSubscripts } from './subscript.mjs';
+
 export const COLORS = {
   ink: '#141414', muted: '#6b7076', rule: '#c9ced3', steel: '#141414', concrete: '#ffffff',
   slab: '#ffffff', edge: '#b9bec4', u1: '#141414', uout: '#141414', fail: '#b3261e', governing: '#8a8f94', opening: '#141414',
@@ -27,6 +29,8 @@ export function callout(x, y, dx, dy, run, lines, color = COLORS.ink) {
   const text = lines.map((line, i) => `<text class="small" x="${n(tx)}" y="${n(ey - 4 - (lines.length - 1 - i) * 11)}" text-anchor="${anchor}" fill="${COLORS.ink}">${esc(line)}</text>`).join('');
   return `<g class="callout">${head}<path d="M${n(x)} ${n(y)}L${n(ex)} ${n(ey)}L${n(lx)} ${n(ey)}" fill="none" stroke="${COLORS.ink}" stroke-width=".7"/>${text}</g>`;
 }
+// Technical lettering: ISOCPEUR when installed (AutoCAD), else the bundled ISO 3098 font osifont.
+export const CAD_FONT = "'ISOCPEUR','isocpeur','osifont','Roboto Mono',ui-monospace,monospace";
 export const DASH = { hidden: '6 4', u1: '14 5', uout: '16 4 3 4 3 4', ext: '22 4 3 4', centre: '18 4 3 4', layer: '2 3' };
 
 // Model-space grid: minor every 100 mm, major every 500 mm, clipped to the drawing area.
@@ -104,18 +108,17 @@ export function dimensionTo(p1, p2, q1, q2, text) {
 }
 
 export const STYLE = `<style>
-  text{font:11px 'Roboto Mono',ui-monospace,monospace;fill:${COLORS.ink}}
+  text{font:12px ${CAD_FONT};fill:${COLORS.ink}}
   .dim line{stroke:${COLORS.ink};stroke-width:.55}
   .dim line.tick{stroke-width:1.3}
-  .dim text{font-size:10.5px;fill:${COLORS.ink}}
-  .label{font-size:10.5px}
-  .small{font-size:9.5px;fill:${COLORS.muted}}
-  .legend text{font-family:Roboto,system-ui,sans-serif}
+  .dim text{font-size:12px;fill:${COLORS.ink}}
+  .label{font-size:12px}
+  .small{font-size:11px;fill:${COLORS.muted}}
   .dim,text{pointer-events:none}
   .link{cursor:pointer}
   .link:hover circle{stroke:${COLORS.governing};stroke-width:2}
 </style>`;
 
 export function svgDocument(width, height, title, body) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"><title>${esc(title)}</title>${STYLE}<rect width="${width}" height="${height}" fill="white"/>${body}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"><title>${esc(title)}</title>${STYLE}<rect width="${width}" height="${height}" fill="white"/>${svgSubscripts(body)}</svg>`;
 }

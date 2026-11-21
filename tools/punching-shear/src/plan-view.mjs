@@ -152,8 +152,8 @@ function planDimensions(column, view, d, aOut, layers, position, u1Offset = 2 * 
   } else {
     const a = column.cx / 2;
     const b = column.cy / 2;
-    out.push(dimension(...at(-a, b), ...at(a, b), `cx = ${column.cx}`, -14));
-    out.push(dimension(...at(-a, -b), ...at(-a, b), `cy = ${column.cy}`, -14));
+    out.push(dimension(...at(-a, b), ...at(a, b), `c_x = ${column.cx}`, -14));
+    out.push(dimension(...at(-a, -b), ...at(-a, b), `c_y = ${column.cy}`, -14));
   }
   const face = circular ? column.diameter / 2 : alongX ? column.cx / 2 : column.cy / 2;
   const sideHalf = circular ? column.diameter / 2 : alongX ? column.cy / 2 : column.cx / 2;
