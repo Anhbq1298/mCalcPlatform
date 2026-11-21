@@ -310,6 +310,12 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.getByLabel('Braced, spans differ ≤ 25 % (§6.4.3(6))').check();
   await page.getByLabel('1 V_Ed', { exact: true }).fill('800');
   await expect(status).toContainText('Requires confirmation');
+  await page.getByLabel('Links enclose top and bottom flexural bars').check();
+  await expect(status).toContainText('Design status: Pass');
+  await page.getByLabel('Column position').selectOption('edge');
+  await expect(status).toContainText('Incomplete input');
+  await expect(page.locator('#messages')).toContainText('geometry is an internal column');
+  await page.getByLabel('Column position').selectOption('internal');
   const schedule = page.locator('#layer-schedule tbody tr');
   await expect(schedule).toHaveCount(4);
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);

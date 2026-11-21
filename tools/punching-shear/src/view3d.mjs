@@ -1,6 +1,7 @@
 // Interactive 3D geometry on a 2D canvas (no dependency). Orbit: drag. Pan: Shift+drag or right
 // drag. Zoom: wheel. Geometry is schematic; no stress distribution is drawn.
 import { pathPolyline, toGlobal } from './geometry.mjs';
+import { intervalPolylines } from './perimeters.mjs';
 import { COLORS } from './svg.mjs';
 
 export function mountView3d(canvas, controls) {
@@ -155,8 +156,11 @@ export function buildScene(result) {
     faces.push(...prism(corners, -1, h + 1, { kind: 'opening', fill: '#f3d6d4', stroke: COLORS.opening, alpha: 0.6 }));
   }
   const at = (points, z) => points.map(p => ({ ...p, z }));
-  if (d > 0) lines.push({ kind: 'perimeter', points: at(pathPolyline(column, 2 * d), h + 1), color: COLORS.u1, width: 1.5, dash: [6, 3], label: 'u1' });
-  if (aOut > 0) lines.push({ kind: 'perimeter', points: at(pathPolyline(column, aOut), h + 1), color: COLORS.uout, width: 1.5, dash: [8, 4], label: 'u_out,ef' });
+  const effective = r => (result.model ? intervalPolylines(result.model, r, result.model.intervalsAt(r).intervals) : [pathPolyline(column, r)]);
+  for (const [r, color, dash, label] of [[2 * d, COLORS.u1, [6, 3], 'u1'], [aOut, COLORS.uout, [8, 4], 'u_out,ef']]) {
+    if (!(r > 0)) continue;
+    effective(r).forEach((points, index) => lines.push({ kind: 'perimeter', points: at(points, h + 1), color, width: 1.5, dash, label: index ? null : label }));
+  }
   const cover = slabInput.cover || 25;
   for (const link of result.layout?.links ?? []) {
     for (const leg of link.legs) {

@@ -15,16 +15,20 @@ export const STATES = {
 
 export function newDefaults() {
   return {
-    code: { edition: 'EN 1992-1-1:2004 + AC:2010 + A1:2014', profile: 'cen' },
+    code: { edition: 'EN 1992-1-1:2004 + AC:2010 + A1:2014', profile: 'cen', naConfirmed: false },
     column: { shape: 'rectangular', position: 'internal', cx: 300, cy: 900, diameter: 500, rotation: 0, x: 0, y: 0 },
     slab: { h: 250, depthMode: 'explicit', dx: 218, dy: 218, cover: 25, xMin: -4000, xMax: 4000, yMin: -4000, yMax: 4000 },
     materials: { fck: 30, fyk: 500 },
+    prestress: { sigmaX: 0, sigmaY: 0 },
     flexure: { phiX: 16, sX: 150, phiY: 16, sY: 150, outer: 'x', asx: 1090, asy: 1090, areaMode: 'explicit' },
     openings: [],
     loadType: 'net',
     loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
     beta: { method: 'simplified', confirmed: false, userValue: 1.15 },
-    reinforcement: { mode: 'auto', diameter: 10, shape: 'single', legGap: 100, layers: [] },
+    reinforcement: {
+      mode: 'auto', diameter: 10, shape: 'single', legGap: 100, layers: [],
+      anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: false },
+    },
   };
 }
 
@@ -70,7 +74,7 @@ const finite = value => typeof value === 'number' && Number.isFinite(value);
 export function validateGeometry(input) {
   const issues = [];
   const { column = {}, slab = {}, flexure = {} } = input;
-  if (column.position !== 'internal') issues.push({ state: STATES.unsupportedGeometry, message: 'Only internal columns are supported. Edge and corner punching is not verified in this release.' });
+  if (!['internal', 'edge', 'corner'].includes(column.position)) issues.push({ state: STATES.incomplete, message: 'Select the column position.' });
   if (column.shape === 'rectangular') {
     if (!positive(column.cx) || !positive(column.cy)) issues.push({ state: STATES.incomplete, message: 'Enter both rectangular column dimensions.' });
   } else if (column.shape === 'circular') {
@@ -103,6 +107,8 @@ export function validateGeometry(input) {
 export function validateMaterials(input) {
   const { fck, fyk } = input.materials || {};
   const issues = [];
+  const { sigmaX, sigmaY } = input.prestress || {};
+  if (!finite(sigmaX) || !finite(sigmaY)) issues.push({ state: STATES.incomplete, message: 'Enter the in-plane normal stresses σ_cx and σ_cy (0 when none).' });
   if (!finite(fck) || fck < 12 || fck > 90) issues.push({ state: STATES.incomplete, message: 'Concrete f_ck must be between 12 and 90 MPa.' });
   if (!finite(fyk) || fyk < 400 || fyk > 600) issues.push({ state: STATES.incomplete, message: 'Link steel f_yk must be between 400 and 600 MPa (EN 1992-1-1 Annex C range).' });
   return issues;
@@ -140,6 +146,10 @@ export function validateReinforcement(reinforcement = {}) {
       }
     }
   } else issues.push({ state: STATES.incomplete, message: 'Select a reinforcement mode.' });
+  const anchorage = reinforcement.anchorage || {};
+  if (!['hook', 'bend'].includes(anchorage.type) || !positive(anchorage.mandrelFactor) || !finite(anchorage.extension) || anchorage.extension < 0) {
+    issues.push({ state: STATES.incomplete, message: 'Enter the link anchorage type, mandrel diameter factor and extension.' });
+  }
   const usesDouble = reinforcement.mode === 'auto' ? reinforcement.shape === 'double' : (reinforcement.layers || []).some(layer => layer.shape === 'double');
   if (usesDouble && !positive(reinforcement.legGap)) issues.push({ state: STATES.incomplete, message: 'Enter the two-leg link width.' });
   return issues;

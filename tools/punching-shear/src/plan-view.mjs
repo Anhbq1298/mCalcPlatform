@@ -1,7 +1,13 @@
 // CAD-style plan of the connection: slab edges, openings, column, control perimeters, link layers,
 // individual links and legs, and the governing tangential gap. Returns an SVG string.
 import { pathExtent, pathPolyline, pointAt, toGlobal } from './geometry.mjs';
+import { intervalPolylines } from './perimeters.mjs';
 import { COLORS, dimension, esc, n, polyline, svgDocument, viewport } from './svg.mjs';
+
+function firstEffective(model, r) {
+  const item = model?.intervalsAt(r).intervals[0];
+  return !item || item.closed ? 0 : (item.s0 + item.s1) / 2;
+}
 
 function governingGap(result) {
   const check = result.loads?.find(load => load.name === result.governing?.load)?.layoutCheck;
@@ -45,18 +51,34 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     const p = toGlobal(column, pointAt(column, r, s));
     return `<text class="label" x="${n(view.x(p.x) + 4)}" y="${n(view.y(p.y) - 4)}" fill="${color}">${esc(text)}</text>`;
   };
+  const model = result.model;
+  // Ineffective portions (outside the slab, in openings or opening shadows) are drawn faint.
+  const perimeter = (r, color, dash, width = 1.4) => {
+    const out = [polyline(pathPolyline(column, r), view, `fill="none" stroke="${COLORS.rule}" stroke-width=".8" stroke-dasharray="1 3"`)];
+    const intervals = model ? model.intervalsAt(r).intervals : [{ s0: 0, s1: 0, closed: true }];
+    const lines = model ? intervalPolylines(model, r, intervals) : [pathPolyline(column, r)];
+    for (const line of lines) out.push(polyline(line, view, `fill="none" stroke="${color}" stroke-width="${width}" stroke-dasharray="${dash}"`));
+    return out.join('');
+  };
+  for (const shadow of result.shadows ?? []) {
+    const r = reach + 200;
+    for (const angle of [shadow.mid + shadow.low, shadow.mid + shadow.high]) {
+      const end = { x: column.x + r * Math.cos(angle), y: column.y + r * Math.sin(angle) };
+      parts.push(`<line x1="${n(view.x(column.x))}" y1="${n(view.y(column.y))}" x2="${n(view.x(end.x))}" y2="${n(view.y(end.y))}" stroke="${COLORS.opening}" stroke-width=".8" stroke-dasharray="4 3"/>`);
+    }
+  }
   if (aOut > 0) {
-    parts.push(polyline(pathPolyline(column, aOut), view, `fill="none" stroke="${COLORS.uout}" stroke-width="1.4" stroke-dasharray="8 4"`));
-    parts.push(labelAt(aOut, 'u_out,ef', COLORS.uout, 0));
+    parts.push(perimeter(aOut, COLORS.uout, '8 4'));
+    parts.push(labelAt(aOut, 'u_out,ef', COLORS.uout, firstEffective(model, aOut)));
   }
   if (d > 0) {
-    parts.push(polyline(pathPolyline(column, 2 * d), view, `fill="none" stroke="${COLORS.u1}" stroke-width="1.4" stroke-dasharray="6 3"`));
-    const u1Label = toGlobal(column, pointAt(column, 2 * d, 0));
+    parts.push(perimeter(2 * d, COLORS.u1, '6 3'));
+    const u1Label = toGlobal(column, pointAt(column, 2 * d, firstEffective(model, 2 * d)));
     parts.push(`<text class="label" x="${n(view.x(u1Label.x) + 4)}" y="${n(view.y(u1Label.y) + 13)}" fill="${COLORS.u1}">u1 (2d)</text>`);
   }
   for (const [index, layer] of layers.entries()) {
-    parts.push(polyline(pathPolyline(column, layer.offset), view, `fill="none" stroke="${COLORS.muted}" stroke-width=".7" stroke-dasharray="2 3"`));
-    const p = toGlobal(column, pointAt(column, layer.offset, 0));
+    parts.push(perimeter(layer.offset, COLORS.muted, '2 3', 0.7));
+    const p = toGlobal(column, pointAt(column, layer.offset, firstEffective(model, layer.offset)));
     if (index === 0 || index === layers.length - 1) parts.push(`<text class="small" x="${n(view.x(p.x) - 6)}" y="${n(view.y(p.y) - 6)}" text-anchor="end">L${index + 1}</text>`);
   }
   const gov = governingGap(result);
@@ -83,14 +105,21 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     }
     parts.push(`<g class="link" data-link="${esc(link.id)}"><title>${esc(link.id)} · Ø${link.diameter}</title>${body}</g>`);
   }
-  parts.push(planDimensions(column, view, d, aOut, layers));
+  parts.push(planDimensions(column, view, d, aOut, layers, result.position));
   parts.push(axes(height - legendHeight, column));
   parts.push(legend(width, height, legendHeight));
   return svgDocument(width, height, 'Punching shear plan', parts.join(''));
 }
 
-function planDimensions(column, view, d, aOut, layers) {
+function planDimensions(column, view, d, aOut, layers, position) {
   const at = (x, y) => { const p = toGlobal(column, { x, y }); return [view.x(p.x), view.y(p.y)]; };
+  // Chain along the local axis that points into the slab (edge and corner columns).
+  const normal = position?.normals?.[0];
+  const theta = ((column.rotation || 0) * Math.PI) / 180;
+  const localNormal = normal ? { x: normal.x * Math.cos(theta) + normal.y * Math.sin(theta), y: -normal.x * Math.sin(theta) + normal.y * Math.cos(theta) } : { x: 1, y: 0 };
+  const alongX = Math.abs(localNormal.x) > 0.5;
+  const sign = alongX ? Math.sign(localNormal.x) : Math.sign(localNormal.y);
+  const ray = (t, side = 0) => (alongX ? at(sign * t, side) : at(side, sign * t));
   const out = [];
   if (column.shape === 'circular') {
     const r = column.diameter / 2;
@@ -101,16 +130,16 @@ function planDimensions(column, view, d, aOut, layers) {
     out.push(dimension(...at(-a, b), ...at(a, b), `cx = ${column.cx}`, -14));
     out.push(dimension(...at(-a, -b), ...at(-a, b), `cy = ${column.cy}`, -14));
   }
-  const face = column.shape === 'circular' ? column.diameter / 2 : column.cx / 2;
+  const face = column.shape === 'circular' ? column.diameter / 2 : alongX ? column.cx / 2 : column.cy / 2;
   let previous = 0;
   layers.forEach((layer, index) => {
     if (index > 1) return;
     const text = index ? (layer.offset - previous).toFixed(0) : 'a1 = ' + layer.offset.toFixed(0);
-    out.push(dimension(...at(face + previous, 0), ...at(face + layer.offset, 0), text, -12));
+    out.push(dimension(...ray(face + previous), ...ray(face + layer.offset), text, -12));
     previous = layer.offset;
   });
-  if (d > 0) out.push(dimension(...at(face, 0), ...at(face + 2 * d, 0), `2d = ${(2 * d).toFixed(0)}`, 30));
-  if (aOut > 0) out.push(dimension(...at(face, 0), ...at(face + aOut, 0), `a_out = ${aOut.toFixed(0)}`, 46));
+  if (d > 0) out.push(dimension(...ray(face), ...ray(face + 2 * d), `2d = ${(2 * d).toFixed(0)}`, 30));
+  if (aOut > 0) out.push(dimension(...ray(face), ...ray(face + aOut), `a_out = ${aOut.toFixed(0)}`, 46));
   return out.join('');
 }
 
@@ -131,6 +160,7 @@ function legend(width, height, legendHeight) {
     + item(108, `<circle cx="5" cy="0" r="4" fill="white" stroke="${COLORS.fail}"/>`, 'Ineffective leg')
     + item(214, `<line x1="0" y1="0" x2="12" y2="0" stroke="${COLORS.u1}" stroke-dasharray="4 2" stroke-width="1.4"/>`, 'u1 at 2d')
     + item(296, `<line x1="0" y1="0" x2="12" y2="0" stroke="${COLORS.uout}" stroke-dasharray="5 2" stroke-width="1.4"/>`, 'u_out,ef')
-    + item(380, `<line x1="0" y1="0" x2="12" y2="0" stroke="${COLORS.governing}" stroke-width="4"/>`, 'Governing tangential gap')
+    + item(380, `<line x1="0" y1="0" x2="12" y2="0" stroke="${COLORS.governing}" stroke-width="4"/>`, 'Governing gap')
+    + item(480, `<line x1="0" y1="0" x2="12" y2="0" stroke="${COLORS.rule}" stroke-dasharray="1 3"/>`, 'Ineffective')
     + `<text class="small" x="14" y="${y + 18}">Dimensions in mm. Layer offsets measured from the column face.</text>`;
 }

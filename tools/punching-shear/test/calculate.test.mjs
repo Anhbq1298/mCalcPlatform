@@ -102,11 +102,13 @@ test('slab edge inside the reinforcement zone is Unsupported geometry, never Pas
   assert.equal(result.status, 'Unsupported geometry');
 });
 
-test('openings within 6d are unsupported; distant openings are noted and allowed', () => {
+test('openings within 6d reduce the perimeters; distant openings are only noted', () => {
   const near = base();
   near.loads = [{ name: 'A', V: 300, Mx: 0, My: 0 }];
   near.openings = [{ x: 600, y: 0, w: 200, h: 200 }];
-  assert.equal(calculate(near).status, 'Unsupported geometry');
+  const reduced = calculate(near);
+  assert.ok(reduced.u1 < calculate(base()).u1);
+  assert.equal(reduced.shadows.length, 1);
   const far = structuredClone(near);
   far.openings = [{ x: 3000, y: 3000, w: 300, h: 300 }];
   const result = calculate(far);
@@ -121,7 +123,7 @@ test('incomplete and unsupported inputs never give Pass', () => {
   const noLoad = base(); noLoad.loads = []; states.push(calculate(noLoad).status);
   const uplift = base(); uplift.loads = [{ name: 'U', V: 0, Mx: 10, My: 0 }]; states.push(calculate(uplift).status);
   const userBeta = base(); userBeta.beta = { method: 'user', userValue: 0.9 }; states.push(calculate(userBeta).status);
-  assert.deepEqual(states, ['Unsupported geometry', 'Incomplete input', 'Incomplete input', 'Unsupported loading', 'Incomplete input']);
+  assert.deepEqual(states, ['Incomplete input', 'Incomplete input', 'Incomplete input', 'Unsupported loading', 'Incomplete input']);
 });
 
 test('effective depth and flexural area can be derived from bars', () => {

@@ -41,7 +41,9 @@ export function renderDetails(list, result, loadName) {
   if (!result.section) return;
   const load = result.loads.find(entry => entry.name === loadName) ?? result.loads[0];
   const { section, resistance: r } = result;
+  if (!load.vEd1) return;
   const entries = [
+    ['Column position', result.position.kind === 'internal' ? 'Internal' : `${result.position.kind === 'edge' ? 'Edge' : 'Corner'}: c1 = ${fmt(result.position.c1, 0)}, c2 = ${fmt(result.position.c2, 0)} mm`],
     ['d_x, d_y', `${fmt(section.dx, 1)}, ${fmt(section.dy, 1)} mm`],
     ['Mean d', `${fmt(section.d, 1)} mm`],
     ['ρ_x, ρ_y', `${fmt(section.rhoX * 100, 3)} %, ${fmt(section.rhoY * 100, 3)} %`],
@@ -51,16 +53,20 @@ export function renderDetails(list, result, loadName) {
     ['v_Rd,c (Eq. 6.47)', `${fmt(r.vRdc)} MPa`],
     ['v_Rd,max (0.4 ν f_cd)', `${fmt(result.vRdMax)} MPa`],
     ['u_0, u_1', `${fmt(result.u0, 0)}, ${fmt(result.u1, 0)} mm`],
+    ...(result.u1Star ? [['u_1* (Fig. 6.20)', `${fmt(result.u1Star, 0)} mm`]] : []),
+    ...(r.sigmaCp ? [['σ_cp (Eq. 6.47)', `${fmt(r.sigmaCp, 2)} MPa`]] : []),
     ['f_ywd,ef', `${fmt(result.fywdEf, 1)} MPa`],
     ['β', `${fmt(load.beta.value)} · ${load.beta.method}`],
     ['v_Ed at u_0, u_1', `${fmt(load.vEd0)}, ${fmt(load.vEd1)} MPa`],
   ];
-  if (load.beta.terms?.W1) entries.push(['k, W_1 (Table 6.1, Eq. 6.41)', `${fmt(load.beta.terms.k, 3)}, ${fmt(load.beta.terms.W1 / 1e6, 4)}·10⁶ mm²`]);
+  if (load.beta.terms?.W1) entries.push([result.position.kind === 'edge' ? 'k, W_1 (Table 6.1 with c1/2c2, Eq. 6.45)' : 'k, W_1 (Table 6.1, Eq. 6.41)', `${fmt(load.beta.terms.k, 3)}, ${fmt(load.beta.terms.W1 / 1e6, 4)}·10⁶ mm²`]);
+  if (load.beta.terms?.ePerp !== undefined) entries.push(['e ⊥ edge (interior +), e ∥ edge', `${fmt(load.beta.terms.ePerp, 1)}, ${fmt(load.beta.terms.ePar, 1)} mm`]);
   if (load.beta.terms?.betaCrossed) entries.push(['β, both Eq. 6.43 pairings', `${fmt(load.beta.terms.betaParallel)}, ${fmt(load.beta.terms.betaCrossed)}`]);
   if (load.required) {
     entries.push(['u_out,ef (Eq. 6.54)', `${fmt(load.uOut, 0)} mm at a_out = ${fmt(load.aOut, 0)} mm`]);
     entries.push(['A_sw required per perimeter', `${fmt(load.aswReq, 0)} mm² at s_r = ${fmt(result.envelope.sr, 0)} mm`]);
   }
+  for (const entry of result.detailing?.rows ?? []) entries.push([`${entry.label} (${entry.clause})`, `${entry.status}${entry.detail ? ' · ' + entry.detail : ''}`]);
   for (const [label, value] of entries) {
     const name = document.createElement('dt');
     name.textContent = label;

@@ -4,8 +4,13 @@ import { calculate } from '../src/calculate.mjs';
 import { newDefaults } from '../src/inputs.mjs';
 import { buildLinks, layerSummary, tangentialGaps } from '../src/layout.mjs';
 import { perimeterAtOffset } from '../src/geometry.mjs';
+import { effectiveIntervals } from '../src/perimeters.mjs';
 
-const model = () => ({ column: { shape: 'rectangular', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, slab: { xMin: -3000, xMax: 3000, yMin: -3000, yMax: 3000 }, openings: [], legGap: 100 });
+const model = () => {
+  const m = { column: { shape: 'rectangular', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, slab: { xMin: -3000, xMax: 3000, yMin: -3000, yMax: 3000 }, openings: [], shadows: [], legGap: 100 };
+  m.intervalsAt = r => effectiveIntervals(m, r);
+  return m;
+};
 const provided = layers => {
   const input = newDefaults();
   input.beta.confirmed = true;
@@ -25,20 +30,26 @@ test('links and legs are counted separately; two-leg links contribute two effect
   assert.ok(Math.abs(summary.asw - 16 * Math.PI * 25) < 1e-9);
 });
 
-test('legs outside the slab are ineffective and do not count toward A_sw', () => {
+test('a layer clipped by a slab edge carries links only on its effective length', () => {
   const m = model();
   m.slab.xMax = 250;
   const layers = [{ offset: 100, diameter: 10, shape: 'single', links: 8, start: 0, omitted: [] }];
   const summary = layerSummary(m, layers, buildLinks(m, layers, 'user'))[0];
-  assert.ok(summary.effectiveLegs < summary.legs);
-  assert.ok(summary.ineffective.every(leg => leg.reason === 'Outside slab'));
+  assert.ok(summary.u < perimeterAtOffset(m.column, 100) - 1);
+  assert.equal(summary.effectiveLegs, summary.legs);
+  assert.equal(summary.legs, 8);
+  // A two-leg link centred near the end of an interval puts one leg outside the slab.
+  const wide = [{ offset: 100, diameter: 10, shape: 'double', links: 1, start: 0, omitted: [] }];
+  m.legGap = 1800;
+  const outside = layerSummary(m, wide, buildLinks(m, wide, 'user'))[0];
+  assert.ok(outside.ineffective.some(leg => leg.reason === 'Outside slab'));
 });
 
 test('tangential gaps sum to the layer perimeter and detect an omitted link', () => {
   const layers = [{ offset: 100, diameter: 10, shape: 'single', links: 12, start: 0, omitted: [3] }];
   const links = buildLinks(model(), layers, 'user');
   const u = perimeterAtOffset(model().column, 100);
-  const gaps = tangentialGaps(links, u);
+  const gaps = tangentialGaps(links, model().intervalsAt(100));
   assert.ok(Math.abs(gaps.gaps.reduce((sum, gap) => sum + gap.length, 0) - u) < 1e-9);
   assert.ok(Math.abs(gaps.max - 2 * u / 12) < 1e-9);
 });
@@ -80,6 +91,6 @@ test('auto layout reports a reason when two-leg links cannot fit the layer', () 
   input.loads = [{ name: 'A', V: 800, Mx: 0, My: 0 }];
   input.reinforcement = { mode: 'auto', diameter: 10, shape: 'double', legGap: 2000, layers: [] };
   const result = calculate(input);
-  assert.match(result.layout.reason, /does not fit/);
+  assert.match(result.layout.reason, /No valid link count/);
   assert.equal(result.status, 'Fail');
 });

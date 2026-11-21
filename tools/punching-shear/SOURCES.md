@@ -1,6 +1,6 @@
 # mPunchingShear: sources and verification
 
-Scope: internal rectangular (any rotation) and circular columns, EN 1992-1-1:2004 + AC:2010 + A1:2014, §6.4 punching and §9.4.3 detailing, CEN recommended values. No National Annex is selected, and no Singapore, UK or German NA values are used or labelled.
+Scope: internal rectangular (any rotation) and circular columns; rectangular edge and corner columns with faces flush with the slab edges; openings; in-plane normal stress. EN 1992-1-1:2004 + AC:2010 + A1:2014, §6.4 punching, §8.3, §8.5, §9.3.2 and §9.4.3 detailing. CEN recommended values by default, plus a UK NA profile that stays Not verified until the user confirms its values. No Singapore or German NA values are used or labelled.
 
 ## Clauses and where they are implemented
 
@@ -24,8 +24,20 @@ Scope: internal rectangular (any rotation) and circular columns, EN 1992-1-1:200
 | First layer ≥ 0.3d | The Concrete Centre guidance | `reinforcement-checks.mjs` | Guidance only, reported as Requires confirmation |
 | s_r ≤ 0.75d; s_t ≤ 1.5d inside u1, ≤ 2d outside; at least two perimeters | §9.4.3(1) | `reinforcement-checks.mjs` | s_t measured between actual consecutive effective legs along each layer |
 | Minimum leg area | §9.4.3(2), Eq. 9.11 | `resistance.mjs` | Vertical links |
-| Openings within 6d | §6.4.2(3) | `calculate.mjs` | Detected and reported as Unsupported geometry |
-| Anchorage of links | §8.5 | — | Not checked; always Requires confirmation |
+| Openings within 6d: sector between tangents ineffective; l2 → √(l1·l2) when l1 > l2 | §6.4.2(3), Fig. 6.14 | `perimeters.mjs` | Exact sector removal from every perimeter and layer; legs in the sector are not placed |
+| Edge/corner control perimeters | §6.4.2(4), Fig. 6.15 | `perimeters.mjs` | Clipped paths: 2c1 + c2 + 2πd (edge), c1 + c2 + πd (corner) |
+| u1* | Fig. 6.20 (a ≤ 1.5d, ≤ 0.5c1) | `position.mjs` | Implemented |
+| u0 edge c2 + 3d ≤ c2 + 2c1; corner 3d ≤ c1 + c2 | §6.4.5(3) | `position.mjs` | Implemented |
+| β edge: u1/u1*; Eq. 6.44 with k for c1/2c2 and W1 Eq. 6.45 | §6.4.3(4) | `beta.mjs` | Inward eccentricity only; outward is Unsupported loading |
+| β corner: Eq. 6.46 u1/u1* | §6.4.3(5) | `beta.mjs` | Inward eccentricity only |
+| β simplified 1.4 edge, 1.5 corner | §6.4.3(6), Fig. 6.21N | `beta.mjs` | User confirms conditions |
+| σ_cp = (σ_cy + σ_cz)/2, k1 = 0.1 | Eq. 6.47 | `resistance.mjs` | Implemented |
+| Slab depth ≥ 200 mm with shear reinforcement | §9.3.2(1) | `detailing.mjs` | Implemented |
+| Mandrel φm ≥ 4φ (φ ≤ 16), 7φ (φ > 16) | §8.3, Table 8.1N | `detailing.mjs` | Implemented |
+| Link anchorage: hook extension ≥ max(5φ, 50), bend ≥ max(10φ, 70) | §8.5, Fig. 8.5 | `detailing.mjs` | Implemented |
+| Bends fit within h − 2c (φm + 2φ) | Physical geometry | `detailing.mjs` | Implemented |
+| Link engages top and bottom flexural bars | §8.5, §9.4.3 | `detailing.mjs` | User confirmation |
+| UK NA: v_Rd,max = 0.5νf_cd, v_Ed ≤ 2v_Rd,c at u1 | UK NA 6.4.5(3) | `profile.mjs` | Secondary sources (CADS report, The Concrete Centre); Not verified until confirmed |
 
 ### Eq. 6.43 interpretation
 
@@ -43,11 +55,15 @@ EN 1992-1-1 writes β = 1 + 1.8·√((e_y/b_z)² + (e_z/b_y)²), where b_y and b
 | same | Base A_sw per row | 4.98 cm² (German NA) | 5.23 cm² (CEN) | ≈ 5 % difference expected from German NA rules; not an exact test |
 | Hand calculation | v_Rd,max at f_ck 30 | — | 4.224 MPa | Matches Eq. 6.53 with 0.4·ν·f_cd |
 
-Not benchmarked: Dlubal VE 1028 (circular). The circular route is covered by exact geometry and formula tests and by the Canvas cross-check, not by a published example.
+| Dlubal VE 1028, circular D = 300, d = 210, β = 1.10 | u1 | 3.581 m | 3.581 m | Matches |
+| same | v_Ed | 0.731 MPa | 0.7313 MPa | Matches |
+| same | k, v_Rd,c, v_min | 1.976, 0.585, 0.532 MPa | 1.976, 0.585, 0.532 | Match; v_Rd,max and u_out use German NA rules and are not compared |
+
+Edge and corner formulas were checked against the Blueprints (MIT) implementations of Eq. 6.44, 6.45 and 6.46, and Eq. 6.45 was re-derived by integrating ∫|e| dl over the edge perimeter.
 
 ## Independent cross-check (`npm run test:punching-canvas`)
 
-The report is a Canvas worksheet whose resistances, β, stresses, a_out and checks are live formulas. The cross-check evaluates it with the Canvas calculation engine and compares the results with the JS solver. Relative tolerance is 1×10⁻⁶ for v_Rd,c, v_Rd,max, u1, f_ywd,ef, β, v_Ed, v_Rd,cs and a_out. Every pass/fail check must agree. Eight cases are covered: CSI geometry, auto layout, uniaxial and biaxial moments with rotation, two-leg links, circular column, no links required, a provided layout with detailing failures, and bar-derived depth with user β.
+The report is a Canvas worksheet whose resistances, β, stresses, a_out and checks are live formulas. The cross-check evaluates it with the Canvas calculation engine and compares the results with the JS solver. Relative tolerance is 1×10⁻⁶ for v_Rd,c, v_Rd,max, u1, f_ywd,ef, β, v_Ed, v_Rd,cs and a_out. Every pass/fail check must agree. Thirteen cases are covered: CSI geometry, auto layout, uniaxial and biaxial moments with rotation, two-leg links, circular column, no links required, a provided layout with detailing failures, bar-derived depth with user β, edge column with e_par, edge with simplified β, corner column, openings with σ_cp and bend anchorage, and the UK profile. u0, u1*, and every detailing check are also compared.
 
 ## Test coverage (`npm test`)
 
@@ -56,7 +72,7 @@ Geometry exactness, convergence, offset invariance, rotation and translation inv
 ## Limitations before broader production use
 
 - Line-by-line review of the implemented equations against the licensed EN 1992-1-1 text by a second engineer.
-- Edge and corner columns, perimeter clipping, openings within 6d, load reduction inside the perimeter, column bases, prestress.
-- National Annex profiles. Each needs its own verified parameter set; the German NA, for example, changes v_Rd,max and the row factors.
-- Link anchorage and bend geometry checks.
-- A published circular-column benchmark.
+- Edge and corner columns set back from the slab edge, circular columns at edges, and eccentricity toward the slab exterior (Eq. 6.39 with the edge perimeter).
+- EN 1992-1-1 defines no W1 or u1* for perimeters reduced by openings; moment-based β with openings is reported as Not verified.
+- No deduction of loads inside the control perimeter: Eq. 6.48 applies to column bases only. Column bases are not covered.
+- National Annexes other than the CEN values; the UK profile needs confirmation against the NA text. The Singapore NA text was not available.

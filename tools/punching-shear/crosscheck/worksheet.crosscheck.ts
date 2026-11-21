@@ -54,6 +54,20 @@ function cases() {
     Object.assign(input.flexure, { areaMode: 'bars', phiX: 20, sX: 125, phiY: 16, sY: 150, outer: 'y' });
     input.loads = [{ name: 'A', V: 760, Mx: 0, My: 0 }];
   });
+  const edge = input => {
+    input.column = { ...input.column, position: 'edge', cx: 400, cy: 300, x: 3800, y: 0 };
+    input.slab = { ...input.slab, h: 240, dx: 200, dy: 200 };
+  };
+  add('edge column, Eq. 6.44 with e_par, links', input => { edge(input); input.beta = { method: 'moment' }; input.loads = [{ name: 'A', V: 250, Mx: 20, My: -30 }]; input.reinforcement.anchorage.engaged = true; });
+  add('edge column, simplified β 1.4', input => { edge(input); input.loads = [{ name: 'A', V: 200, Mx: 0, My: 0 }]; });
+  add('corner column, Eq. 6.46', input => { edge(input); input.column = { ...input.column, position: 'corner', y: 3850 }; input.beta = { method: 'moment' }; input.loads = [{ name: 'A', V: 150, Mx: -10, My: -15 }]; });
+  add('openings within 6d, σ_cp, bend anchorage', input => {
+    input.openings = [{ x: 700, y: 0, w: 300, h: 200 }];
+    input.prestress = { sigmaX: 1.5, sigmaY: 0.5 };
+    input.loads = [{ name: 'A', V: 700, Mx: 0, My: 0 }];
+    input.reinforcement.anchorage = { type: 'bend', mandrelFactor: 4, extension: 90, engaged: false };
+  });
+  add('UK profile, confirmed', input => { input.code = { ...input.code, profile: 'uk', naConfirmed: true }; input.loads = [{ name: 'A', V: 900, Mx: 0, My: 0 }]; });
   return list;
 }
 
@@ -88,6 +102,17 @@ for (const [name, input] of cases()) {
     });
     for (const check of checks) {
       if (expected.has(check.latex)) expect(check.pass, check.latex).toBe(expected.get(check.latex));
+    }
+    if (result.u1Star) close(si(values['u_{1s}']), result.u1Star, 'u1*');
+    close(si(values['u_{0}']), result.u0, 'u0');
+    for (const row of result.detailing?.rows ?? []) {
+      const phi = row.id.split('-')[1];
+      const latex = row.id === 'depth' ? 'h\\ge200\\,\\mathrm{mm}'
+        : row.id.startsWith('mandrel') ? `\\phi_{m.${phi}}\\ge` : row.id.startsWith('extension') ? `l_{ext}\\ge\\max\\left(` : row.id.startsWith('fit') ? `h-2c\\ge\\phi_{m.${phi}}` : null;
+      if (!latex) continue;
+      const found = checks.filter(check => check.latex.startsWith(latex) && (!phi || check.latex.includes(phi)));
+      expect(found.length, row.id).toBeGreaterThan(0);
+      for (const check of found) expect(check.pass, row.id).toBe(row.status === 'Pass');
     }
     const governing = result.loads.find(load => load.layoutCheck)?.layoutCheck;
     if (governing) {

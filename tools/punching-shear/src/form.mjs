@@ -14,8 +14,9 @@ const option = (value, label) => ({ value, label });
 export const GROUPS = [
   ['Design basis', [
     ['code.edition', 'Code edition', 'select', [option('EN 1992-1-1:2004 + AC:2010 + A1:2014', 'EN 1992-1-1:2004 + AC:2010 + A1:2014')]],
-    ['code.profile', 'Parameter set', 'select', [option('cen', 'CEN recommended values')]],
-    ['column.position', 'Column position', 'select', [option('internal', 'Internal'), option('edge', 'Edge (not supported)'), option('corner', 'Corner (not supported)')]],
+    ['code.profile', 'Parameter set', 'select', [option('cen', 'CEN recommended values'), option('uk', 'UK National Annex (confirm values)')]],
+    ['code.naConfirmed', 'UK NA values confirmed against the NA text', 'checkbox', null, s => s.code.profile === 'uk'],
+    ['column.position', 'Column position', 'select', [option('internal', 'Internal'), option('edge', 'Edge (face flush with slab edge)'), option('corner', 'Corner (faces flush with two edges)')]],
   ]],
   ['Column', [
     ['column.shape', 'Shape', 'select', [option('rectangular', 'Rectangular'), option('circular', 'Circular')]],
@@ -42,6 +43,10 @@ export const GROUPS = [
     ['materials.fck', 'Concrete f_ck (MPa)', 'number'],
     ['materials.fyk', 'Link steel f_yk (MPa)', 'number'],
   ]],
+  ['In-plane normal stress', [
+    ['prestress.sigmaX', 'σ_cx (MPa, compression +)', 'number'],
+    ['prestress.sigmaY', 'σ_cy (MPa, compression +)', 'number'],
+  ]],
   ['Top flexural reinforcement', [
     ['flexure.areaMode', 'Area input', 'select', [option('explicit', 'Area per metre'), option('bars', 'Bars and spacing')]],
     ['flexure.asx', 'A_s,x (mm²/m)', 'number', null, s => s.flexure.areaMode === 'explicit'],
@@ -63,6 +68,10 @@ export const GROUPS = [
     ['reinforcement.diameter', 'Link Ø (mm)', 'select', [6, 8, 10, 12, 16, 20].map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
     ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg link'), option('double', 'Two-leg link')], s => s.reinforcement.mode === 'auto'],
     ['reinforcement.legGap', 'Two-leg link width (mm)', 'number'],
+    ['reinforcement.anchorage.type', 'Link anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')]],
+    ['reinforcement.anchorage.mandrelFactor', 'Mandrel diameter φm/φ', 'number'],
+    ['reinforcement.anchorage.extension', 'Straight extension after bend (mm)', 'number'],
+    ['reinforcement.anchorage.engaged', 'Links enclose top and bottom flexural bars', 'checkbox'],
   ]],
 ];
 

@@ -9,7 +9,7 @@ export function row(id, clause, label, demand, resistance, status, extra = {}) {
   return { id, clause, label, demand, resistance, ur, status: status ?? (ur !== null && ur <= 1 + 1e-9 ? STATES.pass : STATES.fail), ...extra };
 }
 
-export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links }) {
+export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, kMax = P.kMax, kMaxLabel = 'k_max·v_Rd,c', detailing }) {
   const rows = [];
   const layerRows = [];
   const fywdEf = fywdEffective(fyk, d);
@@ -37,7 +37,7 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links }
       unit: 'MPa', detail: ordered ? 'At least two layers are needed to define s_r.' : 'Layer offsets must increase from L1 outward.',
     }));
   }
-  rows.push(row('kmax', '§6.4.5(1) Note, A1:2014', 'Upper limit with links, k_max·v_Rd,c', vEd, P.kMax * vRdc, null, { unit: 'MPa' }));
+  rows.push(row('kmax', kMaxLabel.includes('UK') ? 'UK NA 6.4.5(3)' : '§6.4.5(1) Note, A1:2014', 'Upper limit with links, ' + kMaxLabel, vEd, kMax * vRdc, null, { unit: 'MPa' }));
 
   const outermost = Math.max(...offsets);
   const needed = aOut - P.outerK * d;
@@ -77,8 +77,9 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links }
   rows.push({ ...worstMinimum, id: 'minimum', label: 'Minimum link leg area (governing layer)' });
   for (const { placement } of layerRows) if (placement) rows.push(placement);
   const legs = links.reduce((sum, link) => sum + link.legs.length, 0);
-  rows.push(row('anchorage', '§9.4.3, §8.4–8.5', 'Link anchorage and physical detailing', null, null, STATES.confirm, {
-    detail: `${links.length} links, ${legs} legs: anchorage around the flexural bars is not checked by the tool.`,
+  const problems = detailing ? detailing.rows.filter(entry => entry.status !== STATES.pass).map(entry => entry.label + ' (' + entry.status + ')') : [];
+  rows.push(row('anchorage', '§8.3, §8.5, §9.3.2(1)', 'Link anchorage and physical detailing', null, null, detailing?.status ?? STATES.confirm, {
+    detail: `${links.length} links, ${legs} legs. ` + (problems.length ? problems.join('; ') : 'All detailing checks satisfied.'),
   }));
   return { rows, layerRows, fywdEf };
 }

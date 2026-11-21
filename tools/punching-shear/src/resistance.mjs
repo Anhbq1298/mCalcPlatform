@@ -5,7 +5,7 @@ export const CODE_PARAMETERS = {
   gammaC: 1.5, // §2.4.2.4
   gammaS: 1.15, // §2.4.2.4
   cRdcNumerator: 0.18, // C_Rd,c = 0.18/γc, §6.4.4(1)
-  k1: 0.1, // §6.4.4(1); multiplies σcp, which is not implemented (σcp = 0)
+  k1: 0.1, // §6.4.4(1), multiplies σ_cp
   rhoMax: 0.02, // Eq. 6.47
   kSizeMax: 2.0, // Eq. 6.47
   vRdMaxFactor: 0.4, // §6.4.5(3) after AC:2010: v_Rd,max = 0.4·ν·f_cd
@@ -27,20 +27,22 @@ export function reinforcementRatio(asPerMetre, d) {
   return Math.min(asPerMetre / (1000 * d), CODE_PARAMETERS.rhoMax);
 }
 
-// Eq. 6.47 with σ_cp = 0, and v_min from Eq. 6.3N.
-export function concreteResistance({ fck, d, rhoX, rhoY, gammaC = CODE_PARAMETERS.gammaC }) {
+// Eq. 6.47: v_Rd,c = C_Rd,c·k·(100ρ_l f_ck)^(1/3) + k1·σ_cp ≥ v_min + k1·σ_cp, v_min from Eq. 6.3N.
+// σ_cp = (σ_cy + σ_cz)/2 in MPa, compression positive.
+export function concreteResistance({ fck, d, rhoX, rhoY, sigmaCp = 0, gammaC = CODE_PARAMETERS.gammaC }) {
   const k = sizeEffect(d);
   const rho = Math.min(Math.sqrt(rhoX * rhoY), CODE_PARAMETERS.rhoMax);
   const cRdc = CODE_PARAMETERS.cRdcNumerator / gammaC;
-  const vRdcRaw = cRdc * k * Math.cbrt(100 * rho * fck);
+  const prestress = CODE_PARAMETERS.k1 * sigmaCp;
+  const vRdcRaw = cRdc * k * Math.cbrt(100 * rho * fck) + prestress;
   const vMin = 0.035 * Math.pow(k, 1.5) * Math.sqrt(fck);
-  return { k, rho, cRdc, vRdcRaw, vMin, vRdc: Math.max(vRdcRaw, vMin) };
+  return { k, rho, cRdc, sigmaCp, vRdcRaw, vMin, vRdc: Math.max(vRdcRaw, vMin + prestress) };
 }
 
-// Eq. 6.53 limit: 0.4·ν·f_cd with ν = 0.6(1 − f_ck/250), Eq. 6.6N.
-export function maximumResistance({ fck, gammaC = CODE_PARAMETERS.gammaC }) {
+// Eq. 6.53 limit: factor·ν·f_cd with ν = 0.6(1 − f_ck/250), Eq. 6.6N; factor from the code profile.
+export function maximumResistance({ fck, gammaC = CODE_PARAMETERS.gammaC, factor = CODE_PARAMETERS.vRdMaxFactor }) {
   const nu = 0.6 * (1 - fck / 250);
-  return CODE_PARAMETERS.vRdMaxFactor * nu * (fck / gammaC);
+  return factor * nu * (fck / gammaC);
 }
 
 // §6.4.5(1): f_ywd,ef = 250 + 0.25d ≤ f_ywd.
