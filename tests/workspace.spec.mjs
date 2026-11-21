@@ -198,8 +198,13 @@ test('solves mConcreteRecCol locally and restores shear inputs by design ID', as
   const enable = page.getByLabel('Check directional shear (EC2 2023)');
   const canvas = page.locator('canvas#section');
   const legend = page.locator('#shear-link-legend');
-  await expect(legend).toBeHidden();
-  await enable.check();
+  await expect(page.locator('#b')).toHaveValue('600');
+  await expect(page.locator('#h')).toHaveValue('1000');
+  await expect(page.locator('#concreteGrade')).toHaveValue('C32/40');
+  await expect(page.locator('#fc')).toHaveValue('32');
+  await expect(enable).toBeChecked();
+  await expect(page.getByLabel('ULS 1 Vx (kN)', { exact: true })).toHaveValue('150');
+  await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('250');
   await expect(legend).toContainText('Auto · Link Ø10 @ 150 mm · X legs: 4 · Y legs: 4');
   await expect(page.getByLabel('Effective X legs', { exact: true })).toBeHidden();
   const generatedLinks = await canvas.evaluate(element => element.toDataURL());
@@ -239,6 +244,8 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   await expect(page.getByLabel('Inner spiral pitch (mm)')).toBeHidden();
   await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.', { timeout: 65000 });
   await expect(page.locator('#checks')).toContainText('0.769');
+  await expect(page.getByLabel('VEd (kN, magnitude)', { exact: true })).toHaveValue('2500');
+  await expect(page.locator('#checks').getByText('Shear utilization', { exact: true })).toBeVisible();
   await expect(page.locator('#checks')).toContainText('0.872');
   await expect(page.locator('#checks')).toContainText('1022.4 mm');
 

@@ -8,7 +8,7 @@ const concretePeak = 0.002;
 const concreteUltimate = 0.0035;
 const steelUltimate = 0.045;
 
-export const shearDefaults = { enabled: false, mode: 'auto', spacing: 150, fyk: 500, classA: false, legsX: 2, legsY: 2 };
+export const shearDefaults = { enabled: true, mode: 'auto', spacing: 150, fyk: 500, classA: false, legsX: 2, legsY: 2 };
 export const shearBasis = 'EN 1992-1-1:2023 §8.2.3 · Directional links and concrete strut checks';
 export const shearScope = 'Automatic layout checks 150 mm bar restraint. Manual layout uses the entered effective legs. Verify link anchorage, spacing, minimum reinforcement, confinement and combined actions separately.';
 

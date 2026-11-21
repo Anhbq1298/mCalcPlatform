@@ -98,5 +98,5 @@ export function resolveShearLinks(shear, layout) {
 export function restoreShearSettings(defaults, incoming) {
   const legacyLegs = ['legsX', 'legsY'].some(key => incoming?.[key] !== undefined && incoming[key] !== defaults[key]);
   const legacyMode = incoming?.enabled || legacyLegs ? 'manual' : defaults.mode;
-  return { ...defaults, ...incoming, mode: incoming?.mode ?? legacyMode };
+  return { ...defaults, ...incoming, enabled: incoming?.enabled ?? false, mode: incoming?.mode ?? legacyMode };
 }

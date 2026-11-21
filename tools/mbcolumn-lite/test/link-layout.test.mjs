@@ -34,6 +34,8 @@ test('use the same leg counts in shear and preserve older manual designs', () =>
   assert.deepEqual(shear.map(row => row.asw), [4 * Math.PI * 25, 3 * Math.PI * 25]);
   const legacy = restoreShearSettings(shearDefaults, { enabled: true, legsX: 7 });
   assert.equal(legacy.mode, 'manual');
+  assert.equal(restoreShearSettings(shearDefaults).enabled, false);
+  assert.equal(restoreShearSettings(shearDefaults, { enabled: false, mode: 'auto' }).enabled, false);
   assert.equal(resolveShearLinks(legacy, layout).legsX, 7);
 });
 
