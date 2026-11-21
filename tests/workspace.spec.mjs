@@ -103,7 +103,7 @@ test('saves independent calculations in nested folders and reopens the file in f
   await page.getByRole('button', { name: 'Expand Framing' }).click();
 
   await page.getByRole('button', { name: '+ Add design module', exact: true }).click();
-  await page.getByRole('searchbox').fill('not-a-module');
+  await page.getByRole('searchbox', { name: 'Search modules' }).fill('not-a-module');
   await expect(page.getByText('No modules found')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -165,6 +165,8 @@ test('saves independent calculations in nested folders and reopens the file in f
       await expect(shell(reopened).getByLabel('Design name')).toHaveValue(name);
       await workspace(reopened);
     }
+    await reopened.waitForLoadState('load');
+    await expect(reopened.getByRole('button', { name: 'Open Project', exact: true })).toBeVisible();
     await reopened.locator('#import').setInputFiles({ name: 'invalid.mcalc', mimeType: 'application/zip', buffer: Buffer.from('bad file') });
     await expect(reopened.locator('#status')).toContainText('Invalid package');
     await expect(reopened.getByRole('link', { name: steelRenamed, exact: true })).toBeVisible();
@@ -299,4 +301,36 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   await expect(page.getByLabel('L2 Link spacing (mm)', { exact: true })).toHaveValue('140');
   await shell(page).getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
+});
+
+test('moves, copies, trashes, restores, and searches folders', async ({ page }) => {
+  test.setTimeout(180000);
+  await page.goto('./');
+  await page.getByRole('link', { name: 'Projects' }).click();
+  await submitName(page, 'New Project', 'Project name', 'Folder test');
+  await submitName(page, 'Add folder', 'Folder name', 'A');
+  await page.getByRole('button', { name: 'Folder test', exact: true }).click();
+  await submitName(page, 'Add folder', 'Folder name', 'B');
+
+  await page.getByRole('button', { name: 'A', exact: true }).click();
+  await page.getByRole('button', { name: 'Move folder', exact: true }).click();
+  await page.getByRole('dialog').getByRole('combobox', { name: 'Destination' }).selectOption({ label: 'Folder test › B' });
+  await page.getByRole('dialog').getByRole('button', { name: 'Move', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'A', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Copy folder', exact: true }).click();
+  await page.getByRole('dialog').getByRole('combobox', { name: 'Destination' }).selectOption({ label: 'Project root' });
+  await page.getByRole('dialog').getByRole('button', { name: 'Copy', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'A', exact: true })).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'B', exact: true }).click();
+  await page.getByRole('button', { name: 'Move to trash', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Move to trash', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'B', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Trash', exact: true }).click();
+  await page.getByRole('button', { name: 'Restore B', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'B', exact: true })).toBeVisible();
+
+  await page.getByRole('searchbox', { name: 'Search this project' }).fill('a');
+  await expect(page.locator('.search-results').getByRole('button', { name: 'A', exact: true })).toHaveCount(2);
 });

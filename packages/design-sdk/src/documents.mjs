@@ -50,7 +50,8 @@ export function validateProject(project) {
   for (const folder of project.folders) {
     if (!record(folder) || !text(folder.id, 80) || !identifier.test(folder.id)
       || folders.has(folder.id) || !text(folder.name, 200) || !folder.name.trim()
-      || !Array.isArray(folder.designs)) throw new Error('Invalid project folder.');
+      || !Array.isArray(folder.designs)
+      || (folder.deletedAt !== undefined && !text(folder.deletedAt, 40))) throw new Error('Invalid project folder.');
     folders.set(folder.id, folder);
     for (const id of folder.designs) {
       if (!text(id, 80) || !identifier.test(id) || designs.has(id)) throw new Error('Invalid project design reference.');

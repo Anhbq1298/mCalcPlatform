@@ -24,10 +24,11 @@ export function button(name, run) {
   return item;
 }
 
-export function dialog(title, fields) {
+export function dialog(title, fields, confirmLabel = 'Save') {
   const panel = qs('editor');
   const form = panel.querySelector('form');
   qs('dialog-title').textContent = title;
+  form.querySelector('button[value=confirm]').textContent = confirmLabel;
   panel.returnValue = 'cancel';
   form.querySelector('[data-fields]').replaceChildren(...fields.map(([name, options, value]) => {
     const label = el('label');
