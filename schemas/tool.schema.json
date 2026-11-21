@@ -61,6 +61,22 @@
       "items": {
         "type": "string"
       }
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "code": {
+      "type": "string"
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "localDraft": {
+      "type": "string"
     }
   }
 }

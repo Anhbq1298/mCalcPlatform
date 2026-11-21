@@ -34,7 +34,25 @@
         "name",
         "settings",
         "folders"
-      ]
+      ],
+      "properties": {
+        "folders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "designs"
+            ],
+            "properties": {
+              "parentId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

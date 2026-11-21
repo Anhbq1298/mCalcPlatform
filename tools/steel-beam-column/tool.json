@@ -9,11 +9,20 @@
     "member.beam"
   ],
   "entry": "t/steel-beam-column/",
-  "discipline": "Steel · Eurocode 3",
   "description": "Steel beam-column section and member checks for I/H, RHS, SHS, and CHS sections.",
   "inputs": {
     "type": "object"
   },
   "outputs": {},
-  "permissions": []
+  "permissions": [],
+  "title": "Steel Beam-Column",
+  "code": "EC3",
+  "keywords": [
+    "eurocode 3",
+    "steel beam",
+    "buckling",
+    "section",
+    "member"
+  ],
+  "localDraft": "Open local draft"
 }

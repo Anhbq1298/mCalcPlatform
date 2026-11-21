@@ -9,11 +9,18 @@
     "worksheet.general"
   ],
   "entry": "calc/",
-  "discipline": "Calculation worksheets",
   "description": "Editable engineering worksheets with units, charts, and calculation templates.",
   "inputs": {
     "type": "object"
   },
   "outputs": {},
-  "permissions": []
+  "permissions": [],
+  "title": "Calculation Worksheet",
+  "keywords": [
+    "canvas",
+    "spreadsheet",
+    "report",
+    "formulas"
+  ],
+  "localDraft": "Open local worksheets"
 }

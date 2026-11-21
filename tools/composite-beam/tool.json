@@ -9,11 +9,18 @@
     "member.beam"
   ],
   "entry": "t/composite-beam/",
-  "discipline": "Composite · Eurocode 4",
   "description": "Composite beam design with construction-stage, strength, and serviceability checks.",
   "inputs": {
     "type": "object"
   },
   "outputs": {},
-  "permissions": []
+  "permissions": [],
+  "title": "Composite Beam",
+  "code": "EC4",
+  "keywords": [
+    "eurocode 4",
+    "slab",
+    "construction",
+    "serviceability"
+  ]
 }

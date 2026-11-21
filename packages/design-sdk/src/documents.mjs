@@ -12,6 +12,8 @@ export function parseDesign(value) {
   if (!record(value) || !text(value.id, 80) || !identifier.test(value.id)
     || !text(value.tool, 80) || !identifier.test(value.tool) || !text(value.toolVersion, 80)
     || !Number.isSafeInteger(value.schema) || value.schema < 1 || !record(value.inputs)
+    || (value.pending !== undefined && (value.pending !== true || Object.keys(value.inputs).length !== 0
+      || value.report !== undefined || value.reportHash !== undefined))
     || !record(value.meta) || !text(value.meta.name, 200) || !value.meta.name.trim()
     || !text(value.meta.mark, 100) || !text(value.meta.label, 100) || !text(value.meta.notes, 4000)
     || (value.report !== undefined && !record(value.report))
@@ -43,16 +45,25 @@ export function validateProject(project) {
   if (!record(project) || !text(project.id, 80) || !identifier.test(project.id)
     || !text(project.name, 200) || !project.name.trim() || !record(project.settings)
     || !Array.isArray(project.folders) || project.folders.length > 100) throw new Error('Invalid project.');
-  const folders = new Set();
+  const folders = new Map();
   const designs = new Set();
   for (const folder of project.folders) {
     if (!record(folder) || !text(folder.id, 80) || !identifier.test(folder.id)
       || folders.has(folder.id) || !text(folder.name, 200) || !folder.name.trim()
       || !Array.isArray(folder.designs)) throw new Error('Invalid project folder.');
-    folders.add(folder.id);
+    folders.set(folder.id, folder);
     for (const id of folder.designs) {
       if (!text(id, 80) || !identifier.test(id) || designs.has(id)) throw new Error('Invalid project design reference.');
       designs.add(id);
+    }
+  }
+  for (const folder of folders.values()) {
+    const ancestors = new Set([folder.id]);
+    let parent = folder.parentId;
+    while (parent !== undefined) {
+      if (!folders.has(parent) || ancestors.has(parent)) throw new Error('Invalid project folder hierarchy.');
+      ancestors.add(parent);
+      parent = folders.get(parent).parentId;
     }
   }
   return project;

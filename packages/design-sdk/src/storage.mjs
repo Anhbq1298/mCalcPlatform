@@ -26,8 +26,22 @@ export function createStore(factory = globalThis.indexedDB) {
       tx.oncomplete = () => resolve(request?.result);
       tx.onabort = () => reject(tx.error ?? new Error('Storage transaction failed.'));
       let request;
-      try { request = run(name => tx.objectStore(name)); }
-      catch (error) { tx.abort(); reject(error); }
+      const guard = operation => {
+        try { return operation(); }
+        catch (error) { reject(error); tx.abort(); }
+      };
+      request = guard(() => run(name => tx.objectStore(name), guard));
+    });
+  }
+
+  function update(collection, id, transform, validate) {
+    return transaction([collection], 'readwrite', (store, guard) => {
+      const records = store(collection);
+      const request = records.get(id);
+      request.onsuccess = () => guard(() => {
+        if (!request.result) throw new Error('This record is no longer available.');
+        records.put(validate(transform(request.result)));
+      });
     });
   }
 
@@ -35,9 +49,23 @@ export function createStore(factory = globalThis.indexedDB) {
     getDesign: id => transaction(['designs'], 'readonly', store => store('designs').get(id)),
     listDesigns: () => transaction(['designs'], 'readonly', store => store('designs').getAll()),
     saveDesign: doc => transaction(['designs'], 'readwrite', store => store('designs').put(parseDesign(doc))),
+    updateDesign: (id, transform) => update('designs', id, transform, parseDesign),
     getProject: id => transaction(['projects'], 'readonly', store => store('projects').get(id)),
     listProjects: () => transaction(['projects'], 'readonly', store => store('projects').getAll()),
     saveProject: project => transaction(['projects'], 'readwrite', store => store('projects').put(validateProject(project))),
+    updateProject: (id, transform) => update('projects', id, transform, validateProject),
+    addProjectDesign: (projectId, folderId, doc) => transaction(['designs', 'projects'], 'readwrite', (store, guard) => {
+      const projects = store('projects');
+      const request = projects.get(projectId);
+      request.onsuccess = () => guard(() => {
+        const project = request.result;
+        const folder = project?.folders.find(item => item.id === folderId);
+        if (!folder) throw new Error('The destination folder is unavailable.');
+        folder.designs.push(doc.id);
+        store('designs').add(parseDesign(doc));
+        projects.put(validateProject(project));
+      });
+    }),
     moveDesign: (projectId, designId, folderId) => transaction(['designs', 'projects'], 'readwrite', store => {
       const projects = store('projects');
       const project = projects.get(projectId);
@@ -63,7 +91,7 @@ export function createStore(factory = globalThis.indexedDB) {
       if (project) {
         const id = crypto.randomUUID();
         const folders = project.folders.map(folder => ({ ...folder, designs: folder.designs.map(source => ids.get(source)) }));
-        store('projects').add(validateProject({ ...project, id, folders }));
+        return store('projects').add(validateProject({ ...project, id, folders }));
       }
     }),
   };

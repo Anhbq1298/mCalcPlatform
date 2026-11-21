@@ -20,6 +20,15 @@ export async function integrateCanvas(root) {
   ]);
   await patch(root, controller, [
     ['function currentDocument()', 'export function currentDocument()'],
+    ['function scheduleSave() {', `function isWorkspaceDesign() {
+  return new URLSearchParams(window.location.search).has('project');
+}
+
+function scheduleSave() {
+  if (isWorkspaceDesign()) return;`],
+    ['  void DocumentManager.setLastOpenedId(doc.id).catch(() => {});',
+      '  if (!isWorkspaceDesign()) void DocumentManager.setLastOpenedId(doc.id).catch(() => {});'],
+    ['  await saves.flush(true);\n}', '  if (!isWorkspaceDesign()) await saves.flush(true);\n}'],
     ['export async function initDocuments(): Promise<void> {', `import { registerPage } from '../../platform/apps/tool-page.mjs';
 import { createStore } from '../../platform/packages/design-sdk/src/index.mjs';
 
@@ -54,7 +63,7 @@ async function initPlatform(): Promise<void> {
       }
       return;
     }
-  } else if (params.has('new')) {
+  } else if (params.has('new') || params.has('project')) {
     await engine.ready();
     await newDocument();
   } else await initLegacyDocuments();
@@ -74,7 +83,9 @@ export async function integrateSteel(root) {
     ["import { sectionById }", prefix + "import { sectionById }"],
     ["window.open('../?open=handoff'", "window.open('../../calc/?open=handoff'"],
     ["useState<Page>(load)", "useState<Page>(() => new URLSearchParams(window.location.search).has('legacy') ? load() : DEFAULT)"],
-    ["    try { localStorage.setItem(STORE_KEY, JSON.stringify(page)); } catch { /* private mode */ }\n", ""],
+    ["    try { localStorage.setItem(STORE_KEY, JSON.stringify(page)); } catch { /* private mode */ }\n",
+      "    if (new URLSearchParams(window.location.search).has('legacy')) {\n"
+      + "      try { localStorage.setItem(STORE_KEY, JSON.stringify(page)); } catch { /* private mode */ }\n    }\n"],
     ["  const download = () =>", `  useEffect(() => {
     registerPage('steel-beam-column', {
       snapshot: () => page,
@@ -136,7 +147,8 @@ export async function integrateColumn(root) {
     ["    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');",
       "    const saved = new URLSearchParams(location.search).has('legacy') ? JSON.parse(localStorage.getItem(STORE_KEY) || 'null') : null;"],
     ["  const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {} };",
-      "  const save = () => {}; // Workspace designs are saved explicitly through the shared shell."],
+      "  const save = () => { if (new URLSearchParams(location.search).has('legacy')) { "
+      + "try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {} } };"],
     ['  setTimeout(typesetLabels, 600);', `  window.mcalcColumnAdapter = {
     snapshot: () => structuredClone(state),
     restore: inputs => {

@@ -43,3 +43,23 @@ test('rejects corrupt files and invalid ZIP paths', async () => {
   await assert.rejects(() => importPackage(new Blob(['invalid'])), /Invalid package/);
   assert.throws(() => parseDesign({ ...createDesign(fixtures[0], 'A', {}), id: '../unsafe' }), /Invalid design/);
 });
+
+test('round-trips nested folders, pending instances, and unavailable modules', async () => {
+  const [tool] = fixtures;
+  const project = createProject('Project ABC');
+  const framing = { id: 'framing', name: 'Framing', designs: [] };
+  const pending = { ...createDesign(tool, 'New worksheet', {}), pending: true };
+  const unavailable = { ...createDesign(tool, 'Old check', { future: { keep: true } }), tool: 'old-tool' };
+  const level = { id: 'level-three', parentId: framing.id, name: 'L3', designs: [pending.id, unavailable.id] };
+  project.folders.push(framing, level);
+  const result = await importPackage(await exportPackage({ project, designs: [pending, unavailable] }));
+  assert.deepEqual(result.project, project);
+  assert.deepEqual(result.designs[1].inputs, unavailable.inputs);
+  assert.equal(result.designs[0].pending, true);
+  assert.throws(() => parseDesign({ ...pending, inputs: { value: 1 } }), /Invalid design/);
+  level.parentId = 'missing';
+  assert.throws(() => validateProject(project), /hierarchy/);
+  level.parentId = framing.id;
+  framing.parentId = level.id;
+  assert.throws(() => validateProject(project), /hierarchy/);
+});

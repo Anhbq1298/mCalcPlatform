@@ -6,28 +6,66 @@
   <meta name="description" content="Structural engineering calculation tools and local project workspace.">
   <title>mCalc Platform</title>
 </head>
-<body class="hub">
-  <header class="masthead">
+<body class="hub workspace">
+  <aside class="sidebar">
     <a class="wordmark" href="./">mCalc <span>Platform</span></a>
-    <nav aria-label="Workspace sections"><a href="#tools">Tools</a><a href="#projects">Projects</a><a href="#designs">Designs</a></nav>
-  </header>
+    <nav aria-label="Workspace sections">
+      <a href="#tools" id="nav-tools">Tool Library</a>
+      <a href="#projects" id="nav-projects">Projects</a>
+    </nav>
+  </aside>
   <main>
-    <section class="intro">
-      <h1>Structural design workspace</h1>
-      <div class="actions"><label class="button primary">Import .mcalc<input type="file" id="import" accept=".mcalc" hidden></label><a class="button" id="submit">Submit a tool</a></div>
+    <section id="tools" aria-labelledby="tool-heading">
+      <header class="section-head">
+        <h1 id="tool-heading">Tool Library</h1>
+        <a class="button" id="submit" href="mailto:buiquanganh1298@gmail.com?subject=mCalc%20Tool%20Submission">Submit a tool</a>
+      </header>
+      <div class="catalog" id="catalog"></div>
+    </section>
+    <section id="projects" aria-labelledby="project-heading" hidden>
+      <header class="section-head">
+        <h1 id="project-heading">Projects</h1>
+        <div class="actions">
+          <button class="primary" id="new-project">New Project</button>
+          <button id="open-project">Open Project</button>
+          <button id="save-project" disabled>Save Project</button>
+          <a class="button" id="print-project" hidden>Print calc package</a>
+          <input type="file" id="import" accept=".mcalc" aria-label="Open or import .mcalc file" hidden>
+        </div>
+      </header>
+      <div class="project-layout">
+        <aside aria-label="Project folders" id="project-list" class="project-tree"></aside>
+        <div class="project-content">
+          <div class="section-head folder-header">
+            <h2 id="breadcrumb">Saved designs</h2>
+            <div class="actions" id="folder-actions"></div>
+          </div>
+          <div class="calculation-grid" id="design-list"></div>
+        </div>
+      </div>
     </section>
     <output id="status" aria-live="polite"></output>
-    <section id="tools" aria-labelledby="tool-heading"><h2 id="tool-heading">Calculation tools</h2><div class="catalog" id="catalog"></div></section>
-    <section id="projects" aria-labelledby="project-heading">
-      <div class="section-head"><h2 id="project-heading">Projects</h2><button id="new-project">New project</button></div>
-      <div id="project-list"></div>
-    </section>
-    <section id="designs" aria-labelledby="design-heading"><h2 id="design-heading">Saved designs</h2><div id="design-list"></div></section>
   </main>
   <dialog id="editor" aria-labelledby="dialog-title">
     <form method="dialog">
       <h2 id="dialog-title"></h2><div data-fields></div>
-      <div class="actions"><button value="cancel" formnovalidate>Cancel</button><button value="confirm" class="primary">Save</button></div>
+      <div class="actions">
+        <button value="cancel" formnovalidate>Cancel</button><button value="confirm" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="module-picker" aria-labelledby="picker-title">
+    <form>
+      <h2 id="picker-title">Add design module</h2>
+      <p id="picker-destination" class="muted"></p>
+      <label>Search modules <input type="search" id="module-search" placeholder="Search by module, app, or design code" autofocus></label>
+      <div class="catalog" id="module-options" role="radiogroup" aria-label="Design modules"></div>
+      <p id="no-modules" class="muted" role="status" hidden>No modules found</p>
+      <label>Design name <input id="design-name" maxlength="200" required disabled></label>
+      <div class="actions">
+        <button type="button" id="cancel-design">Cancel</button>
+        <button type="submit" class="primary" id="add-design" disabled>Add design</button>
+      </div>
     </form>
   </dialog>
   <script type="module" src="/platform/apps/hub/main.mjs"></script>
