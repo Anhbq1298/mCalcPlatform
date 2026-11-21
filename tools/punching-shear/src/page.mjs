@@ -1,7 +1,8 @@
 import '../../../apps/column-summary.css';
 import { registerPage } from '../../../apps/tool-page.mjs';
 import { A4, PAGE_GAP } from '../../../../src/export/pageGeometry.ts';
-import { calculate } from './calculate.mjs';
+import { calculateDesign as calculate } from './head.mjs';
+import { EXAMPLES, exampleById } from './examples.mjs';
 import { buildForm } from './form.mjs';
 import { newDefaults, restoreInputs } from './inputs.mjs';
 import { newLayer } from './layout.mjs';
@@ -30,12 +31,12 @@ const anchors = { Openings: byId('openings-anchor'), 'Design actions': byId('loa
 const refreshForm = buildForm(form, anchors, () => state, () => schedule());
 const number = 'number';
 const refreshOpenings = mountTable(byId('openings-anchor'), {
-  caption: 'Openings', columns: [['x', 'X', number], ['y', 'Y', number], ['w', 'Width', number], ['h', 'Height', number]],
+  caption: 'Openings', columns: [['x', '$X$', number], ['y', '$Y$', number], ['w', 'Width $b$', number], ['h', 'Height $h$', number]],
   getRows: () => state.openings, newRow: () => ({ x: 2500, y: 0, w: 400, h: 400 }), onChange: () => schedule(),
   addLabel: '+ Opening', removeLabel: '− Opening', rowLabel: index => 'O' + (index + 1),
 });
 const refreshLoads = mountTable(byId('loads-anchor'), {
-  caption: 'Load combinations', columns: [['name', 'Name', 'text'], ['V', 'V_Ed', number], ['Mx', 'M_x', number], ['My', 'M_y', number]],
+  caption: 'Load combinations', columns: [['name', 'Name', 'text'], ['V', '$V_{Ed}$', number], ['Mx', '$M_x$', number], ['My', '$M_y$', number]],
   getRows: () => state.loads, newRow: index => ({ name: 'ULS ' + (index + 1), V: 0, Mx: 0, My: 0 }), onChange: () => schedule(), minRows: 1,
   addLabel: '+ Combination', removeLabel: '− Combination', rowLabel: index => String(index + 1),
 });
@@ -44,7 +45,7 @@ const layerTableHost = document.createElement('div');
 layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons'));
 const refreshLayers = mountTable(layerTableHost, {
   caption: 'Link layers',
-  columns: [['offset', 'Offset', number], ['diameter', 'Ø', 'select', [6, 8, 10, 12, 16, 20].map(value => ({ value, label: String(value) }))],
+  columns: [['offset', 'Offset', number], ['diameter', '$\\phi$', 'select', [6, 8, 10, 12, 16, 20].map(value => ({ value, label: String(value) }))],
     ['shape', 'Shape', 'select', [{ value: 'single', label: '1-leg' }, { value: 'double', label: '2-leg' }]], ['links', 'Links', number], ['start', 'Start', number]],
   getRows: () => state.reinforcement.layers,
   newRow: (index, previous) => {
@@ -55,6 +56,17 @@ const refreshLayers = mountTable(layerTableHost, {
   onChange: () => schedule(), addLabel: '+ Layer', removeLabel: '− Layer', rowLabel: index => 'L' + (index + 1),
 });
 
+const exampleSelect = byId('example');
+exampleSelect.append(...EXAMPLES.map(item => new Option(item.title, item.id)));
+exampleSelect.addEventListener('input', () => {
+  const example = exampleById(exampleSelect.value);
+  if (!example) return;
+  state = restoreInputs(example.input);
+  byId('example-note').textContent = example.note;
+  selected = null;
+  refresh();
+  recalculate();
+});
 byId('load-type').addEventListener('input', event => { state.loadType = event.target.value; schedule(); });
 byId('combination').addEventListener('input', render);
 byId('copy-layout').addEventListener('click', () => {

@@ -10,7 +10,8 @@ import { STATES } from './inputs.mjs';
 
 const deg = θ => R`\frac{\pi\cdot${num(θ)}}{180}`;
 
-export function buildWorksheet(result, { pageHeight, pageGap, designName = 'Punching shear design' }) {
+export function buildWorksheet(full, { pageHeight, pageGap, designName = 'Punching shear design' }) {
+  const result = full.head && full.checkInput ? { ...full, input: full.checkInput } : full; // inputs of the solved section
   const doc = createDocument({ pageHeight, pageGap, title: 'Punching Shear Check' });
   const { input } = result;
   const { column } = input;
@@ -23,6 +24,7 @@ export function buildWorksheet(result, { pageHeight, pageGap, designName = 'Punc
   if (!result.section) return doc.finish();
 
   doc.heading('1 Geometry and materials');
+  if (full.head) headSection(doc, full);
   const kind = result.position?.kind ?? 'internal';
   if (kind !== 'internal') {
     doc.text(`${kind === 'edge' ? 'Edge' : 'Corner'} column with faces flush with the slab edge${kind === 'corner' ? 's' : ''}. c1 is perpendicular to ${kind === 'edge' ? 'the free edge' : 'the first free edge'}, c2 to the other direction (Fig. 6.20).`, 12);
@@ -70,8 +72,8 @@ export function buildWorksheet(result, { pageHeight, pageGap, designName = 'Punc
   if (layers.length) detailing(doc, result, layers);
 
   doc.heading('Drawings', 2);
-  doc.image(planSvg(result, { width: 640, height: 600 }), 640, 600);
-  doc.image(sectionSvg(result, { width: 640, height: 330 }), 640, 330);
+  doc.image(planSvg(full, { width: 640, height: 600 }), 640, 600);
+  doc.image(sectionSvg(full, { width: 640, height: 330 }), 640, 330);
   if (layers.length) {
     doc.heading('Link layer schedule', 3);
     doc.table([
@@ -102,7 +104,11 @@ function edgeBeta(doc, result, load, i, kind) {
 }
 
 function perimeters(doc, result, kind, rect) {
-  if (result.shadows?.length) {
+  if (result.head) {
+    doc.text('Perimeters of the drop section are measured on the exact geometry by the tool (§6.4.2(8)–(11)).', 12);
+    doc.math('Loaded perimeter u_0', define('u_{0}', num(result.u0, 3) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 1 });
+    doc.math('Control perimeter u_1', define('u_{1}', num(result.u1, 3) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 1 });
+  } else if (result.shadows?.length) {
     doc.text('Openings within 6d: the sectors between the tangents are ineffective (§6.4.2(3)). Effective lengths are measured on the exact perimeter geometry by the tool.', 12);
     doc.math('Loaded perimeter u_0 (effective)', define('u_{0}', num(result.u0, 3) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 1 });
     doc.math('Basic control perimeter u_1 (effective)', define('u_{1}', num(result.u1, 3) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 1 });
@@ -122,7 +128,7 @@ function perimeters(doc, result, kind, rect) {
 
 function outerOffset(result, i, rect) {
   const kind = result.position?.kind ?? 'internal';
-  if (result.shadows?.length) return num(result.loads[i - 1].aOut, 3) + unit.mm;
+  if (result.shadows?.length || result.head) return num(result.loads[i - 1].aOut, 3) + unit.mm;
   if (kind === 'edge') return R`\frac{u_{out.${i}}-2c_{1}-c_{2}}{\pi}`;
   if (kind === 'corner') return R`\frac{2\left(u_{out.${i}}-c_{1}-c_{2}\right)}{\pi}`;
   return rect ? R`\frac{u_{out.${i}}-2\left(c_{x}+c_{y}\right)}{2\pi}` : R`\frac{\frac{u_{out.${i}}}{\pi}-D}{2}`;
@@ -227,4 +233,20 @@ function detailing(doc, result, layers) {
     doc.math('', R`h-2c\ge${m}+2\cdot${phi}\,\mathrm{mm}`, { displayUnit: 'mm', mode: 'auto' });
   }
   doc.text(anchorage.engaged ? 'Links enclose the top and bottom flexural bars: confirmed by the designer.' : `Links enclosing the top and bottom flexural bars: ${STATES.confirm}.`, 12);
+}
+
+// Drop panel / column head: case, section depths and the slab check outside the drop (tool values).
+function headSection(doc, full) {
+  const head = full.head;
+  const lH = head.lH.map(value => value.toFixed(0)).join(' / ');
+  doc.text(`Drop panel ${full.input.head.shape === 'circular' ? 'Ø' + full.input.head.diameter : full.input.head.lx + ' × ' + full.input.head.ly} mm, h_H = ${head.hH} mm below the slab, l_H = ${lH} mm.`, 12);
+  if (head.kind === 'small') {
+    doc.text(`l_H ≤ 2h_H (Fig. 6.17): only the section in the slab is checked (§6.4.2(8)), at r_cont = ${head.rcont.r.toFixed(1)} mm from the column centroid (${head.rcont.eq}${head.rcont.l1 ? `, l1 = ${head.rcont.l1}, l2 = ${head.rcont.l2}` : ''}). It is solved as a circular loaded area of diameter 2(r_cont − 2d); the face check uses the column perimeter with the slab d.`, 12);
+    return;
+  }
+  doc.text(`l_H > 2h_H (Fig. 6.18): sections inside the drop with d_H = d + h_H = ${head.dH.toFixed(1)} mm at ${head.sections[0].offset.toFixed(0)} mm from the column face, and in the slab with d = ${head.d.toFixed(1)} mm at 2d from the drop edge (§6.4.2(9)–(11)). The calculation below is the section inside the drop.`, 12);
+  full.loads.forEach(load => {
+    const ext = load.rows.filter(entry => entry.id.startsWith('ext-'));
+    for (const entry of ext) doc.text(`${esc(load.name)} · ${esc(entry.label)}: ${entry.demand?.toFixed?.(3) ?? '—'} ≤ ${entry.resistance?.toFixed?.(3) ?? '—'} MPa · ${esc(entry.status)} (tool value, u1,ext = ${head.sections[1].u1.toFixed(0)} mm).`, 12);
+  });
 }

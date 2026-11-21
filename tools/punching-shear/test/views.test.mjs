@@ -22,8 +22,11 @@ test('plan draws one selectable group per physical link and marks ineffective le
   assert.equal((svg.match(/data-link="/g) || []).length, result.layout.links.length);
   assert.ok(svg.includes('u1 (2d)') && svg.includes('u_out,ef') && svg.includes('data-governing'));
   assert.ok(balanced(svg));
-  const clipped = design(input => { input.reinforcement = { mode: 'provided', diameter: 10, shape: 'single', legGap: 100, layers: [{ offset: 100, diameter: 10, shape: 'single', links: 12, start: 0, omitted: [] }] }; input.slab.xMax = 300; });
-  assert.ok(planSvg(clipped).includes('stroke="#a12420"'));
+  // A leg outside the effective path (slab edge, opening, shadow) is drawn in the failure colour.
+  const links = result.layout.links.map((link, index) => (index ? link : { ...link, legs: link.legs.map(leg => ({ ...leg, effective: false, reason: 'Outside slab' })) }));
+  const marked = planSvg({ ...result, layout: { ...result.layout, links } });
+  assert.ok(marked.includes('stroke="#b3261e"') && marked.includes('Ineffective leg'));
+  assert.ok(!planSvg(result).includes('Ineffective leg'));
 });
 
 test('section shows every layer on both sides with dashed (unverified) bends', () => {

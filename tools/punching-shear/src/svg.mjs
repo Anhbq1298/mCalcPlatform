@@ -3,10 +3,31 @@
 export const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 export const n = value => Number(value).toFixed(1);
 
+// Monochrome CAD palette: elements are told apart by line type and weight. Red is kept only for
+// failed items (ineffective legs, failing gaps) so that a failure is never hidden.
 export const COLORS = {
-  ink: '#1f2a30', muted: '#56636a', rule: '#c3cbc8', steel: '#2b3a8c', concrete: '#d9dfdc',
-  slab: '#f3f5f4', u1: '#1d6fb8', uout: '#b4541a', fail: '#a12420', governing: '#d99a0f', opening: '#a12420',
+  ink: '#141414', muted: '#6b7076', rule: '#c9ced3', steel: '#141414', concrete: '#ffffff',
+  slab: '#ffffff', edge: '#b9bec4', u1: '#141414', uout: '#141414', fail: '#b3261e', governing: '#8a8f94', opening: '#141414',
+  gridMinor: '#f0f2f4', gridMajor: '#dde1e5',
 };
+export const DASH = { hidden: '6 4', u1: '14 5', uout: '16 4 3 4 3 4', ext: '22 4 3 4', centre: '18 4 3 4', layer: '2 3' };
+
+// Model-space grid: minor every 100 mm, major every 500 mm, clipped to the drawing area.
+export function grid(view, bounds, top, bottom, width) {
+  const out = [];
+  for (const [step, color] of [[100, COLORS.gridMinor], [500, COLORS.gridMajor]]) {
+    if (step * view.scale < 4) continue;
+    for (let x = Math.ceil(bounds.xMin / step) * step; x <= bounds.xMax; x += step) {
+      const px = view.x(x);
+      if (px >= 0 && px <= width) out.push(`<line x1="${n(px)}" y1="${n(top)}" x2="${n(px)}" y2="${n(bottom)}" stroke="${color}" stroke-width=".6"/>`);
+    }
+    for (let y = Math.ceil(bounds.yMin / step) * step; y <= bounds.yMax; y += step) {
+      const py = view.y(y);
+      if (py >= top && py <= bottom) out.push(`<line x1="0" y1="${n(py)}" x2="${width}" y2="${n(py)}" stroke="${color}" stroke-width=".6"/>`);
+    }
+  }
+  return out.join('');
+}
 
 // Linear map from model mm (y up) to SVG px (y down) with equal scales.
 export function viewport(bounds, width, height, pad = 34) {
@@ -40,20 +61,39 @@ export function dimension(x1, y1, x2, y2, text, offset = 0, cls = 'dim') {
   const upright = angle > 90 || angle < -90 ? angle + 180 : angle;
   const mx = (a[0] + b[0]) / 2;
   const my = (a[1] + b[1]) / 2;
+  const sx = Math.sign(offset) || 1;
+  const ux = (nx / (Math.abs(offset) || 1)) * sx;
+  const uy = (ny / (Math.abs(offset) || 1)) * sx;
+  const ext = (px, py, qx, qy) => `<line x1="${n(px + ux * 2)}" y1="${n(py + uy * 2)}" x2="${n(qx + ux * 3)}" y2="${n(qy + uy * 3)}"/>`;
   return `<g class="${cls}">`
-    + (offset ? `<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(a[0])}" y2="${n(a[1])}"/><line x1="${n(x2)}" y1="${n(y2)}" x2="${n(b[0])}" y2="${n(b[1])}"/>` : '')
+    + (offset ? ext(x1, y1, a[0], a[1]) + ext(x2, y2, b[0], b[1]) : '')
     + `<line x1="${n(a[0])}" y1="${n(a[1])}" x2="${n(b[0])}" y2="${n(b[1])}"/>`
-    + `<line x1="${n(a[0] - ty)}" y1="${n(a[1] + tx)}" x2="${n(a[0] + ty)}" y2="${n(a[1] - tx)}"/>`
-    + `<line x1="${n(b[0] - ty)}" y1="${n(b[1] + tx)}" x2="${n(b[0] + ty)}" y2="${n(b[1] - tx)}"/>`
+    + `<line class="tick" x1="${n(a[0] - tx - ty)}" y1="${n(a[1] - ty + tx)}" x2="${n(a[0] + tx + ty)}" y2="${n(a[1] + ty - tx)}"/>`
+    + `<line class="tick" x1="${n(b[0] - tx - ty)}" y1="${n(b[1] - ty + tx)}" x2="${n(b[0] + tx + ty)}" y2="${n(b[1] + ty - tx)}"/>`
     + `<text x="${n(mx)}" y="${n(my - 3)}" text-anchor="middle" transform="rotate(${n(upright)} ${n(mx)} ${n(my)})">${esc(text)}</text></g>`;
 }
 
+// Dimension with explicit feature points p1, p2 and dimension-line points q1, q2 (extension lines
+// run from each feature to the dimension line with a 2 px gap and 3 px overshoot).
+export function dimensionTo(p1, p2, q1, q2, text) {
+  const ext = (p, q) => {
+    const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (len < 4) return '';
+    const ux = (q[0] - p[0]) / len;
+    const uy = (q[1] - p[1]) / len;
+    return `<line x1="${n(p[0] + ux * 2)}" y1="${n(p[1] + uy * 2)}" x2="${n(q[0] + ux * 3)}" y2="${n(q[1] + uy * 3)}"/>`;
+  };
+  return dimension(q1[0], q1[1], q2[0], q2[1], text, 0).replace('<g class="dim">', '<g class="dim">' + ext(p1, q1) + ext(p2, q2));
+}
+
 export const STYLE = `<style>
-  text{font:11px Roboto,system-ui,sans-serif;fill:${COLORS.ink}}
-  .dim line{stroke:${COLORS.muted};stroke-width:.8}
-  .dim text{font-size:10.5px;fill:${COLORS.muted}}
+  text{font:11px 'Roboto Mono',ui-monospace,monospace;fill:${COLORS.ink}}
+  .dim line{stroke:${COLORS.ink};stroke-width:.55}
+  .dim line.tick{stroke-width:1.3}
+  .dim text{font-size:10.5px;fill:${COLORS.ink}}
   .label{font-size:10.5px}
   .small{font-size:9.5px;fill:${COLORS.muted}}
+  .legend text{font-family:Roboto,system-ui,sans-serif}
   .dim,text{pointer-events:none}
   .link{cursor:pointer}
   .link:hover circle{stroke:${COLORS.governing};stroke-width:2}

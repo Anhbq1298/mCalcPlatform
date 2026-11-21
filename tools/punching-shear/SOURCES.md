@@ -39,6 +39,19 @@ Scope: internal rectangular (any rotation) and circular columns; rectangular edg
 | Link engages top and bottom flexural bars | §8.5, §9.4.3 | `detailing.mjs` | User confirmation |
 | UK NA: v_Rd,max = 0.5νf_cd, v_Ed ≤ 2v_Rd,c at u1 | UK NA 6.4.5(3) | `profile.mjs` | Secondary sources (CADS report, The Concrete Centre); Not verified until confirmed |
 | SG NA: v_Rd,max = 0.5νf_cd ≤ 2v_Rd,c; 6.4.3(6) and 6.4.4(1) default EN; C_max = C50/60 for shear; α_cc = 1.0 for shear | NA to SS EN 1992-1-1:2008 + A1:2010, 6.4.5(3), 3.1.2(2)P, 3.1.6(1)P | `profile.mjs`, `setup.mjs` | SCIA Engineer Singapore NA table and a copy of Table NA.1 agree; Not verified until confirmed against the NA text |
+| Column head l_H < 2h_H: check only in the slab, r_cont = 2d + l_H + 0.5c (circular) | §6.4.2(8), Eq. 6.33, Fig. 6.17 | `head.mjs` | Implemented; solved as a circular loaded area of diameter 2(r_cont − 2d) |
+| Rectangular head l_H < 2h_H: r_cont = min(2d + 0.56√(l1·l2), 2d + 0.69·l1), l1 ≤ l2 | §6.4.2(8), Eq. 6.34, 6.35 | `head.mjs` | Implemented (l1 ≤ l2 confirmed in the BS EN text) |
+| Head l_H > 2h_H: sections inside the head with d_H = d + h_H and in the slab | §6.4.2(9)–(10), Fig. 6.18 | `head.mjs` | Implemented, internal columns only |
+| r_cont,ext = l_H + 2d + 0.5c, r_cont,int = 2(d + h_H) + 0.5c | §6.4.2(11), Eq. 6.36, 6.37 | `head.mjs` | Circular: code rule. Rectangular: the same offsets (2d from the head edge, 2d_H from the column face) are an interpretation and stay at Requires confirmation until accepted |
+
+### Drop panels: decisions that go beyond the text
+
+- Face check for l_H < 2h_H uses the column perimeter with the slab d (conservative; EC2 is silent).
+- For 2h_H < l_H < 2(d + h_H) the inner perimeter at 2d_H would leave the head; it is placed at the head edge and flagged.
+- Links are kept inside the drop (outermost layer ≤ l_H − cover). When u_out,ef with d_H lies beyond the drop, the slab beyond the edge is covered by the u1,ext check and the case is flagged.
+- If the slab section outside the head needs links, the result is Unsupported geometry: links outside the head are not implemented.
+- Straddling cases (l_H < 2h_H in one direction, > 2h_H in the other), offset heads, heads at edges or corners, heads with openings, and mixed shapes (circular head on a rectangular column) are reported as unsupported.
+- Moment β with a head uses the column (inside) or the head (outside) as the loaded area; it is flagged because EC2 gives no W1 for heads.
 
 ### Eq. 6.43 interpretation
 
@@ -65,7 +78,11 @@ Edge and corner formulas were checked against the Blueprints (MIT) implementatio
 
 ## Independent cross-check (`npm run test:punching-canvas`)
 
-The report is a Canvas worksheet whose resistances, β, stresses, a_out and checks are live formulas. The cross-check evaluates it with the Canvas calculation engine and compares the results with the JS solver. Relative tolerance is 1×10⁻⁶ for v_Rd,c, v_Rd,max, u1, f_ywd,ef, β, v_Ed, v_Rd,cs and a_out. Every pass/fail check must agree. Thirteen cases are covered: CSI geometry, auto layout, uniaxial and biaxial moments with rotation, two-leg links, circular column, no links required, a provided layout with detailing failures, bar-derived depth with user β, edge column with e_par, edge with simplified β, corner column, openings with σ_cp and bend anchorage, and the UK profile. u0, u1*, and every detailing check are also compared.
+The report is a Canvas worksheet whose resistances, β, stresses, a_out and checks are live formulas. The cross-check evaluates it with the Canvas calculation engine and compares the results with the JS solver. Relative tolerance is 1×10⁻⁶ for v_Rd,c, v_Rd,max, u1, f_ywd,ef, β, v_Ed, v_Rd,cs and a_out. Every pass/fail check must agree. Sixteen cases are covered: CSI geometry, auto layout, uniaxial and biaxial moments with rotation, two-leg links, circular column, no links required, a provided layout with detailing failures, bar-derived depth with user β, edge column with e_par, edge with simplified β, corner column, openings with σ_cp and bend anchorage, the UK profile, and the three drop-panel examples (Fig. 6.17, rectangular Fig. 6.18, circular Fig. 6.18). u0, u1*, and every detailing check are also compared.
+
+## Worked examples (`src/examples.mjs`)
+
+Twelve cases are available from the Examples selector and asserted in `test/head.test.mjs`. They cover an internal column without links, auto links on the CSI geometry, a circular column with β from moments, edge and corner columns, one opening and two openings with overlapping shadows, drops for Fig. 6.17 and Fig. 6.18 (rectangular and circular), a post-tensioned slab under the Singapore profile, and a provided layout that fails. The Fig. 6.17 case (400 × 400 column, 1000 × 1000 × 200 drop, d = 210, V = 700 kN) is checked by hand in the test: r_cont = 980 mm, v_Ed = 0.622 MPa, v_Rd,c = 0.634 MPa.
 
 ## Test coverage (`npm test`)
 
@@ -77,4 +94,5 @@ Geometry exactness, convergence, offset invariance, rotation and translation inv
 - Edge and corner columns set back from the slab edge, circular columns at edges, and eccentricity toward the slab exterior (Eq. 6.39 with the edge perimeter).
 - EN 1992-1-1 defines no W1 or u1* for perimeters reduced by openings; moment-based β with openings is reported as Not verified.
 - No deduction of loads inside the control perimeter: Eq. 6.48 applies to column bases only. Column bases are not covered.
+- Drop panels: see the list above; no published benchmark with a drop has been reproduced yet.
 - National Annexes other than CEN, Singapore and UK. The Singapore and UK profiles need confirmation against the NA text.

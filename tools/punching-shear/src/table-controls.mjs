@@ -1,5 +1,7 @@
 // Editable row tables (load combinations, openings, link layers) using the layer-table styles of
-// mConcreteCircCol. Columns: [key, header, type ('number' | 'text' | 'select'), options].
+// mConcreteCircCol. Columns: [key, header, type ('number' | 'text' | 'select'), options]. Headers may
+// contain $…$ LaTeX spans.
+import { labelHtml, labelText } from './tex.mjs';
 
 export function mountTable(container, { caption, columns, getRows, newRow, onChange, minRows = 0, addLabel, removeLabel, rowLabel }) {
   const table = document.createElement('table');
@@ -8,7 +10,7 @@ export function mountTable(container, { caption, columns, getRows, newRow, onCha
   for (const title of ['', ...columns.map(column => column[1])]) {
     const cell = document.createElement('th');
     cell.scope = 'col';
-    cell.textContent = title;
+    cell.innerHTML = labelHtml(title);
     head.append(cell);
   }
   const body = table.createTBody();
@@ -72,7 +74,7 @@ export function mountTable(container, { caption, columns, getRows, newRow, onCha
         }
         control.dataset.key = key;
         control.dataset.row = String(index);
-        control.setAttribute('aria-label', `${rowLabel(index)} ${header}`);
+        control.setAttribute('aria-label', `${rowLabel(index)} ${labelText(header)}`);
         row.insertCell().append(control);
         if (focusKey === key + ':' + index) queueMicrotask(() => control.focus());
       }

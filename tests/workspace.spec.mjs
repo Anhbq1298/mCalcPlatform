@@ -361,3 +361,19 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
   await expect(page.getByText('PUNCHING SHEAR CHECK – INTERNAL COLUMN (EC2)').first()).toBeVisible({ timeout: 65000 });
 });
+
+test('loads the punching shear worked cases, including drop panels', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('a[href*="t/punching-shear/"]').filter({ hasText: 'New design' }).first().click();
+  const status = page.locator('#design-status');
+  await page.getByLabel('Load a worked case').selectOption('drop-large');
+  await expect(status).toContainText('Pass');
+  await expect(page.locator('#plan-view')).toContainText('u1,ext');
+  await expect(page.locator('#section-view')).toContainText('h_H 150');
+  await expect(page.getByLabel('Include a drop panel (concentric)')).toBeChecked();
+  await page.getByLabel('Rectangular drop: offsets 2d_H / 2d accepted (§6.4.2(9)–(11))').uncheck();
+  await expect(status).toContainText('Requires confirmation');
+  await page.getByLabel('Load a worked case').selectOption('provided-fail');
+  await expect(status).toContainText('Fail');
+  await expect(page.locator('#punching-inputs math').first()).toBeVisible();
+});

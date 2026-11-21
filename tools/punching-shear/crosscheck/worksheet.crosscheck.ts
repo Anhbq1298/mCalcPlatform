@@ -5,6 +5,8 @@ import { CalculationEngine } from '../../../vendor/calccanvas/src/engine/index.t
 import { calcKey } from '../../../vendor/calccanvas/src/canvas/calcOrder.ts';
 import { A4, PAGE_GAP } from '../../../vendor/calccanvas/src/export/pageGeometry.ts';
 import { calculate } from '../src/calculate.mjs';
+import { EXAMPLES } from '../src/examples.mjs';
+import { calculateDesign } from '../src/head.mjs';
 import { newDefaults } from '../src/inputs.mjs';
 import { buildWorksheet } from '../src/worksheet.mjs';
 
@@ -69,12 +71,14 @@ function cases() {
   });
   add('Singapore profile, C60 capped to C50 for shear', input => { input.code = { ...input.code, profile: 'sg', naConfirmed: true }; input.materials.fck = 60; input.loads = [{ name: 'A', V: 1000, Mx: 0, My: 0 }]; });
   add('UK profile, confirmed', input => { input.code = { ...input.code, profile: 'uk', naConfirmed: true }; input.loads = [{ name: 'A', V: 900, Mx: 0, My: 0 }]; });
+  // Drop panels: the worksheet documents the governing section solved by calculateDesign.
+  for (const id of ['drop-small', 'drop-large', 'drop-circular']) list.push(['example ' + id, EXAMPLES.find(item => item.id === id).input, calculateDesign]);
   return list;
 }
 
-for (const [name, input] of cases()) {
+for (const [name, input, solve = calculate] of cases()) {
   test('worksheet matches solver: ' + name, () => {
-    const result = calculate(input);
+    const result = solve(input);
     const { failures, values, checks } = evaluate(result);
     expect(failures).toEqual([]);
     const close = (actual, expected, label) => expect(Math.abs(actual - expected) / Math.max(Math.abs(expected), 1e-12), label).toBeLessThan(1e-6);

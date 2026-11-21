@@ -15,7 +15,7 @@ export function positionIssues(input, position) {
   return [];
 }
 
-export function createContext(input) {
+export function createContext(input, options = {}) {
   const { column, materials, slab } = input;
   const profile = profileFor(input.code?.profile);
   const position = classifyPosition(column, slab);
@@ -36,11 +36,12 @@ export function createContext(input) {
     return memo.get(key);
   };
   const edge = edgePerimeters(position, d);
-  const u1 = model.intervalsAt(2 * d).total;
-  const u0 = edge ? edge.u0 : model.intervalsAt(0).total;
+  const u1Offset = options.u1Offset ?? 2 * d;
+  const u1 = model.intervalsAt(u1Offset).total;
+  const u0 = options.face?.u0 ?? (edge ? edge.u0 : model.intervalsAt(0).total);
   return {
-    input, profile, position, section: { ...section, rhoX, rhoY }, d, res, model, shadows,
-    u0, u1, u1Star: edge?.u1Star ?? null, edge,
+    input, profile, position, section: { ...section, rhoX, rhoY }, d, res, model, shadows, options, u1Offset,
+    u0, u1, u1Star: edge?.u1Star ?? null, edge, faceD: options.face?.d ?? d,
     vRdMax: maximumResistance({ fck: fckShear, factor: profile.vRdMaxFactor }),
     fywdEf: fywdEffective(materials.fyk, d),
   };

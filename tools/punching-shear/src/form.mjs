@@ -1,5 +1,7 @@
 // Input form built from field definitions, following the mConcreteCircCol layout (fieldset, legend,
 // label > span + control). Values are read from and written to a nested state object by path.
+// Labels are plain text with $…$ LaTeX spans rendered as MathML.
+import { labelHtml, labelText } from './tex.mjs';
 
 const get = (state, path) => path.split('.').reduce((value, key) => value?.[key], state);
 function set(state, path, value) {
@@ -20,57 +22,66 @@ export const GROUPS = [
   ]],
   ['Column', [
     ['column.shape', 'Shape', 'select', [option('rectangular', 'Rectangular'), option('circular', 'Circular')]],
-    ['column.cx', 'c_x (mm)', 'number', null, s => s.column.shape === 'rectangular'],
-    ['column.cy', 'c_y (mm)', 'number', null, s => s.column.shape === 'rectangular'],
-    ['column.diameter', 'Diameter D (mm)', 'number', null, s => s.column.shape === 'circular'],
-    ['column.rotation', 'Rotation (°)', 'number', null, s => s.column.shape === 'rectangular'],
-    ['column.x', 'Centre X (mm)', 'number'],
-    ['column.y', 'Centre Y (mm)', 'number'],
+    ['column.cx', '$c_x$ (mm)', 'number', null, s => s.column.shape === 'rectangular'],
+    ['column.cy', '$c_y$ (mm)', 'number', null, s => s.column.shape === 'rectangular'],
+    ['column.diameter', 'Diameter $D$ (mm)', 'number', null, s => s.column.shape === 'circular'],
+    ['column.rotation', 'Rotation $\\theta$ (°)', 'number', null, s => s.column.shape === 'rectangular'],
+    ['column.x', 'Centre $X$ (mm)', 'number'],
+    ['column.y', 'Centre $Y$ (mm)', 'number'],
   ]],
   ['Slab', [
-    ['slab.h', 'Thickness h (mm)', 'number'],
-    ['slab.depthMode', 'Effective depth', 'select', [option('explicit', 'Enter d_x, d_y'), option('bars', 'From cover and bars')]],
-    ['slab.dx', 'd_x (mm)', 'number', null, s => s.slab.depthMode === 'explicit'],
-    ['slab.dy', 'd_y (mm)', 'number', null, s => s.slab.depthMode === 'explicit'],
-    ['slab.cover', 'Top and bottom cover (mm)', 'number'],
-    ['slab.xMin', 'Slab edge X min (mm)', 'number'],
-    ['slab.xMax', 'Slab edge X max (mm)', 'number'],
-    ['slab.yMin', 'Slab edge Y min (mm)', 'number'],
-    ['slab.yMax', 'Slab edge Y max (mm)', 'number'],
+    ['slab.h', 'Thickness $h$ (mm)', 'number'],
+    ['slab.depthMode', 'Effective depth', 'select', [option('explicit', 'Enter dx, dy'), option('bars', 'From cover and bars')]],
+    ['slab.dx', '$d_x$ (mm)', 'number', null, s => s.slab.depthMode === 'explicit'],
+    ['slab.dy', '$d_y$ (mm)', 'number', null, s => s.slab.depthMode === 'explicit'],
+    ['slab.cover', 'Top and bottom cover $c$ (mm)', 'number'],
+    ['slab.xMin', 'Slab edge $X_{min}$ (mm)', 'number'],
+    ['slab.xMax', 'Slab edge $X_{max}$ (mm)', 'number'],
+    ['slab.yMin', 'Slab edge $Y_{min}$ (mm)', 'number'],
+    ['slab.yMax', 'Slab edge $Y_{max}$ (mm)', 'number'],
+  ]],
+  ['Drop panel / column head', [
+    ['head.enabled', 'Include a drop panel (concentric)', 'checkbox'],
+    ['head.shape', 'Drop shape', 'select', [option('rectangular', 'Rectangular'), option('circular', 'Circular')], s => s.head.enabled],
+    ['head.lx', 'Drop $l_x$ (mm)', 'number', null, s => s.head.enabled && s.head.shape === 'rectangular'],
+    ['head.ly', 'Drop $l_y$ (mm)', 'number', null, s => s.head.enabled && s.head.shape === 'rectangular'],
+    ['head.diameter', 'Drop diameter $D_H$ (mm)', 'number', null, s => s.head.enabled && s.head.shape === 'circular'],
+    ['head.depth', 'Depth below slab $h_H$ (mm)', 'number', null, s => s.head.enabled],
+    ['head.confirmed', 'Rectangular drop: offsets $2d_H$ / $2d$ accepted (§6.4.2(9)–(11))', 'checkbox', null, s => s.head.enabled && s.head.shape === 'rectangular'],
   ]],
   ['Openings', []],
   ['Materials', [
-    ['materials.fck', 'Concrete f_ck (MPa)', 'number'],
-    ['materials.fyk', 'Link steel f_yk (MPa)', 'number'],
+    ['materials.fck', 'Concrete $f_{ck}$ (MPa)', 'number'],
+    ['materials.fyk', 'Link steel $f_{yk}$ (MPa)', 'number'],
   ]],
   ['In-plane normal stress', [
-    ['prestress.sigmaX', 'σ_cx (MPa, compression +)', 'number'],
-    ['prestress.sigmaY', 'σ_cy (MPa, compression +)', 'number'],
+    ['prestress.sigmaX', '$\\sigma_{cx}$ (MPa, compression +)', 'number'],
+    ['prestress.sigmaY', '$\\sigma_{cy}$ (MPa, compression +)', 'number'],
   ]],
   ['Top flexural reinforcement', [
     ['flexure.areaMode', 'Area input', 'select', [option('explicit', 'Area per metre'), option('bars', 'Bars and spacing')]],
-    ['flexure.asx', 'A_s,x (mm²/m)', 'number', null, s => s.flexure.areaMode === 'explicit'],
-    ['flexure.asy', 'A_s,y (mm²/m)', 'number', null, s => s.flexure.areaMode === 'explicit'],
-    ['flexure.phiX', 'Bar Ø along x (mm)', 'number', null, s => s.flexure.areaMode === 'bars' || s.slab.depthMode === 'bars'],
-    ['flexure.sX', 'Spacing along x bars (mm)', 'number', null, s => s.flexure.areaMode === 'bars'],
-    ['flexure.phiY', 'Bar Ø along y (mm)', 'number', null, s => s.flexure.areaMode === 'bars' || s.slab.depthMode === 'bars'],
-    ['flexure.sY', 'Spacing along y bars (mm)', 'number', null, s => s.flexure.areaMode === 'bars'],
+    ['flexure.asx', '$A_{s,x}$ (mm²/m)', 'number', null, s => s.flexure.areaMode === 'explicit'],
+    ['flexure.asy', '$A_{s,y}$ (mm²/m)', 'number', null, s => s.flexure.areaMode === 'explicit'],
+    ['flexure.phiX', 'Bar $\\phi_x$ (mm)', 'number', null, s => s.flexure.areaMode === 'bars' || s.slab.depthMode === 'bars'],
+    ['flexure.sX', 'Spacing $s_x$ (mm)', 'number', null, s => s.flexure.areaMode === 'bars'],
+    ['flexure.phiY', 'Bar $\\phi_y$ (mm)', 'number', null, s => s.flexure.areaMode === 'bars' || s.slab.depthMode === 'bars'],
+    ['flexure.sY', 'Spacing $s_y$ (mm)', 'number', null, s => s.flexure.areaMode === 'bars'],
     ['flexure.outer', 'Outer layer', 'select', [option('x', 'Bars along x'), option('y', 'Bars along y')], s => s.slab.depthMode === 'bars'],
   ]],
   ['Design actions', []],
-  ['Load increment factor β', [
-    ['beta.method', 'Method', 'select', [option('simplified', 'Simplified, β = 1.15'), option('moment', 'From moments (Eq. 6.39, 6.42, 6.43)'), option('user', 'User-defined')]],
+  ['Load increment factor $\\beta$', [
+    ['beta.method', 'Method', 'select', [option('simplified', 'Simplified, β = 1.15 / 1.4 / 1.5'), option('moment', 'From moments (Eq. 6.39, 6.42, 6.43)'), option('user', 'User-defined')]],
     ['beta.confirmed', 'Braced, spans differ ≤ 25 % (§6.4.3(6))', 'checkbox', null, s => s.beta.method === 'simplified'],
-    ['beta.userValue', 'β (user value)', 'number', null, s => s.beta.method === 'user'],
+    ['beta.userValue', '$\\beta$ (user value)', 'number', null, s => s.beta.method === 'user'],
   ]],
   ['Punching reinforcement', [
     ['reinforcement.mode', 'Mode', 'select', [option('auto', 'Auto design'), option('provided', 'Check provided')]],
-    ['reinforcement.diameter', 'Link Ø (mm)', 'select', [6, 8, 10, 12, 16, 20].map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
+    ['reinforcement.diameter', 'Link $\\phi$ (mm)', 'select', [6, 8, 10, 12, 16, 20].map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
     ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg link'), option('double', 'Two-leg link')], s => s.reinforcement.mode === 'auto'],
-    ['reinforcement.legGap', 'Two-leg link width (mm)', 'number'],
+    ['reinforcement.legGap', 'Two-leg link width $b_l$ (mm)', 'number'],
     ['reinforcement.anchorage.type', 'Link anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')]],
-    ['reinforcement.anchorage.mandrelFactor', 'Mandrel diameter φm/φ', 'number'],
-    ['reinforcement.anchorage.extension', 'Straight extension after bend (mm)', 'number'],
+    ['reinforcement.anchorage.mandrelFactor', 'Mandrel diameter $\\phi_m/\\phi$', 'number'],
+    ['reinforcement.anchorage.extension', 'Straight extension $l_{ext}$ (mm)', 'number'],
     ['reinforcement.anchorage.engaged', 'Links enclose top and bottom flexural bars', 'checkbox'],
   ]],
 ];
@@ -80,12 +91,12 @@ export function buildForm(form, anchors, getState, onChange) {
   for (const [title, fields] of GROUPS) {
     const group = document.createElement('fieldset');
     const legend = document.createElement('legend');
-    legend.textContent = title;
+    legend.innerHTML = labelHtml(title);
     group.append(legend);
     for (const [path, label, type, options, visible = yes] of fields) {
       const row = document.createElement('label');
       const name = document.createElement('span');
-      name.textContent = label;
+      name.innerHTML = labelHtml(label);
       let control;
       if (type === 'select') {
         control = document.createElement('select');
@@ -96,12 +107,12 @@ export function buildForm(form, anchors, getState, onChange) {
         if (type === 'number') control.step = 'any';
       }
       control.dataset.path = path;
-      control.setAttribute('aria-label', label);
+      control.setAttribute('aria-label', labelText(label));
       row.append(name, control);
       group.append(row);
       rows.push({ row, control, path, type, options, visible });
     }
-    const anchor = anchors[title];
+    const anchor = anchors[labelText(title)] ?? anchors[title];
     if (anchor) group.append(anchor);
     form.append(group);
   }
