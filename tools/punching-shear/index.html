@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mPunchingShear</title>
+</head>
+<body>
+  <header class="titlebar">
+    <h1>mPunchingShear <span>Slab–Column Punching Shear</span></h1>
+    <output id="calculation-status" aria-live="polite">Preparing</output>
+  </header>
+  <main class="column-layout punching-layout">
+    <form id="punching-inputs" aria-label="Punching shear inputs">
+      <div id="openings-anchor">
+        <p class="table-caption">Openings (centre X, Y and size in mm)</p>
+      </div>
+      <div id="loads-anchor">
+        <label><span>V_Ed basis</span>
+          <select id="load-type" aria-label="V_Ed basis">
+            <option value="net">Net punching force</option>
+            <option value="reaction">Support reaction (no reduction)</option>
+          </select></label>
+        <p class="table-caption">Concurrent combinations: V in kN, M in kN·m. M_x acts about X (e_y = M_x/V), M_y about Y (e_x = M_y/V), at the column centroid.</p>
+      </div>
+      <div id="layers-anchor">
+        <p class="table-caption">Provided layers: offset from the column face and start position along the layer, in mm.</p>
+        <div class="layer-buttons">
+          <button type="button" id="copy-layout">Edit auto layout</button>
+          <button type="button" id="omit-link" disabled>Omit selected link</button>
+          <button type="button" id="restore-links" disabled>Restore layer</button>
+        </div>
+      </div>
+    </form>
+    <section class="section-view drawing-views" aria-labelledby="plan-title">
+      <h2 id="plan-title">Plan</h2>
+      <div id="plan-view" class="drawing" role="img" aria-label="Plan of column, control perimeters and links"></div>
+      <p id="selection-info">Select a link in the plan to inspect it.</p>
+      <h2 class="detail-title">Section</h2>
+      <div id="section-view" class="drawing" role="img" aria-label="Section through the slab and links"></div>
+      <h2 class="detail-title">3D view</h2>
+      <div class="view-controls">
+        <label>Slab opacity <input id="view-opacity" type="range" min="0.05" max="0.9" step="0.05" value="0.25"></label>
+        <label><input id="view-links" type="checkbox" checked> Links</label>
+        <select id="view-layer" aria-label="Visible link layer"><option value="all">All layers</option></select>
+        <label><input id="view-perimeters" type="checkbox" checked> Perimeters</label>
+        <label><input id="view-loads" type="checkbox" checked> Loads</label>
+        <button type="button" id="view-reset">Reset view</button>
+      </div>
+      <canvas id="view-3d" role="img" aria-label="3D view: drag to orbit, Shift+drag to pan, wheel to zoom"></canvas>
+      <p>Schematic geometry. Drag to orbit, Shift+drag to pan, wheel to zoom. No stress distribution is shown.</p>
+      <h2 class="detail-title">Link layer schedule</h2>
+      <div class="schedule-wrap">
+        <table id="layer-schedule" class="column-summary-table">
+          <thead><tr><th scope="col">Layer</th><th scope="col">Offset</th><th scope="col">Ø</th><th scope="col">Shape</th><th scope="col">Links</th><th scope="col">Eff. legs</th><th scope="col">A_sw (mm²)</th><th scope="col">s_r</th><th scope="col">s_t max ≤ limit</th><th scope="col">Reinforcement</th><th scope="col">Detailing</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="checks" aria-labelledby="results-title">
+      <h2 id="results-title">Check summary</h2>
+      <p id="design-basis">EN 1992-1-1:2004 · CEN recommended values</p>
+      <label class="combination-select"><span>Combination</span><select id="combination" aria-label="Combination shown"></select></label>
+      <div id="column-check-summary" aria-live="polite"></div>
+      <p id="design-status"></p>
+      <div id="messages"></div>
+      <h2 class="detail-title">Calculation details</h2>
+      <dl id="checks"></dl>
+      <h2 class="detail-title">Code basis</h2>
+      <div id="code-basis"></div>
+    </section>
+  </main>
+  <script type="module" src="/platform/tools/punching-shear/src/page.mjs"></script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+// Canvas worksheet report. Resistances, β, stresses and checks are live Canvas formulas, so the
+// worksheet recomputes them independently of the tool. Measured layout geometry (tangential gaps,
+// effective leg counts) is entered as values taken from the tool's layout model.
+import { createDocument, define, num, R, unit } from './worksheet-doc.mjs';
+import { planSvg } from './plan-view.mjs';
+import { sectionSvg } from './section-view.mjs';
+import { esc } from './svg.mjs';
+import { LINK_SHAPES } from './layout.mjs';
+import { STATES } from './inputs.mjs';
+
+const deg = θ => R`\frac{\pi\cdot${num(θ)}}{180}`;
+
+export function buildWorksheet(result, { pageHeight, pageGap, designName = 'Punching shear design' }) {
+  const doc = createDocument({ pageHeight, pageGap, title: 'Punching Shear Check' });
+  const { input } = result;
+  const { column } = input;
+  const rect = column.shape === 'rectangular';
+  doc.heading('PUNCHING SHEAR CHECK – INTERNAL COLUMN (EC2)', 1);
+  doc.text(`Design: ${esc(designName)}. ${esc(result.profile.standard)}. ${esc(result.profile.nationalAnnex)}.`);
+  doc.text(`Design status: <b>${esc(result.status)}</b>. Governing: ${esc(result.governing?.load ?? '—')}, ${esc(result.governing?.check ?? '—')}, UR = ${result.governing?.ur?.toFixed(3) ?? '—'}.`);
+  for (const issue of result.issues) doc.text(`${esc(issue.state)}: ${esc(issue.message)}`, 12);
+  for (const note of result.notes) doc.text(esc(note), 12);
+  if (!result.section) return doc.finish();
+
+  doc.heading('1 Geometry and materials');
+  if (rect) {
+    doc.math('Column dimension c_x', define('c_{x}', num(column.cx) + unit.mm), { displayUnit: 'mm', mode: 'auto' });
+    doc.math('Column dimension c_y', define('c_{y}', num(column.cy) + unit.mm), { displayUnit: 'mm', mode: 'auto' });
+    doc.math('Column rotation (degrees)', define(R`\theta_{c}`, num(column.rotation)), { mode: 'auto' });
+  } else {
+    doc.math('Column diameter', define('D', num(column.diameter) + unit.mm), { displayUnit: 'mm', mode: 'auto' });
+    doc.math('Column rotation (degrees)', define(R`\theta_{c}`, '0'), { mode: 'auto' });
+  }
+  doc.math('Slab thickness', define('h', num(input.slab.h) + unit.mm), { displayUnit: 'mm', mode: 'auto' });
+  doc.math('Effective depth, x bars', define('d_{x}', num(result.section.dx) + unit.mm), { displayUnit: 'mm', mode: 'auto' });
+  doc.math('Effective depth, y bars', define('d_{y}', num(result.section.dy) + unit.mm), { displayUnit: 'mm', mode: 'auto' });
+  doc.math('Mean effective depth', define('d', R`\frac{d_{x}+d_{y}}{2}`), { displayUnit: 'mm' });
+  doc.math('Top steel per metre, x', define('A_{s.x}', num(result.section.asx) + unit.mm2), { displayUnit: 'mm^2', mode: 'auto', precision: 0 });
+  doc.math('Top steel per metre, y', define('A_{s.y}', num(result.section.asy) + unit.mm2), { displayUnit: 'mm^2', mode: 'auto', precision: 0 });
+  doc.math('Concrete strength', define('f_{ck}', num(input.materials.fck) + unit.MPa), { displayUnit: 'MPa', mode: 'auto' });
+  doc.math('Link yield strength', define('f_{yk}', num(input.materials.fyk) + unit.MPa), { displayUnit: 'MPa', mode: 'auto' });
+  doc.math('Partial factors (§2.4.2.4)', define(R`\gamma_{c}`, '1.5'), { mode: 'auto' });
+  doc.math('', define(R`\gamma_{s}`, '1.15'), { mode: 'auto' });
+
+  doc.heading('2 Perimeters and resistances');
+  doc.text('Areas per metre width over the strip (1000 mm), ρ limited to 0.02 (Eq. 6.47). σ_cp = 0.', 12);
+  doc.math('ρ_x', define(R`\rho_{x}`, R`\min\left(\frac{A_{s.x}}{1000\,\mathrm{mm}\cdot d_{x}},0.02\right)`), { precision: 5 });
+  doc.math('ρ_y', define(R`\rho_{y}`, R`\min\left(\frac{A_{s.y}}{1000\,\mathrm{mm}\cdot d_{y}},0.02\right)`), { precision: 5 });
+  doc.math('ρ_l', define(R`\rho_{l}`, R`\min\left(\sqrt{\rho_{x}\rho_{y}},0.02\right)`), { precision: 5 });
+  doc.math('Size factor k', define('k', R`\min\left(1+\sqrt{\frac{200\,\mathrm{mm}}{d}},2\right)`));
+  doc.math('v_min (Eq. 6.3N)', define(R`v_{min}`, R`0.035k^{1.5}\sqrt{\frac{f_{ck}}{\mathrm{MPa}}}` + unit.MPa), { displayUnit: 'MPa' });
+  doc.math('v_Rd,c (Eq. 6.47)', define(R`v_{Rd.c}`, R`\max\left(\frac{0.18}{\gamma_{c}}k\left(100\rho_{l}\frac{f_{ck}}{\mathrm{MPa}}\right)^{\frac{1}{3}}\,\mathrm{MPa},v_{min}\right)`), { displayUnit: 'MPa' });
+  doc.math('ν (Eq. 6.6N)', define(R`\nu`, R`0.6\left(1-\frac{f_{ck}}{250\,\mathrm{MPa}}\right)`));
+  doc.math('v_Rd,max (§6.4.5(3))', define(R`v_{Rd.max}`, R`0.4\nu\frac{f_{ck}}{\gamma_{c}}`), { displayUnit: 'MPa' });
+  doc.math('Loaded perimeter u_0', define('u_{0}', rect ? R`2\left(c_{x}+c_{y}\right)` : R`\pi D`), { displayUnit: 'mm', precision: 1 });
+  doc.math('Basic control perimeter u_1 at 2d', define('u_{1}', rect ? R`2\left(c_{x}+c_{y}\right)+4\pi d` : R`\pi\left(D+4d\right)`), { displayUnit: 'mm', precision: 1 });
+  doc.math('f_ywd,ef (§6.4.5(1))', define(R`f_{ywd.ef}`, R`\min\left(250\,\mathrm{MPa}+0.25\frac{d}{\mathrm{mm}}\,\mathrm{MPa},\frac{f_{yk}}{\gamma_{s}}\right)`), { displayUnit: 'MPa', precision: 1 });
+  doc.math('k_max (A1:2014)', define(R`k_{max}`, '1.5'), { mode: 'auto' });
+
+  const layout = result.layout;
+  const layers = layout.summary;
+  if (layers.length) layoutSection(doc, layers);
+  result.loads.forEach((load, index) => combination(doc, result, load, index + 1, rect, layers.length > 1));
+  if (layers.length) detailing(doc, result, layers);
+
+  doc.heading('Drawings', 2);
+  doc.image(planSvg(result, { width: 640, height: 600 }), 640, 600);
+  doc.image(sectionSvg(result, { width: 640, height: 330 }), 640, 330);
+  if (layers.length) {
+    doc.heading('Link layer schedule', 3);
+    doc.table([
+      ['Layer', 'Offset', 'Ø', 'Shape', 'Links', 'Eff. legs', 'A_sw', 'Reinf.', 'Detailing'],
+      ...layers.map(layer => [layer.id, layer.offset.toFixed(0), layer.diameter, LINK_SHAPES[layer.shape].label, layer.physicalLinks, `${layer.effectiveLegs}/${layer.legs}`, layer.asw.toFixed(0), layer.reinforcementState, layer.detailingState]),
+    ], [48, 56, 36, 120, 48, 64, 56, 84, 128]);
+  }
+  doc.heading('Basis, assumptions and limitations', 2);
+  for (const parameter of result.profile.parameters) doc.text(`${esc(parameter.name)} = ${esc(String(typeof parameter.value === 'number' ? Number(parameter.value.toFixed(4)) : parameter.value))} · ${esc(parameter.source)} · ${esc(parameter.status)}`, 12);
+  for (const text of result.profile.assumptions) doc.text('Assumption: ' + esc(text), 12);
+  for (const text of result.profile.unsupported) doc.text('Not supported: ' + esc(text), 12);
+  doc.text('Validation status: formulas unit-tested and benchmarked against CSI SAFE RC-PN-001 and Dlubal VE 1023 intermediate values; see tools/punching-shear/SOURCES.md. Anchorage is not checked.', 12);
+  return doc.finish();
+}
+
+function layoutSection(doc, layers) {
+  doc.heading('3 Punching reinforcement layout');
+  doc.text('Effective legs are inside the slab and outside openings. A_sw per layer = effective legs × leg area.', 12);
+  layers.forEach((layer, i) => {
+    const j = i + 1;
+    doc.math(`${layer.id} offset from column face`, define(`a_{L${j}}`, num(layer.offset) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 0 });
+    doc.math(`${layer.id} effective legs, Ø`, define(`n_{L${j}}`, String(layer.effectiveLegs)), { mode: 'auto' });
+    doc.math('', define(R`\phi_{L${j}}`, num(layer.diameter) + unit.mm), { displayUnit: 'mm', mode: 'auto' });
+    doc.math(`${layer.id} A_sw`, define(`A_{sw.L${j}}`, R`n_{L${j}}\cdot0.25\pi\phi_{L${j}}^2`), { displayUnit: 'mm^2', precision: 0 });
+  });
+  doc.math('Smallest layer A_sw', define('A_{sw}', R`\min\left(${layers.map((_, i) => `A_{sw.L${i + 1}}`).join(',')}\right)`), { displayUnit: 'mm^2', precision: 0 });
+  if (layers.length > 1) {
+    const gaps = layers.slice(1).map((_, i) => `a_{L${i + 2}}-a_{L${i + 1}}`);
+    doc.math('Largest radial spacing', define('s_{r}', gaps.length > 1 ? R`\max\left(${gaps.join(',')}\right)` : gaps[0]), { displayUnit: 'mm', precision: 0 });
+  }
+}
+
+function combination(doc, result, load, i, rect, hasSr) {
+  doc.heading(`${4 + i - 1} Combination ${esc(load.name)}`);
+  doc.math('Punching force', define(`V_{Ed.${i}}`, num(load.V) + unit.kN), { displayUnit: 'kN', mode: 'auto' });
+  doc.math('Moment about x', define(`M_{x.${i}}`, num(load.Mx) + unit.kNm), { displayUnit: 'kN m', mode: 'auto' });
+  doc.math('Moment about y', define(`M_{y.${i}}`, num(load.My) + unit.kNm), { displayUnit: 'kN m', mode: 'auto' });
+  const method = result.input.beta.method;
+  const terms = load.beta.terms;
+  doc.text(`β: ${esc(load.beta.method)}.`, 12);
+  if (method === 'moment' && terms && (terms.e1 || terms.e2)) {
+    doc.math('Eccentricity along local x', define(`e_{1.${i}}`, R`\frac{M_{y.${i}}\cos\left(${deg(result.input.column.rotation)}\right)+M_{x.${i}}\sin\left(${deg(result.input.column.rotation)}\right)}{V_{Ed.${i}}}`), { displayUnit: 'mm', precision: 1 });
+    doc.math('Eccentricity along local y', define(`e_{2.${i}}`, R`\frac{M_{x.${i}}\cos\left(${deg(result.input.column.rotation)}\right)-M_{y.${i}}\sin\left(${deg(result.input.column.rotation)}\right)}{V_{Ed.${i}}}`), { displayUnit: 'mm', precision: 1 });
+  }
+  let beta;
+  if (method !== 'moment') beta = num(load.beta.value);
+  else if (!terms || (!terms.e1 && !terms.e2) || load.beta.value === 1) beta = '1';
+  else if (!rect) beta = R`1+0.6\pi\frac{\sqrt{e_{1.${i}}^2+e_{2.${i}}^2}}{D+4d}`;
+  else if (terms.W1) {
+    const [c1, c2, e] = Math.abs(terms.e2) < 1e-9 ? ['c_{x}', 'c_{y}', `e_{1.${i}}`] : ['c_{y}', 'c_{x}', `e_{2.${i}}`];
+    doc.math('k from Table 6.1', define(`k_{\\beta.${i}}`, num(terms.k)), { mode: 'auto' });
+    doc.math('W_1 (Eq. 6.41)', define(`W_{1.${i}}`, R`\frac{${c1}^2}{2}+${c1}${c2}+4${c2}d+16d^2+2\pi d${c1}`), { displayUnit: 'mm^2', precision: 0 });
+    beta = R`1+k_{\beta.${i}}\frac{\left|${e}\right|u_{1}}{W_{1.${i}}}`;
+  } else {
+    beta = R`1+1.8\max\left(\sqrt{\left(\frac{e_{1.${i}}}{c_{x}+4d}\right)^2+\left(\frac{e_{2.${i}}}{c_{y}+4d}\right)^2},\sqrt{\left(\frac{e_{1.${i}}}{c_{y}+4d}\right)^2+\left(\frac{e_{2.${i}}}{c_{x}+4d}\right)^2}\right)`;
+  }
+  doc.math('Load increment factor β', define(R`\beta_{${i}}`, beta));
+  doc.math('Stress at u_0 (Eq. 6.53)', define(`v_{Ed0.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{u_{0}d}`), { displayUnit: 'MPa' });
+  doc.math('', R`v_{Ed0.${i}}\le v_{Rd.max}`, { displayUnit: 'MPa', mode: 'auto' });
+  doc.math('Stress at u_1 (Eq. 6.38)', define(`v_{Ed1.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{u_{1}d}`), { displayUnit: 'MPa' });
+  if (!load.required) {
+    doc.math('No links required', R`v_{Ed1.${i}}\le v_{Rd.c}`, { displayUnit: 'MPa', mode: 'auto' });
+    return;
+  }
+  doc.text('v_Ed > v_Rd,c: punching reinforcement required (§6.4.5).', 12);
+  doc.math('Upper limit with links', R`v_{Ed1.${i}}\le k_{max}v_{Rd.c}`, { displayUnit: 'MPa', mode: 'auto' });
+  doc.math('u_out,ef (Eq. 6.54)', define(`u_{out.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{v_{Rd.c}d}`), { displayUnit: 'mm', precision: 0 });
+  doc.math('Offset of u_out,ef from the face', define(`a_{out.${i}}`, rect ? R`\frac{u_{out.${i}}-2\left(c_{x}+c_{y}\right)}{2\pi}` : R`\frac{\frac{u_{out.${i}}}{\pi}-D}{2}`), { displayUnit: 'mm', precision: 0 });
+  if (hasSr) {
+    doc.math('v_Rd,cs (Eq. 6.52)', define(`v_{Rd.cs.${i}}`, R`0.75v_{Rd.c}+1.5\frac{d}{s_{r}}\frac{A_{sw}f_{ywd.ef}}{u_{1}d}`), { displayUnit: 'MPa' });
+    doc.math('', R`v_{Ed1.${i}}\le v_{Rd.cs.${i}}`, { displayUnit: 'MPa', mode: 'auto' });
+    const last = result.layout.summary.length;
+    doc.math('Outer coverage (§6.4.5(4))', R`a_{L${last}}\ge a_{out.${i}}-1.5d`, { displayUnit: 'mm', mode: 'auto' });
+  }
+}
+
+function detailing(doc, result, layers) {
+  doc.heading(`${4 + result.loads.length} Detailing (§9.4.3)`);
+  doc.math('First layer', R`a_{L1}\le0.5d`, { displayUnit: 'mm', mode: 'auto' });
+  if (layers.length > 1) doc.math('Radial spacing', R`s_{r}\le0.75d`, { displayUnit: 'mm', mode: 'auto' });
+  doc.text(`Tangential spacing is measured along each layer between consecutive effective legs: ≤ 1.5d inside u1, ≤ 2d outside. Minimum leg area from Eq. 9.11 with α = 90°.`, 12);
+  const check = result.loads.find(load => load.layoutCheck)?.layoutCheck;
+  layers.forEach((layer, i) => {
+    const j = i + 1;
+    const entry = check?.layerRows[i];
+    doc.math(`${layer.id} largest tangential gap`, define(`s_{t.L${j}}`, num(layer.tangential.max, 1) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 0 });
+    doc.math('', R`s_{t.L${j}}\le${layer.offset <= 2 * result.section.d ? '1.5' : '2'}d`, { displayUnit: 'mm', mode: 'auto' });
+    if (entry) {
+      doc.math(`${layer.id} radial spacing used in Eq. 9.11`, define(`s_{r.L${j}}`, num(entry.sr, 1) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 0 });
+      doc.math('', R`0.25\pi\phi_{L${j}}^2\ge\frac{0.08\sqrt{\frac{f_{ck}}{\mathrm{MPa}}}}{\frac{f_{yk}}{\mathrm{MPa}}}\cdot\frac{s_{r.L${j}}s_{t.L${j}}}{1.5}`, { displayUnit: 'mm^2', mode: 'auto' });
+    }
+  });
+  doc.text(`Anchorage: ${STATES.confirm}. Link anchorage around the flexural bars (§8.5) is not checked by the tool.`, 12);
+}

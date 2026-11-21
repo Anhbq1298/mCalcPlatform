@@ -11,7 +11,7 @@ const cases = [
 test('opens, saves and reopens each integrated tool under a Pages project path', async ({ page }) => {
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Tool Library' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(5);
+  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(6);
   const beamIcon = module => page.locator('.thumbnail[data-module="' + module + '"] i:nth-child(2)');
   const profileStyle = element => {
     const { width, height, clipPath, backgroundColor } = getComputedStyle(element);
@@ -299,4 +299,59 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   await expect(page.getByLabel('L2 Link spacing (mm)', { exact: true })).toHaveValue('140');
   await shell(page).getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
+});
+
+test('designs punching shear links, edits a provided layout, saves, reopens and reports', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('a[href*="t/punching-shear/"]').filter({ hasText: 'New design' }).first().click();
+  await expect(page.getByRole('heading', { name: /mPunchingShear/ })).toBeVisible();
+  const status = page.locator('#design-status');
+  await expect(status).toContainText('Incomplete input');
+  await page.getByLabel('Braced, spans differ ≤ 25 % (§6.4.3(6))').check();
+  await page.getByLabel('1 V_Ed', { exact: true }).fill('800');
+  await expect(status).toContainText('Requires confirmation');
+  const schedule = page.locator('#layer-schedule tbody tr');
+  await expect(schedule).toHaveCount(4);
+  await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
+  await page.getByRole('button', { name: 'Edit auto layout' }).click();
+  await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
+  await page.getByRole('button', { name: 'Link layers: add row' }).click();
+  await expect(schedule).toHaveCount(5);
+  await page.locator('#plan-view [data-link="L2-3"]').click();
+  await expect(page.locator('#selection-info')).toContainText('L2-3');
+  await page.getByRole('button', { name: 'Omit selected link' }).click();
+  await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Load combinations: add row' }).click();
+  await page.getByLabel('2 M_y', { exact: true }).fill('60');
+  await page.getByLabel('2 V_Ed', { exact: true }).fill('500');
+  await expect(page.locator('#combination option')).toHaveCount(2);
+  const shell = page.getByRole('navigation', { name: 'Design workspace' });
+  await shell.getByLabel('Design name').fill('PS-01 internal column');
+  await shell.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(shell.getByText('Design saved.')).toBeVisible();
+  const before = await status.textContent();
+  await page.reload();
+  await expect(shell.getByLabel('Design name')).toHaveValue('PS-01 internal column', { timeout: 45000 });
+  await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
+  await expect(schedule).toHaveCount(5);
+  await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
+  await expect(page.getByLabel('2 M_y', { exact: true })).toHaveValue('60');
+  await expect(status).toHaveText(before);
+  const canvas = page.locator('#view-3d');
+  await canvas.scrollIntoViewIfNeeded();
+  const image = await canvas.evaluate(element => element.toDataURL());
+  const box = await canvas.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2 + 20);
+  await page.mouse.up();
+  expect(await canvas.evaluate((element, before) => element.toDataURL() !== before, image)).toBe(true);
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 375, height: 812 });
+  const plan = await page.locator('#plan-view svg').boundingBox();
+  expect(plan.x + plan.width).toBeLessThanOrEqual(375);
+  await page.setViewportSize(viewport);
+  await shell.getByRole('button', { name: 'Report', exact: true }).click();
+  await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
+  await expect(page.getByText('PUNCHING SHEAR CHECK – INTERNAL COLUMN (EC2)').first()).toBeVisible({ timeout: 65000 });
 });
