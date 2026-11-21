@@ -12,6 +12,14 @@ test('opens, saves and reopens each integrated tool under a Pages project path',
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Tool Library' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(4);
+  const beamIcon = module => page.locator('.thumbnail[data-module="' + module + '"] i:nth-child(2)');
+  const profileStyle = element => {
+    const { width, height, clipPath, backgroundColor } = getComputedStyle(element);
+    return { width, height, clipPath, backgroundColor };
+  };
+  expect(await beamIcon('steel-beam-column').evaluate(profileStyle))
+    .toEqual(await beamIcon('composite-beam').evaluate(profileStyle));
+  await expect(page.locator('.thumbnail[data-module="steel-beam-column"] i:first-child')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   for (const [route, name] of cases) {
     await page.goto(route + '?new=1');
     const shell = page.getByRole('navigation', { name: 'Design workspace' });
@@ -181,20 +189,32 @@ test('opens the original flat project format and preserves unavailable calculati
 
 test('solves mConcreteRecCol locally and restores shear inputs by design ID', async ({ page }) => {
   test.setTimeout(120000);
+  await page.emulateMedia({ colorScheme: 'dark' });
   await page.route('https://mbcolumnlite-api-sg.onrender.com/**', route => route.abort());
   await page.goto('t/mbcolumn-lite/?new=1');
   await expect(page).toHaveTitle('mConcreteRecCol');
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light');
   const enable = page.getByLabel('Check directional shear (EC2 2023)');
+  const canvas = page.locator('canvas#section');
+  const legend = page.locator('#shear-link-legend');
+  await expect(legend).toBeHidden();
   await enable.check();
+  await expect(legend).toContainText('X legs: 2 · Y legs: 2');
+  const outerLink = await canvas.evaluate(element => element.toDataURL());
+  await page.getByLabel('Effective X legs', { exact: true }).fill('4');
+  await expect(legend).toContainText('X legs: 4 · Y legs: 2');
+  expect(await canvas.evaluate(element => element.toDataURL())).not.toBe(outerLink);
   await page.getByLabel('Link spacing (mm)', { exact: true }).fill('125');
   await page.getByLabel('ULS 1 Vy (kN)', { exact: true }).fill('350');
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   const shear = page.locator('#column-shear-results');
   await expect(shear.getByRole('heading', { name: 'Directional shear' })).toBeVisible({ timeout: 60000 });
   await expect(shear.getByRole('row').filter({ hasText: '350.0' })).toContainText('ULS 1');
+  await expect(legend).toContainText('@ 125 mm');
   await save(page);
   await page.reload();
   await expect(enable).toBeChecked();
+  await expect(legend).toContainText('X legs: 4 · Y legs: 2');
   await expect(page.getByLabel('Link spacing (mm)', { exact: true })).toHaveValue('125');
   await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('350');
 });
