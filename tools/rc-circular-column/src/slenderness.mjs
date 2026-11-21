@@ -19,7 +19,11 @@ export function memberMoments(input, section) {
   const steelArea = section.bars.reduce((sum, bar) => sum + bar.area, 0);
   const axial = input.axial * 1000;
   const n = axial / (grossArea * fcd);
-  const limit = 20 * 0.7 * 1.1 * 0.7 / Math.sqrt(n);
+  const omega = steelArea * fyd / (grossArea * fcd);
+  const factorA = 1 / (1 + 0.2 * input.creepRatio);
+  const factorB = Math.sqrt(1 + 2 * omega);
+  const factorC = 0.7; // End moment ratio is unavailable; use the recommended fallback.
+  const limit = 20 * factorA * factorB * factorC / Math.sqrt(n);
   const lengths = [input.effectiveLengthX, input.effectiveLengthY];
   const ratios = lengths.map(length => 4 * length / input.diameter);
   const slender = ratios.map(ratio => ratio >= limit);
@@ -27,7 +31,7 @@ export function memberMoments(input, section) {
   if (slender.some(Boolean) && section.rings.some(ring => ring.count % 2 !== 0)) {
     return unavailable(comparison + '. Use externally assessed second-order moments for a non-centrosymmetric cage.');
   }
-  const nu = 1 + steelArea * fyd / (grossArea * fcd);
+  const nu = 1 + omega;
   if (slender.some(Boolean) && n >= nu) {
     return unavailable(comparison + '. Axial action is outside the nominal-curvature range.');
   }

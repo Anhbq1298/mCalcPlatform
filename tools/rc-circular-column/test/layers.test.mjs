@@ -128,12 +128,18 @@ test('D1000 nominal curvature matches hand calculation by axis and feeds PMM', (
   Object.assign(input, { axial: 8000, mx: -1000, my: 500, effectiveLengthX: 8000, effectiveLengthY: 1000 });
   const section = validateInputs(input);
   const calculated = memberMoments(input, section);
-  // With d = 500 + 432/√2, λx = 32, λy = 4, λlim ≈ 15.6,
+  // With d = 500 + 432/√2, λx = 32, λy = 4, λlim ≈ 19.6,
   // EC2 5.8.8 gives M2x = 565.03 kNm; imperfection moments are 160 and 20 kNm.
   near(calculated.mx, -1725.03, 0.01);
   near(calculated.my, 520);
   assert.ok(sectionResistance({ ...input, ...calculated }, section).combined > sectionResistance(input, section).combined);
   assert.equal(calculated.row.hideRatio, true);
+  input.effectiveLengthX = 3500;
+  assert.equal(memberMoments(input, section).row.statusLabel, 'Non-slender');
+  input.creepRatio = 8;
+  assert.equal(memberMoments(input, section).row.statusLabel, 'Second order applied');
+  input.effectiveLengthX = 8000;
+  input.creepRatio = 2;
   const old = migrateInputs({ ...input, unknown: 42 }, 3);
   assert.equal(old.unknown, 42);
   assert.equal(old.creepRatio, 2);
