@@ -7,7 +7,7 @@ const fields = `<h2>Shear</h2>
       <div class="fields" id="shearFields" hidden>
         <label class="f"><span>Link spacing (mm)</span><input id="shearSpacing" type="number" min="1"></label>
         <label class="f"><span>Link fyk (MPa)</span><input id="shearFyk" type="number" min="1"></label>
-        <label class="f wide"><span>Link layout</span><select id="shearLayout">
+        <label class="f wide"><span>Link layout</span><select id="shearLayout" aria-label="Link layout">
           <option value="auto">Automatic from reinforcement</option>
           <option value="manual">Manual effective legs</option>
         </select></label>
