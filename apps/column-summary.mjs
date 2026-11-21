@@ -4,7 +4,7 @@ export function governingRow(rows, getRatio) {
   return rows.reduce((worst, row) => !worst || getRatio(row) > getRatio(worst) ? row : worst, null);
 }
 
-export function renderColumnSummary(panel, checks = [], message = 'Awaiting results') {
+export function renderColumnSummary(panel, checks = [], message = 'Awaiting results', ratioTitle = 'UR / ratio') {
   const governing = governingRow(checks.filter(row => row.isUR && row.ratio != null), row => row.ratio);
   const incomplete = checks.some(row => row.status === 'incomplete');
   const failed = checks.some(row => row.status === 'fail');
@@ -34,7 +34,7 @@ export function renderColumnSummary(panel, checks = [], message = 'Awaiting resu
   const table = document.createElement('table');
   table.className = 'column-summary-table';
   const header = table.createTHead().insertRow();
-  for (const title of ['Check', 'UR / ratio', 'Status']) {
+  for (const title of ['Check', ratioTitle, 'Status']) {
     const cell = document.createElement('th');
     cell.scope = 'col';
     cell.textContent = title;
@@ -53,7 +53,7 @@ export function renderColumnSummary(panel, checks = [], message = 'Awaiting resu
       label.append(detail);
     }
     row.append(label);
-    row.insertCell().textContent = formatRatio(check.ratio);
+    row.insertCell().textContent = check.hideRatio ? '' : formatRatio(check.ratio);
     const cell = row.insertCell();
     cell.dataset.tone = check.status;
     cell.textContent = check.statusLabel ?? { pass: 'Pass', fail: 'Fail', incomplete: 'Unavailable', off: 'Off' }[check.status];

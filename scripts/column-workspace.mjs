@@ -1,9 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { reinforcementEditorEdits } from './column-reinforcement-editor.mjs';
 import { shearBasis, shearDefaults, shearScope } from '../tools/mbcolumn-lite/src/shear.mjs';
 
-const fields = `<h2>Shear</h2>
-      <label class="check"><input id="shearEnabled" type="checkbox"> Check directional shear (EC2 2023)</label>
+const fields = `      <label class="check"><input id="shearEnabled" type="checkbox"> Check directional shear (EC2 2023)</label>
+      <label class="f"><span>Link Ø (mm)</span> <input id="link" type="number" step="1" min="0"></label>
       <div class="fields" id="shearFields" hidden>
         <label class="f"><span>Link spacing (mm)</span><input id="shearSpacing" type="number" min="1"></label>
         <label class="f"><span>Link fyk (MPa)</span><input id="shearFyk" type="number" min="1"></label>
@@ -16,35 +17,42 @@ const fields = `<h2>Shear</h2>
         <label class="check wide"><input id="shearClassA" type="checkbox"> Class A links</label>
         <p class="hint wide">${shearScope}</p>
       </div>
-      <h2>Load cases</h2>`;
+      <p class="hint" id="shear-link-legend" aria-live="polite"></p>`;
 
 const bindings = `  const shearFields = [['shearSpacing', 'spacing'], ['shearFyk', 'fyk'],
     ['shearLegsX', 'legsX'], ['shearLegsY', 'legsY']];
-  function syncShear() {
-    $('shearEnabled').checked = state.shear.enabled;
+  function syncShearVisibility() {
     $('shearFields').hidden = !state.shear.enabled;
-    $('shearClassA').checked = state.shear.classA;
-    $('shearLayout').value = state.shear.mode;
     document.querySelectorAll('[data-manual-legs]').forEach(label => {
       label.hidden = state.shear.mode !== 'manual';
     });
+  }
+  function syncShear() {
+    $('shearEnabled').checked = state.shear.enabled;
+    $('shearClassA').checked = state.shear.classA;
+    $('shearLayout').value = state.shear.mode;
+    syncShearVisibility();
     for (const [id, key] of shearFields) $(id).value = state.shear[key];
   }
   $('shearEnabled').addEventListener('change', () => {
     state.shear.enabled = $('shearEnabled').checked;
-    syncShear(); renderLoadTable(); draw(); changed();
+    refreshShearDraft();
   });
   $('shearLayout').addEventListener('change', () => {
     state.shear.mode = $('shearLayout').value;
-    syncShear(); draw(); changed();
+    refreshShearDraft();
   });
   $('shearClassA').addEventListener('change', () => {
     state.shear.classA = $('shearClassA').checked;
-    changed();
   });
   for (const [id, key] of shearFields) $(id).addEventListener('input', () => {
-    state.shear[key] = $(id).valueAsNumber || 0;
-    draw(); changed();
+    state.shear[key] = $(id).valueAsNumber;
+    refreshShearDraft();
+  });
+
+  $('link').addEventListener('input', () => {
+    state.link = $('link').valueAsNumber;
+    refreshShearDraft();
   });
 
   function autoLinkLayout() {
@@ -60,63 +68,29 @@ const bindings = `  const shearFields = [['shearSpacing', 'spacing'], ['shearFyk
     syncShear();`;
 
 const linkDrawing = `    // Generated links use the same geometry as the effective leg counts.
-    const shearLegend = $('shear-link-legend');
-    shearLegend.hidden = !state.shear.enabled;
-    const automaticLinks = state.shear.mode === 'auto' ? autoLinkLayout() : null;
+    const automaticLinks = state.shear.enabled && state.shear.mode === 'auto' ? autoLinkLayout() : null;
     if (automaticLinks?.shapes) {
       window.mcalcLinkLayout.draw(g, automaticLinks, toScreen, view.s, state.link);
     }
-    if (state.shear.enabled && state.shear.mode === 'auto') {
-      const { spacing } = state.shear;
-      const caption = automaticLinks?.error ?? (automaticLinks
-        ? 'Auto · Link Ø' + state.link + ' @ ' + spacing + ' mm · X legs: ' + automaticLinks.legsX
-          + ' · Y legs: ' + automaticLinks.legsY
-          + (automaticLinks.bundles ? ' · Bundled bars: links wrap the bundle envelope' : ' · Outer link / inner links / cross-ties')
-        : 'Preparing link layout…');
-      if (shearLegend.textContent !== caption) shearLegend.textContent = caption;
-      shearLegend.classList.toggle('error', Boolean(automaticLinks?.error));
-    } else if (state.shear.enabled) {
-      shearLegend.classList.remove('error');
-      const { legsX, legsY, spacing } = state.shear;
-      const lk = Math.max(0, state.link) * view.s;
-      const inset = Math.max(0, state.cover) * view.s + lk / 2;
-      const left = x0 + inset, top = y0 + inset;
-      const width = w - 2 * inset, height = hh - 2 * inset;
-      const hasLink = lk > 0 && w > 2 * inset + lk && hh > 2 * inset + lk;
-      const validCount = count => Number.isSafeInteger(count) && count >= 2;
-      const canDraw = (count, span) => validCount(count) && count <= 300 && span / (count - 1) >= 3;
-      const summary = 'Link Ø' + state.link + ' @ ' + spacing + ' mm · X legs: ' + legsX + ' · Y legs: ' + legsY;
-      let note = 'Schematic · dashed interior legs: red X and green Y. Verify positions and anchorage from the detailing.';
-      if (!hasLink) note = 'Enter a link diameter and cover that fit the section.';
-      else if (!validCount(legsX) || !validCount(legsY)) note = 'Enter at least two whole legs in each direction.';
-      else if ((legsX > 2 && !canDraw(legsX, height)) || (legsY > 2 && !canDraw(legsY, width))) {
-        note = 'Some interior legs are too closely spaced to show in this view. Check the detailing.';
-      }
-      const caption = summary + ' · ' + note;
-      if (shearLegend.textContent !== caption) shearLegend.textContent = caption;
-      if (hasLink) {
-        g.save();
-        g.strokeStyle = steel;
-        g.lineWidth = Math.max(2, lk / 2);
-        g.strokeRect(left, top, width, height);
-        g.lineWidth = 2;
-        g.setLineDash([5, 3]);
-        if (canDraw(legsX, height)) {
-          g.strokeStyle = css('--axis-x');
-          for (let n = 1; n < legsX - 1; n++) {
-            const y = top + height * n / (legsX - 1);
-            g.beginPath(); g.moveTo(left, y); g.lineTo(left + width, y); g.stroke();
-          }
-        }
-        if (canDraw(legsY, width)) {
-          g.strokeStyle = css('--axis-y');
-          for (let n = 1; n < legsY - 1; n++) {
-            const x = left + width * n / (legsY - 1);
-            g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + height); g.stroke();
-          }
-        }
-        g.restore();
-      }
+    const { mode, spacing } = state.shear;
+    const legs = mode === 'auto' ? automaticLinks : state.shear;
+    const linkCaption = 'Link Ø' + state.link + ' @ ' + spacing + ' mm';
+    const legCaption = legs && !legs.error ? ' · X legs: ' + legs.legsX + ' · Y legs: ' + legs.legsY : '';
+    const caption = !state.shear.enabled ? 'Off' :
+      (mode === 'auto' ? 'Auto' : 'Manual') + ' · ' + linkCaption + legCaption +
+      (automaticLinks?.error ? ' · Layout unavailable' : '');
+    if (!activeEditor?.committed) {
+      const output = $('committed-shear-summary');
+      if (output.textContent !== caption) output.textContent = caption;
+    }
+    if (activeEditor?.kind === 'shear') {
+      const output = $('shear-link-legend');
+      const detail = automaticLinks?.error ?? (state.shear.enabled && mode === 'manual'
+        ? 'Outer hoop shown. Interior leg positions and anchorage depend on the detailing.'
+        : automaticLinks?.bundles ? 'Links wrap the bundle envelope.' : '');
+      const text = detail ? caption + ' · ' + detail : caption;
+      if (output.textContent !== text) output.textContent = text;
+      output.classList.toggle('error', Boolean(automaticLinks?.error));
     }
 `;
 
@@ -130,13 +104,8 @@ export async function integrateColumnWorkspace(root, patch) {
   }
   await patch(root, path, [
     ['<html lang="en">\n<head>', '<html lang="en" data-theme="light">\n<head>'],
-    ['      <h2 id="h-rebar">Rebar coordinates</h2>', `      <section class="rect-column-summary" aria-labelledby="h-summary">
-        <h2 id="h-summary">Check summary</h2>
-        <div id="column-check-summary" aria-live="polite"><p>Click Calculate to check the section.</p></div>
-      </section>
-      <h2 id="h-rebar">Rebar coordinates</h2>`],
-    ['      <div class="canvaswrap">', '      <p class="hint" id="shear-link-legend" hidden></p>\n      <div class="canvaswrap">'],
-    ['aria-label="Column section with rebar positions"', 'aria-label="Column section with rebar and shear links" aria-describedby="shear-link-legend"'],
+    ...reinforcementEditorEdits(source, fields),
+    ['aria-label="Column section with rebar positions"', 'aria-label="Column section with rebar and shear links"'],
     ['    // link (stirrup) band', linkDrawing + '    // link (stirrup) band'],
     ['    if (w - 2 * cov > 0 && hh - 2 * cov > 0) {',
       '    if (!automaticLinks?.shapes && w - 2 * cov > 0 && hh - 2 * cov > 0) {'],
@@ -163,7 +132,6 @@ export async function integrateColumnWorkspace(root, patch) {
       "{ name: 'ULS 1', p: 3000, mx: 250, my: 120, mxb: 250, myb: 120, vx: 150, vy: 250 }"],
     ['    bars: [],\n    loads: [', '    shear: ' + JSON.stringify(shearDefaults) + ',\n    bars: [],\n    loads: ['],
     ["  function syncInputs() {", bindings],
-    ['<h2>Load cases</h2>', fields],
     ["    $('loadCols').innerHTML", `    if (state.shear.enabled) cols.push(['vx', 'Vx (kN)'], ['vy', 'Vy (kN)']);
     $('loadCols').innerHTML`],
     ['      <div class="verdict" id="verdict">', '      <section id="column-shear-results" hidden></section>\n      <div class="verdict" id="verdict">'],
