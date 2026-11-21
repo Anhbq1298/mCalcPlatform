@@ -30,10 +30,10 @@ test('plan draws one selectable group per physical link and marks ineffective le
   assert.ok(!planSvg(result).includes('Ineffective leg'));
 });
 
-test('half section shows every layer once on the interior side with dashed (unverified) bends', () => {
+test('full section shows every layer on both sides', () => {
   const result = design();
   const svg = sectionSvg(result);
-  assert.equal((svg.match(/data-layer="/g) || []).length, result.layout.layers.length);
+  assert.equal((svg.match(/data-layer="/g) || []).length, 2 * result.layout.layers.length);
   assert.ok(svg.includes('anchorage requires detailing confirmation') && !svg.includes('stroke-dasharray="2.5 1.5"'));
   assert.ok(balanced(svg));
 });
