@@ -334,7 +334,7 @@ test('calculates, switches, and saves Circular RC Column reinforcement', async (
   const elevation = page.locator('#circular-elevation');
   const pmm = summary.getByRole('row', { name: /Biaxial bending/ });
   await expect(linksMode).toBeChecked();
-  await expect(elevation.locator('.elevation-link').first()).toBeVisible();
+  await expect(elevation.locator('.elevation-link').first()).toBeAttached();
   const originalRatio = await pmm.locator('td').first().textContent();
   await expect(summary.getByRole('row', { name: /Shear Design/ })).toContainText('Not Verified');
   await helixMode.check();

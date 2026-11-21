@@ -63,6 +63,7 @@ export function drawSection(svg, legend, input, geometry) {
   }
   svgElement(svg, 'path', { d: 'M70 203v216 M430 203v216 M67 409H433 M65 414l10-10 M425 414l10-10', ...dimensionStyle });
   svgElement(svg, 'text', { x, y: 435, 'text-anchor': 'middle', class: 'cad-dimension' }, 'Ø' + input.diameter + ' mm');
+  if (mode === 'helix') legends.push('Helix rings show the plan projection over one complete turn.');
   legend.replaceChildren(...legends.map(text => {
     const line = document.createElement('span');
     line.textContent = text;
