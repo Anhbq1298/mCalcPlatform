@@ -1,0 +1,7 @@
+[submodule "vendor/calccanvas"]
+	path = vendor/calccanvas
+	url = https://github.com/Anhbq1298/mCalcCanvas.git
+[submodule "vendor/mbcolumn-lite"]
+	path = vendor/mbcolumn-lite
+	url = https://github.com/Anhbq1298/MBColumnLite.git
+

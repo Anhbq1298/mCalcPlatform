@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Design document",
+  "type": "object",
+  "required": [
+    "id",
+    "tool",
+    "toolVersion",
+    "schema",
+    "meta",
+    "inputs"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$"
+    },
+    "tool": {
+      "type": "string"
+    },
+    "toolVersion": {
+      "type": "string"
+    },
+    "schema": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "inputs": {
+      "type": "object"
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "name",
+        "mark",
+        "label",
+        "notes"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "mark": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 4000
+        }
+      }
+    },
+    "report": {
+      "type": "object"
+    },
+    "reportHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

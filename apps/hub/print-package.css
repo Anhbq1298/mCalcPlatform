@@ -1,0 +1,12 @@
+.report-frame { position:fixed; left:-10000px; top:0; width:1440px; height:900px; border:0; }
+@media print {
+  @page a4portrait { size:A4 portrait; margin:0; }
+  @page a4landscape { size:A4 landscape; margin:0; }
+  @page a3portrait { size:A3 portrait; margin:0; }
+  @page a3landscape { size:A3 landscape; margin:0; }
+  #package-status { display:none; }
+  #print-root .print-page[data-paper="A4 portrait"] { page:a4portrait; }
+  #print-root .print-page[data-paper="A4 landscape"] { page:a4landscape; }
+  #print-root .print-page[data-paper="A3 portrait"] { page:a3portrait; }
+  #print-root .print-page[data-paper="A3 landscape"] { page:a3landscape; }
+}

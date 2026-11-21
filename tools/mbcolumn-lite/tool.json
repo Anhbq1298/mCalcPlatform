@@ -1,0 +1,21 @@
+{
+  "id": "mbcolumn-lite",
+  "name": "MBColumn Lite",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "schema": 1,
+  "folder": "columns",
+  "labels": [
+    "member.column"
+  ],
+  "entry": "t/mbcolumn-lite/",
+  "discipline": "Concrete · Eurocode 2",
+  "description": "Rectangular reinforced concrete column checks with biaxial interaction diagrams.",
+  "inputs": {
+    "type": "object"
+  },
+  "outputs": {},
+  "permissions": [
+    "calculation-api"
+  ]
+}
