@@ -200,11 +200,13 @@ test('solves mConcreteRecCol locally and restores shear inputs by design ID', as
   const legend = page.locator('#shear-link-legend');
   await expect(legend).toBeHidden();
   await enable.check();
+  await expect(legend).toContainText('Auto · Link Ø10 @ 150 mm · X legs: 4 · Y legs: 4');
+  await expect(page.getByLabel('Effective X legs', { exact: true })).toBeHidden();
+  const generatedLinks = await canvas.evaluate(element => element.toDataURL());
+  await page.getByLabel('Link layout', { exact: true }).selectOption('manual');
   await expect(legend).toContainText('X legs: 2 · Y legs: 2');
-  const outerLink = await canvas.evaluate(element => element.toDataURL());
-  await page.getByLabel('Effective X legs', { exact: true }).fill('4');
-  await expect(legend).toContainText('X legs: 4 · Y legs: 2');
-  expect(await canvas.evaluate(element => element.toDataURL())).not.toBe(outerLink);
+  expect(await canvas.evaluate(element => element.toDataURL())).not.toBe(generatedLinks);
+  await page.getByLabel('Link layout', { exact: true }).selectOption('auto');
   await page.getByLabel('Link spacing (mm)', { exact: true }).fill('125');
   await page.getByLabel('ULS 1 Vy (kN)', { exact: true }).fill('350');
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
@@ -215,7 +217,7 @@ test('solves mConcreteRecCol locally and restores shear inputs by design ID', as
   await save(page);
   await page.reload();
   await expect(enable).toBeChecked();
-  await expect(legend).toContainText('X legs: 4 · Y legs: 2');
+  await expect(legend).toContainText('X legs: 4 · Y legs: 4');
   await expect(page.getByLabel('Link spacing (mm)', { exact: true })).toHaveValue('125');
   await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('350');
 });
@@ -227,7 +229,6 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   await expect(page).toHaveTitle('mConcreteCircCol');
   const count = page.getByLabel('Reinforcement cages', { exact: true });
   await expect(page.getByLabel('Inner spiral pitch (mm)')).toBeHidden();
-  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.', { timeout: 65000 });
   await expect(page.locator('#checks')).toContainText('0.769');
   await expect(page.locator('#checks')).toContainText('0.872');
@@ -236,10 +237,12 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   await count.fill('2');
   await page.getByLabel('Inner spiral pitch (mm)').fill('140');
   await expect(page.locator('#section-legend')).toContainText('Inner (green)');
-  await expect(page.locator('#checks')).toBeEmpty();
+  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.', { timeout: 65000 });
+  await expect(page.locator('#checks')).not.toContainText('0.769');
   await save(page);
   await page.reload();
   await expect(count).toHaveValue('2');
+  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.', { timeout: 65000 });
   await expect(page.getByLabel('Inner spiral pitch (mm)')).toHaveValue('140');
   await shell(page).getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });

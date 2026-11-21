@@ -8,7 +8,6 @@ import './style.css';
 
 const byId = id => document.getElementById(id);
 const form = byId('column-inputs');
-const calculate = byId('calculate');
 const status = byId('calculation-status');
 const section = byId('circular-section');
 const legend = byId('section-legend');
@@ -20,6 +19,9 @@ let worker;
 let pending;
 let revision = 0;
 let requestId = 0;
+let debounce;
+let calculation;
+const updateDelay = 250;
 
 for (const [title, fields] of inputGroups) {
   const group = document.createElement('fieldset');
@@ -58,18 +60,28 @@ function refresh() {
   draw();
 }
 
-function invalidate() {
+function scheduleCalculation() {
   revision++;
+  calculation = undefined;
+  clearTimeout(debounce);
+  if (pending) resetWorker('Inputs changed during calculation.');
   rendered = undefined;
   checks.replaceChildren();
-  status.textContent = 'Click Calculate to check the section.';
+  try {
+    validateInputs(state);
+  } catch (error) {
+    status.textContent = error.message;
+    return;
+  }
+  status.textContent = 'Updating checks…';
+  debounce = setTimeout(() => { void calculateCurrent().catch(() => {}); }, updateDelay);
 }
 
 form.addEventListener('input', event => {
   const input = event.target;
   if (!(input.id in defaults)) return;
   state[input.id] = input.type === 'checkbox' ? Number(input.checked) : input.valueAsNumber;
-  invalidate();
+  scheduleCalculation();
   form.querySelector('[data-inner-cage]').hidden = state.cages !== 2;
   draw();
 });
@@ -85,7 +97,7 @@ function evaluate() {
   validateInputs(values);
   if (!worker) {
     worker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
-    worker.onerror = () => resetWorker('The worksheet worker stopped. Try calculating again.');
+    worker.onerror = () => resetWorker('The worksheet worker stopped. Edit an input to retry.');
     worker.onmessage = ({ data }) => {
       if (pending?.id !== data.id) return;
       if (data.error) pending.reject(new Error(data.error));
@@ -94,7 +106,7 @@ function evaluate() {
   }
   const id = ++requestId;
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => resetWorker('The worksheet did not finish. Try calculating again.'), 90000);
+    const timer = setTimeout(() => resetWorker('The worksheet did not finish. Edit an input to retry.'), 90000);
     const finish = callback => value => {
       clearTimeout(timer);
       pending = undefined;
@@ -126,33 +138,32 @@ function display(result) {
   draw();
 }
 
-async function run() {
-  if (pending) throw new Error('Wait for the current calculation to finish.');
+function calculateCurrent() {
+  clearTimeout(debounce);
+  if (calculation) return calculation;
   const start = revision;
-  calculate.disabled = true;
   status.textContent = 'Calculating…';
-  try {
-    const { result, document } = await evaluate();
-    if (revision !== start) throw new Error('Inputs changed during calculation. Calculate again.');
+  calculation = Promise.resolve().then(evaluate).then(({ result, document }) => {
+    if (revision !== start) throw new Error('Inputs changed during calculation.');
     display(result);
     status.textContent = 'Calculation complete.';
     return document;
-  } catch (error) {
-    status.textContent = error.message;
+  }).catch(error => {
+    if (revision === start) {
+      status.textContent = error.message;
+      calculation = undefined;
+    }
     throw error;
-  } finally {
-    calculate.disabled = false;
-  }
+  });
+  return calculation;
 }
 
 form.addEventListener('submit', event => event.preventDefault());
-calculate.addEventListener('click', () => { void run().catch(() => {}); });
 const observer = new ResizeObserver(draw);
 observer.observe(section);
 observer.observe(curve);
 refresh();
-invalidate();
-calculate.disabled = false;
+scheduleCalculation();
 
 registerPage('rc-circular-column', {
   snapshot: () => {
@@ -164,8 +175,8 @@ registerPage('rc-circular-column', {
     validateInputs(next);
     state = next;
     refresh();
-    invalidate();
+    scheduleCalculation();
     draw();
   },
-  report: run,
+  report: async () => structuredClone(await calculateCurrent()),
 });

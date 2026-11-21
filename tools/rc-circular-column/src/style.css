@@ -18,8 +18,6 @@ h1 span { color: var(--muted); font-weight: 400; margin-left: .5rem; }
 h2 { font-size: .9375rem; margin: 0 0 .5rem; font-weight: 500; }
 p { color: var(--muted); font-size: .82rem; margin: .5rem 0 0; }
 #calculation-status { margin-left: auto; color: var(--muted); }
-#calculate { color: white; background: var(--ink); border: 1px solid var(--ink); border-radius: 3px; padding: .3rem .7rem; font: inherit; cursor: pointer; }
-#calculate:disabled { opacity: .55; cursor: default; }
 .column-layout { display: grid; grid-template-columns: minmax(17rem, 21rem) minmax(18rem, 1fr) minmax(16rem, 20rem); }
 .column-layout > * { padding: .875rem 1.125rem; min-width: 0; }
 .column-layout > :not(:first-child) { border-left: 1px solid var(--rule); }

@@ -7,8 +7,12 @@ const fields = `<h2>Shear</h2>
       <div class="fields" id="shearFields" hidden>
         <label class="f"><span>Link spacing (mm)</span><input id="shearSpacing" type="number" min="1"></label>
         <label class="f"><span>Link fyk (MPa)</span><input id="shearFyk" type="number" min="1"></label>
-        <label class="f"><span>Effective X legs</span><input id="shearLegsX" type="number" min="2" step="1"></label>
-        <label class="f"><span>Effective Y legs</span><input id="shearLegsY" type="number" min="2" step="1"></label>
+        <label class="f wide"><span>Link layout</span><select id="shearLayout">
+          <option value="auto">Automatic from reinforcement</option>
+          <option value="manual">Manual effective legs</option>
+        </select></label>
+        <label class="f" data-manual-legs><span>Effective X legs</span><input id="shearLegsX" type="number" min="2" step="1"></label>
+        <label class="f" data-manual-legs><span>Effective Y legs</span><input id="shearLegsY" type="number" min="2" step="1"></label>
         <label class="check wide"><input id="shearClassA" type="checkbox"> Class A links</label>
         <p class="hint wide">${shearScope}</p>
       </div>
@@ -20,11 +24,19 @@ const bindings = `  const shearFields = [['shearSpacing', 'spacing'], ['shearFyk
     $('shearEnabled').checked = state.shear.enabled;
     $('shearFields').hidden = !state.shear.enabled;
     $('shearClassA').checked = state.shear.classA;
+    $('shearLayout').value = state.shear.mode;
+    document.querySelectorAll('[data-manual-legs]').forEach(label => {
+      label.hidden = state.shear.mode !== 'manual';
+    });
     for (const [id, key] of shearFields) $(id).value = state.shear[key];
   }
   $('shearEnabled').addEventListener('change', () => {
     state.shear.enabled = $('shearEnabled').checked;
     syncShear(); renderLoadTable(); draw(); changed();
+  });
+  $('shearLayout').addEventListener('change', () => {
+    state.shear.mode = $('shearLayout').value;
+    syncShear(); draw(); changed();
   });
   $('shearClassA').addEventListener('change', () => {
     state.shear.classA = $('shearClassA').checked;
@@ -35,18 +47,41 @@ const bindings = `  const shearFields = [['shearSpacing', 'spacing'], ['shearFyk
     draw(); changed();
   });
 
+  function autoLinkLayout() {
+    const bars = state.bars.map(bar => {
+      const definition = barByName(bar.bar);
+      return { x: bar.x, y: bar.y, radius: definition.extentR, bundle: definition.count > 1 };
+    });
+    return window.mcalcLinkLayout?.generate({ b: state.b, h: state.h, cover: state.cover, link: state.link, bars });
+  }
+  window.addEventListener('mcalc-column-drawing-ready', () => draw());
+
   function syncInputs() {
     syncShear();`;
 
-const linkDrawing = `    // Show the outer link and the effective legs as a section schematic.
+const linkDrawing = `    // Generated links use the same geometry as the effective leg counts.
     const shearLegend = $('shear-link-legend');
     shearLegend.hidden = !state.shear.enabled;
-    if (state.shear.enabled) {
+    const automaticLinks = state.shear.mode === 'auto' ? autoLinkLayout() : null;
+    if (automaticLinks?.shapes) {
+      window.mcalcLinkLayout.draw(g, automaticLinks, toScreen, view.s, state.link);
+    }
+    if (state.shear.enabled && state.shear.mode === 'auto') {
+      const { spacing } = state.shear;
+      const caption = automaticLinks?.error ?? (automaticLinks
+        ? 'Auto · Link Ø' + state.link + ' @ ' + spacing + ' mm · X legs: ' + automaticLinks.legsX
+          + ' · Y legs: ' + automaticLinks.legsY + ' · Outer link / inner links / cross-ties'
+        : 'Preparing link layout…');
+      if (shearLegend.textContent !== caption) shearLegend.textContent = caption;
+      shearLegend.classList.toggle('error', Boolean(automaticLinks?.error));
+    } else if (state.shear.enabled) {
+      shearLegend.classList.remove('error');
       const { legsX, legsY, spacing } = state.shear;
-      const inset = cov + lk / 2;
+      const lk = Math.max(0, state.link) * view.s;
+      const inset = Math.max(0, state.cover) * view.s + lk / 2;
       const left = x0 + inset, top = y0 + inset;
       const width = w - 2 * inset, height = hh - 2 * inset;
-      const hasLink = lk > 0 && w > 2 * (cov + lk) && hh > 2 * (cov + lk);
+      const hasLink = lk > 0 && w > 2 * inset + lk && hh > 2 * inset + lk;
       const validCount = count => Number.isSafeInteger(count) && count >= 2;
       const canDraw = (count, span) => validCount(count) && count <= 300 && span / (count - 1) >= 3;
       const summary = 'Link Ø' + state.link + ' @ ' + spacing + ' mm · X legs: ' + legsX + ' · Y legs: ' + legsY;
@@ -96,7 +131,14 @@ export async function integrateColumnWorkspace(root, patch) {
     ['<html lang="en">\n<head>', '<html lang="en" data-theme="light">\n<head>'],
     ['      <div class="canvaswrap">', '      <p class="hint" id="shear-link-legend" hidden></p>\n      <div class="canvaswrap">'],
     ['aria-label="Column section with rebar positions"', 'aria-label="Column section with rebar and shear links" aria-describedby="shear-link-legend"'],
-    ['    // centroid axes', linkDrawing + '    // centroid axes'],
+    ['    // link (stirrup) band', linkDrawing + '    // link (stirrup) band'],
+    ['    if (w - 2 * cov > 0 && hh - 2 * cov > 0) {',
+      '    if (!automaticLinks?.shapes && w - 2 * cov > 0 && hh - 2 * cov > 0) {'],
+    ['    // dimensions\n', '    // dimensions\n    window.mcalcLinkLayout?.dimensions(g, x0, y0, w, hh, state.b, state.h);\n    if (!window.mcalcLinkLayout) {\n'],
+    ['    // bars\n', '    }\n\n    // bars\n'],
+    ['g.fillStyle = concrete; g.globalAlpha = 0.55;', "g.fillStyle = '#f9fafb'; g.globalAlpha = 1;"],
+    ['g.strokeStyle = ink2; g.globalAlpha = 0.16;', "g.strokeStyle = '#87909a'; g.globalAlpha = 0.19;"],
+    ['      g.fillStyle = steel;\n      for (const [ox, oy] of def.offsets)', "      g.fillStyle = '#182430';\n      for (const [ox, oy] of def.offsets)"],
     ["<script>\nwindow.MBCOLUMN_API_URL = window.MBCOLUMN_API_URL || 'https://mbcolumnlite-api-sg.onrender.com';\n</script>\n", ''],
     [solver, `  const solver = {
     mode: 'local solver',
@@ -115,7 +157,7 @@ export async function integrateColumnWorkspace(root, patch) {
     ['      <div class="verdict" id="verdict">', '      <section id="column-shear-results" hidden></section>\n      <div class="verdict" id="verdict">'],
     ['    runSeq++; lastResult = null; lastSlender = null; lastPhi = null;', '    runSeq++; lastResult = null; lastSlender = null; lastPhi = null;\n    window.mcalcColumnShear?.render();'],
     ['      const out = await solver.run(input);', `      if (state.shear.enabled) input.shear = {
-        diameter: state.link, links: { ...state.shear },
+        diameter: state.link, links: window.mcalcLinkLayout.resolve(state.shear, autoLinkLayout()),
         loads: state.loads.map(({ name, p, vx, vy }) => ({ name, p, vx, vy })),
       };
       const out = await solver.run(input);`],
@@ -123,7 +165,7 @@ export async function integrateColumnWorkspace(root, patch) {
     ['. Check Render service and ALLOWED_ORIGINS.', ''],
     ['[load.p, load.mx, load.my].every(finite)', '[load.p, load.mx, load.my, load.vx ?? 0, load.vy ?? 0].every(finite)'],
     ['      state = { ...state, ...structuredClone(inputs) };', `      const incoming = structuredClone(inputs);
-      state = { ...state, ...incoming, shear: { ...${JSON.stringify(shearDefaults)}, ...incoming.shear } };`],
+      state = { ...state, ...incoming, shear: window.mcalcLinkLayout.restore(${JSON.stringify(shearDefaults)}, incoming.shear) };`],
     ['      govIndex: out.govIndex,', `      shearRows: window.mcalcColumnShear.rows(out.shear),
       shearError: out.shearError,
       shearBasis: ${JSON.stringify(shearBasis + '. ' + shearScope)},

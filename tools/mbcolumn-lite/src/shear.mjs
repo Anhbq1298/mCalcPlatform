@@ -8,9 +8,9 @@ const concretePeak = 0.002;
 const concreteUltimate = 0.0035;
 const steelUltimate = 0.045;
 
-export const shearDefaults = { enabled: false, spacing: 150, fyk: 500, classA: false, legsX: 2, legsY: 2 };
+export const shearDefaults = { enabled: false, mode: 'auto', spacing: 150, fyk: 500, classA: false, legsX: 2, legsY: 2 };
 export const shearBasis = 'EN 1992-1-1:2023 §8.2.3 · Directional links and concrete strut checks';
-export const shearScope = 'Uses the entered effective legs. Verify link anchorage, spacing, minimum reinforcement, confinement and combined actions separately.';
+export const shearScope = 'Automatic layout checks 150 mm bar restraint. Manual layout uses the entered effective legs. Verify link anchorage, spacing, minimum reinforcement, confinement and combined actions separately.';
 
 function compressionDepth(section, projectedBars, depth, width, effectiveDepth, fcd, axial) {
   const steelDesign = section.fy / gammaS;
@@ -82,6 +82,7 @@ function checkFace(section, links, load, axis, face, fcd) {
 
 export function checkColumnShear(section, links, loads) {
   if (!links.enabled) return [];
+  if (links.layoutError) throw new Error(links.layoutError);
   if (![section.b, section.h, section.link, section.fc, section.fy, section.es, links.spacing, links.fyk]
     .every(value => Number.isFinite(value) && value > 0)
     || ![links.legsX, links.legsY].every(value => Number.isInteger(value) && value >= 2)
