@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "node scripts/build.mjs --dev",
     "build": "node scripts/build.mjs",
-    "test": "node --test",
+    "test": "node --test \"packages/*/test/*.test.mjs\"",
     "check-boundaries": "node scripts/check-boundaries.mjs",
     "test:legacy": "npm --prefix vendor/calccanvas run typecheck && npm --prefix vendor/calccanvas run lint && npm --prefix vendor/calccanvas test && npm --prefix vendor/calccanvas run test:e2e"
   }
