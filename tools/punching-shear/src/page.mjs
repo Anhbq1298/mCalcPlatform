@@ -11,7 +11,6 @@ import { planSvg } from './plan-view.mjs';
 import { renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
 import { sectionSvg } from './section-view.mjs';
 import { mountTable } from './table-controls.mjs';
-import { mountView3d } from './view3d.mjs';
 import { buildWorksheet } from './worksheet.mjs';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
@@ -102,11 +101,6 @@ byId('layer-schedule').addEventListener('click', event => {
   if (row) { selected = row.dataset.layer; render(); }
 });
 
-const view3d = mountView3d(byId('view-3d'), {
-  opacity: byId('view-opacity'), links: byId('view-links'), perimeters: byId('view-perimeters'),
-  loads: byId('view-loads'), layer: byId('view-layer'), reset: byId('view-reset'),
-});
-
 function refresh() {
   refreshForm();
   refreshOpenings();
@@ -148,12 +142,8 @@ function render() {
   renderBasis(byId('code-basis'), result.profile);
   const drawable = Boolean(result.section);
   byId('plan-view').innerHTML = drawable ? planSvg(result, { selected }) : '';
-  byId('section-view').innerHTML = drawable ? sectionSvg(result) : '';
-  view3d.update(drawable ? result : null);
-  const layerSelect = byId('view-layer');
-  const keep = layerSelect.value;
-  layerSelect.replaceChildren(new Option('All layers', 'all'), ...(result.layout?.summary ?? []).map(layer => new Option(layer.id, layer.id)));
-  layerSelect.value = [...layerSelect.options].some(option => option.value === keep) ? keep : 'all';
+  byId('section-view').innerHTML = drawable ? sectionSvg(result, { axis: 'x' }) : '';
+  byId('section-view-b').innerHTML = drawable ? sectionSvg(result, { axis: 'y' }) : '';
   const link = result.layout?.links.find(entry => entry.id === selected);
   renderSchedule(byId('layer-schedule'), result, link?.layerId ?? selected);
   byId('selection-info').textContent = link
@@ -166,7 +156,6 @@ function render() {
 }
 
 form.addEventListener('submit', event => event.preventDefault());
-new ResizeObserver(() => view3d.draw()).observe(byId('view-3d'));
 refresh();
 recalculate();
 

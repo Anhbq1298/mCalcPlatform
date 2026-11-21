@@ -4,7 +4,6 @@ import { calculate } from '../src/calculate.mjs';
 import { newDefaults } from '../src/inputs.mjs';
 import { planSvg } from '../src/plan-view.mjs';
 import { sectionSvg } from '../src/section-view.mjs';
-import { buildScene } from '../src/view3d.mjs';
 import { buildWorksheet } from '../src/worksheet.mjs';
 
 const design = edit => {
@@ -38,21 +37,13 @@ test('full section shows every layer on both sides', () => {
   assert.ok(balanced(svg));
 });
 
-test('3D scene contains slab, column, links per leg and load arrows', () => {
-  const result = design(input => { input.beta = { method: 'moment' }; input.loads = [{ name: 'A', V: 700, Mx: 30, My: 60 }]; });
-  const scene = buildScene(result);
-  const legs = result.layout.links.reduce((sum, link) => sum + link.legs.length, 0);
-  assert.equal(scene.lines.filter(line => line.kind === 'link' && line.points.length === 2 && line.points[0].z !== line.points[1].z).length, legs);
-  assert.ok(scene.lines.some(line => line.label?.startsWith('M_x')) && scene.lines.some(line => line.label?.startsWith('M_y')));
-  assert.ok(scene.faces.length >= 18);
-});
 
 test('worksheet report is a valid Canvas document with drawings, schedule and limitations', () => {
   const result = design();
   const doc = buildWorksheet(result, { pageHeight: 1123, pageGap: 48, designName: 'PS-01' });
   assert.equal(doc.format, 'calccanvas');
   assert.equal(new Set(doc.shapes.map(shape => shape.id)).size, doc.shapes.length);
-  assert.equal(doc.shapes.filter(shape => shape.type === 'image').length, 2);
+  assert.equal(doc.shapes.filter(shape => shape.type === 'image').length, 3); // plan, sections A–A and B–B
   assert.ok(doc.shapes.some(shape => shape.type === 'table'));
   for (const shape of doc.shapes) {
     const page = Math.floor(shape.y / (1123 + 48));

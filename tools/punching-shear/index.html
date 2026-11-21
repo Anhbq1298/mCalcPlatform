@@ -42,19 +42,10 @@
       <h2 id="plan-title">Plan</h2>
       <div id="plan-view" class="drawing" role="img" aria-label="Plan of column, control perimeters and links"></div>
       <p id="selection-info">Select a link in the plan to inspect it.</p>
-      <h2 class="detail-title">Section</h2>
-      <div id="section-view" class="drawing" role="img" aria-label="Section through the slab and links"></div>
-      <h2 class="detail-title">3D view</h2>
-      <div class="view-controls">
-        <label>Slab opacity <input id="view-opacity" type="range" min="0.05" max="0.9" step="0.05" value="0.25"></label>
-        <label><input id="view-links" type="checkbox" checked> Links</label>
-        <select id="view-layer" aria-label="Visible link layer"><option value="all">All layers</option></select>
-        <label><input id="view-perimeters" type="checkbox" checked> Perimeters</label>
-        <label><input id="view-loads" type="checkbox" checked> Loads</label>
-        <button type="button" id="view-reset">Reset view</button>
-      </div>
-      <canvas id="view-3d" role="img" aria-label="3D view: drag to orbit, Shift+drag to pan, wheel to zoom"></canvas>
-      <p>Schematic geometry. Drag to orbit, Shift+drag to pan, wheel to zoom. No stress distribution is shown.</p>
+      <h2 class="detail-title">Section A–A (local x)</h2>
+      <div id="section-view" class="drawing" role="img" aria-label="Section A–A along the local x-axis"></div>
+      <h2 class="detail-title">Section B–B (local y)</h2>
+      <div id="section-view-b" class="drawing" role="img" aria-label="Section B–B along the local y-axis"></div>
       <h2 class="detail-title">Link layer schedule</h2>
       <div class="schedule-wrap">
         <table id="layer-schedule" class="column-summary-table">

@@ -86,7 +86,7 @@ Twelve cases are available from the Examples selector and asserted in `test/head
 
 ## Test coverage (`npm test`)
 
-Geometry exactness, convergence, offset invariance, rotation and translation invariance, Table 6.1, Eq. 6.39, 6.42 and 6.43, resistances, auto layout, check-provided failures, leg counting and effectiveness, different diameters per layer, slab edges, openings, explicit result states, restore with unknown fields, drawings, the 3D scene and the report document. The browser suite (`npm run test:browser`) covers Tool Library launch, input editing, layer add, link selection and omission, combinations, save and reopen, 3D interaction, responsive plan, and report generation.
+Geometry exactness, convergence, offset invariance, rotation and translation invariance, Table 6.1, Eq. 6.39, 6.42 and 6.43, resistances, auto layout, check-provided failures, leg counting and effectiveness, different diameters per layer, slab edges, openings, explicit result states, restore with unknown fields, drawings and the report document. The browser suite (`npm run test:browser`) covers Tool Library launch, input editing, layer add, link selection and omission, combinations, save and reopen, responsive plan, and report generation.
 
 ## Limitations before broader production use
 

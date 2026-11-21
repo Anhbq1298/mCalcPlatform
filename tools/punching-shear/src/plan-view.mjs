@@ -113,6 +113,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     const a = toGlobal(column, { x: -ax * reachLine, y: -ay * reachLine });
     const b = toGlobal(column, { x: ax * reachLine, y: ay * reachLine });
     parts.push(`<line x1="${n(view.x(a.x))}" y1="${n(view.y(a.y))}" x2="${n(view.x(b.x))}" y2="${n(view.y(b.y))}" stroke="${COLORS.muted}" stroke-width=".5" stroke-dasharray="${DASH.centre}"/>`);
+    parts.push(sectionMark(view.x(a.x), view.y(a.y), view.x(b.x), view.y(b.y), ax ? 'A' : 'B'));
   }
   for (const link of result.layout?.links ?? []) {
     const radius = Math.max(2.4, (link.diameter / 2) * view.scale);
@@ -144,6 +145,27 @@ function planDimensions(column, view) {
   const a = column.cx / 2;
   const b = column.cy / 2;
   return dimension(...at(-a, b), ...at(a, b), `c_x = ${column.cx}`, -14) + dimension(...at(-a, -b), ...at(-a, b), `c_y = ${column.cy}`, -14);
+}
+
+// Section cut mark at both ends of a cut line: heavy stub, view arrow (to the left of the cut
+// direction) and the section letter in a circle.
+function sectionMark(x1, y1, x2, y2, letter) {
+  const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+  const ux = (x2 - x1) / len;
+  const uy = (y2 - y1) / len;
+  const nx = uy;
+  const ny = -ux;
+  let out = '';
+  for (const [x, y, s] of [[x1, y1, 1], [x2, y2, -1]]) {
+    const sx = x + ux * 14 * s;
+    const sy = y + uy * 14 * s;
+    out += `<line x1="${n(x)}" y1="${n(y)}" x2="${n(sx)}" y2="${n(sy)}" stroke="${COLORS.ink}" stroke-width="2.2"/>`
+      + `<line x1="${n(x)}" y1="${n(y)}" x2="${n(x + nx * 12)}" y2="${n(y + ny * 12)}" stroke="${COLORS.ink}" stroke-width="1"/>`
+      + `<path d="M${n(x + nx * 14)} ${n(y + ny * 14)}L${n(x + nx * 8 - ux * 3)} ${n(y + ny * 8 - uy * 3)}L${n(x + nx * 8 + ux * 3)} ${n(y + ny * 8 + uy * 3)}Z" fill="${COLORS.ink}"/>`
+      + `<circle cx="${n(x - ux * 11 * s)}" cy="${n(y - uy * 11 * s)}" r="8" fill="white" stroke="${COLORS.ink}" stroke-width=".8"/>`
+      + `<text x="${n(x - ux * 11 * s)}" y="${n(y - uy * 11 * s + 4)}" text-anchor="middle">${letter}</text>`;
+  }
+  return out;
 }
 
 function axes(bottom, column) {

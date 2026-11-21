@@ -73,8 +73,10 @@ export function buildWorksheet(full, { pageHeight, pageGap, designName = 'Punchi
 
   doc.heading('Drawings', 2);
   doc.image(planSvg(full, { width: 640, height: 600 }), 640, 600);
-  const section = sectionSvg(full, { width: 640 });
-  doc.image(section, 640, Number(/height="(\d+(?:\.\d+)?)"/.exec(section)?.[1] ?? 330));
+  for (const axis of ['x', 'y']) {
+    const section = sectionSvg(full, { width: 640, axis });
+    doc.image(section, 640, Number(/height="(\d+(?:\.\d+)?)"/.exec(section)?.[1] ?? 330));
+  }
   if (layers.length) {
     doc.heading('Link layer schedule', 3);
     doc.table([

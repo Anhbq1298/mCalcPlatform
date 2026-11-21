@@ -11,23 +11,27 @@ const BREAK = (x, y0, y1) => {
   return `<path d="M${n(x)} ${n(y0 - 6)}L${n(x)} ${n(m - 6)}L${n(x - 5)} ${n(m - 2)}L${n(x + 5)} ${n(m + 2)}L${n(x)} ${n(m + 6)}L${n(x)} ${n(y1 + 6)}" fill="none" stroke="${COLORS.ink}" stroke-width=".7"/>`;
 };
 
-export function sectionSvg(result, { width = 640 } = {}) {
+// axis 'x': Section A–A along the local x-axis; axis 'y': Section B–B along the local y-axis. Each
+// uses the column size, drop extent, bar direction and slab edges of its own direction.
+export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
+  const alongY = axis === 'y';
+  const name = alongY ? 'B–B' : 'A–A';
   const input = result.input;
   const { column, slab, flexure } = input;
   const h = slab.h;
   const layers = result.layout?.layers ?? [];
   const d = result.section?.d ?? 0;
   const aOut = result.envelope?.uOut ? result.envelope.aOut : 0;
-  const face = column.shape === 'circular' ? column.diameter / 2 : column.cx / 2;
+  const face = column.shape === 'circular' ? column.diameter / 2 : (alongY ? column.cy : column.cx) / 2;
   const head = result.head;
   const hH = head ? head.hH : 0;
-  const lH = head ? head.lH[0] : 0;
+  const lH = head ? (alongY ? head.lH.at(-1) : head.lH[0]) : 0;
   const u1Offset = head?.kind === 'small' ? head.rcont.r - face : result.u1Offset ?? 2 * d;
   const extOffset = head?.kind === 'large' ? lH + 2 * head.d : null;
   const reach = Math.max(u1Offset, aOut, extOffset ?? 0, lH, ...layers.map(layer => layer.offset), 0);
 
-  // Distance from the column centre to the slab boundary along local ±x.
-  const theta = ((column.rotation || 0) * Math.PI) / 180;
+  // Distance from the column centre to the slab boundary along the local section axis.
+  const theta = ((column.rotation || 0) * Math.PI) / 180 + (alongY ? Math.PI / 2 : 0);
   const toEdge = sign => {
     const dx = sign * Math.cos(theta);
     const dy = sign * Math.sin(theta);
@@ -36,7 +40,7 @@ export function sectionSvg(result, { width = 640 } = {}) {
     if (Math.abs(dy) > 1e-12) hits.push(((dy > 0 ? slab.yMax : slab.yMin) - column.y) / dy);
     return Math.min(...hits);
   };
-  const side = toEdge(1) >= toEdge(-1) ? 1 : -1; // drawn to the right
+  const side = 1; // true orientation: +local axis to the right
   const span = face + reach + Math.max(200, 0.12 * reach);
   const right = Math.min(span, toEdge(side));
   const freeRight = right < span - 1e-6;
@@ -101,7 +105,7 @@ export function sectionSvg(result, { width = 640 } = {}) {
   if (!freeRight) parts.push(BREAK(X(right), Z(h), Z(0)));
   for (const z of [zTop, zBot]) parts.push(`<path d="M${n(X(-face) - 6)} ${n(Z(z))}H${n(X(0) - 5)}l4 -5l2 10l4 -5H${n(X(face) + 6)}" fill="none" stroke="${COLORS.ink}" stroke-width=".7"/>`);
   parts.push(`<line x1="${n(X(0))}" y1="${n(Z(zTop) - 8)}" x2="${n(X(0))}" y2="${n(Z(zBot) + 8)}" stroke="${COLORS.muted}" stroke-width=".5" stroke-dasharray="${DASH.centre}"/>`);
-  if (freeRight) parts.push(`<text class="small" x="${n(X(right))}" y="${n(Z(h) - 6)}" text-anchor="end">FREE EDGE</text>`);
+  if (freeRight && right > face + 1) parts.push(`<text class="small" x="${n(X(right))}" y="${n(Z(h) - 6)}" text-anchor="end">FREE EDGE</text>`);
   if (freeLeft && backEdge > face + 1) parts.push(`<text class="small" x="${n(X(left))}" y="${n(Z(h) - 6)}">FREE EDGE</text>`);
 
   // Reinforcement (light grey): top mat from the effective depths; slab bottom bars cranked down
@@ -111,9 +115,10 @@ export function sectionSvg(result, { width = 640 } = {}) {
   try { section = derivedSection(input); } catch { section = null; }
   const bar = COLORS.bar;
   const dot = (t, z, r) => `<circle cx="${n(X(t))}" cy="${n(Z(z))}" r="${n(r)}" fill="${bar}"/>`;
-  const spacing = flexure.areaMode === 'bars' && flexure.sY > 0 ? flexure.sY : 150;
-  const zTopBar = section ? section.dx : h - cover - 8;
-  const zTopDots = section ? section.dy : h - cover - 20;
+  const spacing = flexure.areaMode === 'bars' && (alongY ? flexure.sX : flexure.sY) > 0 ? (alongY ? flexure.sX : flexure.sY) : 150;
+  // Bars running along the section axis are drawn as a line, the perpendicular layer as dots.
+  const zTopBar = section ? (alongY ? section.dy : section.dx) : h - cover - 8;
+  const zTopDots = section ? (alongY ? section.dx : section.dy) : h - cover - 20;
   const barWidth = 1.2; // all flexural bars (top, bottom, drop, column) share one line style
   parts.push(`<line x1="${n(X(left) + 3)}" y1="${n(Z(zTopBar))}" x2="${n(X(right) - 3)}" y2="${n(Z(zTopBar))}" stroke="${bar}" stroke-width="${barWidth}"/>`);
   for (let t = Math.ceil((left + 30) / spacing) * spacing; t <= right - 30; t += spacing) parts.push(dot(t, zTopDots, 1.6));
@@ -162,11 +167,10 @@ export function sectionSvg(result, { width = 640 } = {}) {
   let row = 1;
   for (const [offset, text, dash] of markers) {
     const t = face + offset;
-    if (t > right) continue;
     const x = X(t);
     row = x < lastEnd + 4 ? 1 - row : 0;
     const y = Z(h) - 10 - row * 15;
-    parts.push(`<line x1="${n(x)}" y1="${n(y + 3)}" x2="${n(x)}" y2="${n(Z(soffit(t)) + 8)}" stroke="${COLORS.ink}" stroke-width=".9" stroke-dasharray="${dash}"/><text class="label" x="${n(x + 3)}" y="${n(y)}">${esc(text)}</text>`);
+    if (t <= right) parts.push(`<line x1="${n(x)}" y1="${n(y + 3)}" x2="${n(x)}" y2="${n(Z(soffit(t)) + 8)}" stroke="${COLORS.ink}" stroke-width=".9" stroke-dasharray="${dash}"/><text class="label" x="${n(x + 3)}" y="${n(y)}">${esc(text)}</text>`);
     lastEnd = Math.max(lastEnd, x + 3 + text.length * 6.6);
     if (-t >= left) parts.push(`<line x1="${n(X(-t))}" y1="${n(y + 3)}" x2="${n(X(-t))}" y2="${n(Z(soffit(-t)) + 8)}" stroke="${COLORS.ink}" stroke-width=".9" stroke-dasharray="${dash}"/><text class="label" x="${n(X(-t) - 3)}" y="${n(y)}" text-anchor="end">${esc(text)}</text>`);
   }
@@ -185,31 +189,39 @@ export function sectionSvg(result, { width = 640 } = {}) {
   if (head?.kind === 'large' && head.inner) values.push(`d_H = d + h_H = ${head.dH.toFixed(0)}`);
   // Callouts (45° leaders, QLEADER style). A callout flips to the left when its text would leave
   // the drawing. Landings: links highest, top bars below them, bars under the soffit below the slab.
+  // Callouts go on the side with more slab (cs = ±1 along the local axis).
+  const cs = toEdge(1) >= toEdge(-1) ? 1 : -1;
+  const XC = t => X(cs * t);
+  const far = cs > 0 ? right : -left;
+  const dropEndC = cs > 0 ? dropEnd : dropEndL;
+  const xDropBarC = cs > 0 ? xDropBar : -xDropBarL;
   const place = (x, y, dy, landing, lines, color) => {
     const run = Math.max(14, Math.abs(landing - y));
     const textWidth = Math.max(...lines.map(line => line.length)) * 6.2 + 10;
-    const dx = x + run + textWidth > width - 4 ? -1 : 1;
+    let dx = cs;
+    if (dx > 0 && x + run + textWidth > width - 4) dx = -1;
+    else if (dx < 0 && x - run - textWidth < 4) dx = 1;
     return callout(x, y, dx, dy, run, lines, color);
   };
   const lastLink = layers.length ? face + layers.at(-1).offset : face;
-  if (layers.length) {
+  if (layers.length && face + layers[0].offset <= far) {
     const ids = layers.length > 1 ? `L1–L${layers.length}` : 'L1';
     const phis = [...new Set(layers.map(layer => layer.diameter))].map(phi => 'Ø' + phi).join('/');
-    parts.push(place(X(face + layers[0].offset) + 2, Z(legTop) + 2, -1, Z(h) - 66, [`SHEAR LINKS ${ids}, ${phis}`, `${layers[0].shape === 'double' ? 'TWO-LEG' : 'SINGLE-LEG'}, SEE SCHEDULE`], COLORS.link));
+    parts.push(place(XC(face + layers[0].offset) + 2 * cs, Z(legTop) + 2, -1, Z(h) - 66, [`SHEAR LINKS ${ids}, ${phis}`, `${layers[0].shape === 'double' ? 'TWO-LEG' : 'SINGLE-LEG'}, SEE SCHEDULE`], COLORS.link));
   }
-  // Top bars: from the right end of the drawing, leader up-left, landing below the link callout.
-  parts.push(callout(X(right) - 14, Z(zTopBar), -1, -1, Math.max(14, Z(zTopBar) - (Z(h) - 40)), ['TOP BARS (FLEXURE INPUT)']));
-  if (head && dropEnd < right) {
-    parts.push(place(X(xDropBar), Z((zb + zbDrop) / 2), 1, Z(zBot) + 22, ['DROP BARS, CRANKED AT DROP EDGE (SCHEM.)']));
-    const tb = dropEnd + 0.55 * (right - dropEnd);
-    parts.push(place(X(tb), Z(zb), 1, Z(zBot) + 48, ['SLAB BOTTOM BARS (SCHEMATIC)']));
+  // Top bars: from the far end on the callout side, leader back toward the column.
+  parts.push(callout(XC(far) - 14 * cs, Z(zTopBar), -cs, -1, Math.max(14, Z(zTopBar) - (Z(h) - 40)), ['TOP BARS (FLEXURE INPUT)']));
+  if (head && dropEndC < far) {
+    parts.push(place(XC(xDropBarC), Z((zb + zbDrop) / 2), 1, Z(zBot) + 22, ['DROP BARS, CRANKED AT DROP EDGE (SCHEM.)']));
+    const tb = dropEndC + 0.55 * (far - dropEndC);
+    parts.push(place(XC(tb), Z(zb), 1, Z(zBot) + 48, ['SLAB BOTTOM BARS (SCHEMATIC)']));
   } else {
-    const tb = lastLink + 0.5 * Math.max(0, right - lastLink);
-    parts.push(place(X(tb), Z(bottomBar(tb)), 1, Z(zBot) + 22, [head ? 'DROP / BOTTOM BARS (SCHEMATIC)' : 'BOTTOM BARS (SCHEMATIC)']));
+    const tb = lastLink + 0.5 * Math.max(0, far - lastLink);
+    parts.push(place(XC(tb), Z(bottomBar(cs * tb)), 1, Z(zBot) + 22, [head ? 'DROP / BOTTOM BARS (SCHEMATIC)' : 'BOTTOM BARS (SCHEMATIC)']));
   }
   parts.push(`<line x1="0" y1="${n(drawHeight)}" x2="${width}" y2="${n(drawHeight)}" stroke="${COLORS.rule}"/>`
     + `<text class="small" x="14" y="${n(drawHeight + 16)}">${esc(values.join(' · '))}</text>`
-    + `<text class="small" x="14" y="${n(drawHeight + 31)}">Section A–A${section ? ` · top bars d_x ${section.dx.toFixed(0)}, d_y ${section.dy.toFixed(0)}` : ''} · bottom bars schematic · legs at their offsets.</text>`
+    + `<text class="small" x="14" y="${n(drawHeight + 31)}">Section ${name} (local ${axis})${section ? ` · top bars d_x ${section.dx.toFixed(0)}, d_y ${section.dy.toFixed(0)}` : ''} · bottom bars schematic · legs at their offsets.</text>`
     + `<text class="small" x="14" y="${n(drawHeight + 46)}">Hook anchorage requires detailing confirmation (§8.5). Distances in mm from the column face.</text>`);
-  return svgDocument(width, height, 'Punching shear section', parts.join(''));
+  return svgDocument(width, height, `Punching shear section ${name}`, parts.join(''));
 }
