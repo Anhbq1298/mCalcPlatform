@@ -14,8 +14,8 @@ const option = (value, label) => ({ value, label });
 export const GROUPS = [
   ['Design basis', [
     ['code.edition', 'Code edition', 'select', [option('EN 1992-1-1:2004 + AC:2010 + A1:2014', 'EN 1992-1-1:2004 + AC:2010 + A1:2014')]],
-    ['code.profile', 'Parameter set', 'select', [option('cen', 'CEN recommended values'), option('uk', 'UK National Annex (confirm values)')]],
-    ['code.naConfirmed', 'UK NA values confirmed against the NA text', 'checkbox', null, s => s.code.profile === 'uk'],
+    ['code.profile', 'Parameter set', 'select', [option('cen', 'CEN recommended values'), option('sg', 'Singapore National Annex (confirm values)'), option('uk', 'UK National Annex (confirm values)')]],
+    ['code.naConfirmed', 'NA values confirmed against the NA text', 'checkbox', null, s => s.code.profile !== 'cen'],
     ['column.position', 'Column position', 'select', [option('internal', 'Internal'), option('edge', 'Edge (face flush with slab edge)'), option('corner', 'Corner (faces flush with two edges)')]],
   ]],
   ['Column', [

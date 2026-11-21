@@ -24,7 +24,8 @@ export function createContext(input) {
   const rhoX = reinforcementRatio(section.asx, section.dx);
   const rhoY = reinforcementRatio(section.asy, section.dy);
   const sigmaCp = ((input.prestress?.sigmaX ?? 0) + (input.prestress?.sigmaY ?? 0)) / 2;
-  const res = concreteResistance({ fck: materials.fck, d, rhoX, rhoY, sigmaCp });
+  const fckShear = profile.fckShearCap ? Math.min(materials.fck, profile.fckShearCap) : materials.fck; // SG NA 3.1.2(2)P
+  const res = { ...concreteResistance({ fck: fckShear, d, rhoX, rhoY, sigmaCp }), fckShear };
   const openings = input.openings || [];
   const shadows = openingShadows(column, openings, d);
   const memo = new Map();
@@ -40,7 +41,7 @@ export function createContext(input) {
   return {
     input, profile, position, section: { ...section, rhoX, rhoY }, d, res, model, shadows,
     u0, u1, u1Star: edge?.u1Star ?? null, edge,
-    vRdMax: maximumResistance({ fck: materials.fck, factor: profile.vRdMaxFactor }),
+    vRdMax: maximumResistance({ fck: fckShear, factor: profile.vRdMaxFactor }),
     fywdEf: fywdEffective(materials.fyk, d),
   };
 }
@@ -69,9 +70,10 @@ export function geometryLimits(ctx, reach) {
     else notes.push(`Opening O${index + 1} is ${distance.toFixed(0)} mm from the column, beyond 6d; only the opening itself is excluded from perimeters it crosses.`);
   });
   if (input.loadType === 'reaction') notes.push('V_Ed is the support reaction. No deduction is made for loads inside the control perimeter: EN 1992-1-1 gives V_Ed,red (Eq. 6.48) for column bases only.');
+  if (ctx.res.fckShear < input.materials.fck) notes.push(`f_ck = ${ctx.res.fckShear} MPa used for shear strength (C_max = C50/60, NA 3.1.2(2)P).`);
   if (ctx.res.sigmaCp !== 0) notes.push(`σ_cp = ${ctx.res.sigmaCp.toFixed(2)} MPa included in Eq. 6.47 with k1 = 0.1.`);
   if (ctx.profile.needsConfirmation && input.code?.naConfirmed !== true) {
-    issues.push({ state: STATES.notVerified, message: `${ctx.profile.label}: values come from secondary sources. Confirm them against the National Annex text to remove this status.` });
+    issues.push({ state: STATES.notVerified, message: `${ctx.profile.label}: values come from secondary transcriptions of the National Annex. Confirm them against the NA text to remove this status.` });
   }
   if (ctx.res.vRdc <= 0) issues.push({ state: STATES.unsupportedLoading, message: 'In-plane tension makes v_Rd,c non-positive; this is outside the scope of Eq. 6.47.' });
   return { issues, notes };

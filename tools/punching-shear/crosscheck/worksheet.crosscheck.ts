@@ -67,6 +67,7 @@ function cases() {
     input.loads = [{ name: 'A', V: 700, Mx: 0, My: 0 }];
     input.reinforcement.anchorage = { type: 'bend', mandrelFactor: 4, extension: 90, engaged: false };
   });
+  add('Singapore profile, C60 capped to C50 for shear', input => { input.code = { ...input.code, profile: 'sg', naConfirmed: true }; input.materials.fck = 60; input.loads = [{ name: 'A', V: 1000, Mx: 0, My: 0 }]; });
   add('UK profile, confirmed', input => { input.code = { ...input.code, profile: 'uk', naConfirmed: true }; input.loads = [{ name: 'A', V: 900, Mx: 0, My: 0 }]; });
   return list;
 }

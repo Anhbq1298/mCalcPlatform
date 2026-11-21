@@ -24,6 +24,17 @@ export const PROFILES = {
       { name: 'k_max', value: P.kMax, source: '§6.4.5(1) Note, A1:2014', status: 'Recommended value' },
     ],
   },
+  sg: {
+    id: 'sg', label: 'Singapore National Annex (confirm values)', nationalAnnex: 'NA to SS EN 1992-1-1:2008 + A1:2010 (Singapore)',
+    vRdMaxFactor: 0.5, kMax: 2.0, kMaxLabel: 'v_Ed ≤ 2·v_Rd,c at u1 (SG NA 6.4.5(3))', needsConfirmation: true, fckShearCap: 50,
+    parameters: [
+      ...common.map(entry => ({ ...entry, status: 'Default EN per SG NA (6.4.3(6), 6.4.4(1)); confirm' })),
+      { name: 'v_Rd,max', value: '0.5·ν·f_cd', source: 'SG NA 6.4.5(3)', status: 'SCIA SG NA table and Table NA.1 copy; confirm' },
+      { name: 'Limit at u1', value: '2·v_Rd,c', source: 'SG NA 6.4.5(3)', status: 'SCIA SG NA table and Table NA.1 copy; confirm' },
+      { name: 'C_max for shear', value: 'C50/60 (f_ck ≤ 50 MPa in shear)', source: 'SG NA 3.1.2(2)P', status: 'SCIA SG NA table; confirm' },
+      { name: 'α_cc for shear', value: 1.0, source: 'SG NA 3.1.6(1)P', status: 'SCIA SG NA table; confirm' },
+    ],
+  },
   uk: {
     id: 'uk', label: 'UK National Annex (confirm values)', nationalAnnex: 'NA to BS EN 1992-1-1 (UK), values from secondary sources',
     vRdMaxFactor: 0.5, kMax: 2.0, kMaxLabel: 'v_Ed ≤ 2·v_Rd,c at u1 (UK NA 6.4.5(3))', needsConfirmation: true,
@@ -50,7 +61,7 @@ export const UNSUPPORTED = [
   'Edge or corner columns whose faces are not flush with the slab edges, and circular columns at edges.',
   'Edge and corner columns with the load eccentricity toward the slab exterior (Eq. 6.39 with the edge perimeter).',
   'Deduction of loads inside the control perimeter: EN 1992-1-1 gives V_Ed,red (Eq. 6.48) for column bases only; column bases are not covered.',
-  'National Annexes other than the CEN values and the UK profile.',
+  'National Annexes other than the CEN values and the UK and Singapore profiles.',
 ];
 
 export function profileFor(id) {

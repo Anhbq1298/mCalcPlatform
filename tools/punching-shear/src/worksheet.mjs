@@ -52,12 +52,13 @@ export function buildWorksheet(result, { pageHeight, pageGap, designName = 'Punc
   doc.math('ρ_x', define(R`\rho_{x}`, R`\min\left(\frac{A_{s.x}}{1000\,\mathrm{mm}\cdot d_{x}},0.02\right)`), { precision: 5 });
   doc.math('ρ_y', define(R`\rho_{y}`, R`\min\left(\frac{A_{s.y}}{1000\,\mathrm{mm}\cdot d_{y}},0.02\right)`), { precision: 5 });
   doc.math('ρ_l', define(R`\rho_{l}`, R`\min\left(\sqrt{\rho_{x}\rho_{y}},0.02\right)`), { precision: 5 });
+  doc.math(result.profile.fckShearCap ? 'f_ck for shear (C_max = C50/60, NA 3.1.2(2)P)' : 'f_ck for shear', define('f_{ck.v}', result.profile.fckShearCap ? R`\min\left(f_{ck},${result.profile.fckShearCap}\,\mathrm{MPa}\right)` : 'f_{ck}'), { displayUnit: 'MPa' });
   doc.math('Size factor k', define('k', R`\min\left(1+\sqrt{\frac{200\,\mathrm{mm}}{d}},2\right)`));
-  doc.math('v_min (Eq. 6.3N)', define(R`v_{min}`, R`0.035k^{1.5}\sqrt{\frac{f_{ck}}{\mathrm{MPa}}}` + unit.MPa), { displayUnit: 'MPa' });
+  doc.math('v_min (Eq. 6.3N)', define(R`v_{min}`, R`0.035k^{1.5}\sqrt{\frac{f_{ck.v}}{\mathrm{MPa}}}` + unit.MPa), { displayUnit: 'MPa' });
   doc.math('σ_cp = (σ_cx + σ_cy)/2', define(R`\sigma_{cp}`, num(result.resistance.sigmaCp) + unit.MPa), { displayUnit: 'MPa', mode: 'auto' });
-  doc.math('v_Rd,c (Eq. 6.47)', define(R`v_{Rd.c}`, R`\max\left(\frac{0.18}{\gamma_{c}}k\left(100\rho_{l}\frac{f_{ck}}{\mathrm{MPa}}\right)^{\frac{1}{3}}\,\mathrm{MPa}+0.1\sigma_{cp},v_{min}+0.1\sigma_{cp}\right)`), { displayUnit: 'MPa' });
-  doc.math('ν (Eq. 6.6N)', define(R`\nu`, R`0.6\left(1-\frac{f_{ck}}{250\,\mathrm{MPa}}\right)`));
-  doc.math('v_Rd,max (§6.4.5(3))', define(R`v_{Rd.max}`, num(result.profile.vRdMaxFactor) + R`\nu\frac{f_{ck}}{\gamma_{c}}`), { displayUnit: 'MPa' });
+  doc.math('v_Rd,c (Eq. 6.47)', define(R`v_{Rd.c}`, R`\max\left(\frac{0.18}{\gamma_{c}}k\left(100\rho_{l}\frac{f_{ck.v}}{\mathrm{MPa}}\right)^{\frac{1}{3}}\,\mathrm{MPa}+0.1\sigma_{cp},v_{min}+0.1\sigma_{cp}\right)`), { displayUnit: 'MPa' });
+  doc.math('ν (Eq. 6.6N)', define(R`\nu`, R`0.6\left(1-\frac{f_{ck.v}}{250\,\mathrm{MPa}}\right)`));
+  doc.math('v_Rd,max (§6.4.5(3))', define(R`v_{Rd.max}`, num(result.profile.vRdMaxFactor) + R`\nu\frac{f_{ck.v}}{\gamma_{c}}`), { displayUnit: 'MPa' });
   perimeters(doc, result, kind, rect);
   doc.math('f_ywd,ef (§6.4.5(1))', define(R`f_{ywd.ef}`, R`\min\left(250\,\mathrm{MPa}+0.25\frac{d}{\mathrm{mm}}\,\mathrm{MPa},\frac{f_{yk}}{\gamma_{s}}\right)`), { displayUnit: 'MPa', precision: 1 });
   doc.math(esc(result.profile.kMaxLabel), define(R`k_{max}`, num(result.profile.kMax)), { mode: 'auto' });

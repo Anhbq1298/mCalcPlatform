@@ -1,6 +1,6 @@
 # mPunchingShear: sources and verification
 
-Scope: internal rectangular (any rotation) and circular columns; rectangular edge and corner columns with faces flush with the slab edges; openings; in-plane normal stress. EN 1992-1-1:2004 + AC:2010 + A1:2014, §6.4 punching, §8.3, §8.5, §9.3.2 and §9.4.3 detailing. CEN recommended values by default, plus a UK NA profile that stays Not verified until the user confirms its values. No Singapore or German NA values are used or labelled.
+Scope: internal rectangular (any rotation) and circular columns; rectangular edge and corner columns with faces flush with the slab edges; openings; in-plane normal stress. EN 1992-1-1:2004 + AC:2010 + A1:2014, §6.4 punching, §8.3, §8.5, §9.3.2 and §9.4.3 detailing. CEN recommended values by default, plus a UK NA profile that stays Not verified until the user confirms its values. Singapore and UK NA profiles stay Not verified until the user confirms them. No German NA values are used.
 
 ## Clauses and where they are implemented
 
@@ -38,6 +38,7 @@ Scope: internal rectangular (any rotation) and circular columns; rectangular edg
 | Bends fit within h − 2c (φm + 2φ) | Physical geometry | `detailing.mjs` | Implemented |
 | Link engages top and bottom flexural bars | §8.5, §9.4.3 | `detailing.mjs` | User confirmation |
 | UK NA: v_Rd,max = 0.5νf_cd, v_Ed ≤ 2v_Rd,c at u1 | UK NA 6.4.5(3) | `profile.mjs` | Secondary sources (CADS report, The Concrete Centre); Not verified until confirmed |
+| SG NA: v_Rd,max = 0.5νf_cd ≤ 2v_Rd,c; 6.4.3(6) and 6.4.4(1) default EN; C_max = C50/60 for shear; α_cc = 1.0 for shear | NA to SS EN 1992-1-1:2008 + A1:2010, 6.4.5(3), 3.1.2(2)P, 3.1.6(1)P | `profile.mjs`, `setup.mjs` | SCIA Engineer Singapore NA table and a copy of Table NA.1 agree; Not verified until confirmed against the NA text |
 
 ### Eq. 6.43 interpretation
 
@@ -53,6 +54,7 @@ EN 1992-1-1 writes β = 1 + 1.8·√((e_y/b_z)² + (e_z/b_y)²), where b_y and b
 | Dlubal VE 1023, 450 × 450, d = 190 | u1 | 4.188 m | 4.187 m | Matches within rounding |
 | same | v_Ed with β = 1.10, V = 787.3 kN | 1.088 MPa | 1.0886 MPa | Matches |
 | same | Base A_sw per row | 4.98 cm² (German NA) | 5.23 cm² (CEN) | ≈ 5 % difference expected from German NA rules; not an exact test |
+| CSI SAFE RC-PN-001, Singapore-labelled case | v_Ed (β back-calculated from 1.099 MPa), v_Rd,c, D/C | 1.099, 0.5796 MPa, 1.90 | 1.099, 0.5795 MPa, 1.896 | Matches; SG limits 0.5νf_cd = 5.28 MPa and 2v_Rd,c = 1.159 MPa pass |
 | Hand calculation | v_Rd,max at f_ck 30 | — | 4.224 MPa | Matches Eq. 6.53 with 0.4·ν·f_cd |
 
 | Dlubal VE 1028, circular D = 300, d = 210, β = 1.10 | u1 | 3.581 m | 3.581 m | Matches |
@@ -75,4 +77,4 @@ Geometry exactness, convergence, offset invariance, rotation and translation inv
 - Edge and corner columns set back from the slab edge, circular columns at edges, and eccentricity toward the slab exterior (Eq. 6.39 with the edge perimeter).
 - EN 1992-1-1 defines no W1 or u1* for perimeters reduced by openings; moment-based β with openings is reported as Not verified.
 - No deduction of loads inside the control perimeter: Eq. 6.48 applies to column bases only. Column bases are not covered.
-- National Annexes other than the CEN values; the UK profile needs confirmation against the NA text. The Singapore NA text was not available.
+- National Annexes other than CEN, Singapore and UK. The Singapore and UK profiles need confirmation against the NA text.

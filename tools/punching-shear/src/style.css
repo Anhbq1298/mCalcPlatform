@@ -81,3 +81,4 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 #code-basis ul { margin: .25rem 0; padding-left: 1.1rem; color: var(--muted); font-size: .78rem; }
 #selection-info { min-height: 2.4em; }
 #code-basis .column-summary-table td:last-child { font-weight: 400; text-align: left; }
+#layer-schedule td:nth-last-child(-n + 2) { white-space: normal; text-align: left; min-width: 6.5rem; }
