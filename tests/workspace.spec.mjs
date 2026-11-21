@@ -260,6 +260,21 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   await expect(summary.locator('[data-overall-ur]')).toHaveText('0.872');
   await expect(summary.getByRole('row').filter({ hasText: 'L1 bar clearance' })).toContainText('Pass');
   await expect(page.locator('#checks')).toContainText('1022.4 mm');
+  await expect(page.locator('#interaction-caption')).toContainText('θ = 33.7°');
+  const curve = page.locator('#interaction-curve');
+  const automaticGrid = await curve.evaluate(canvas => canvas.toDataURL());
+  await page.getByLabel('Grid P (kN)', { exact: true }).fill('2000');
+  expect(await curve.evaluate(canvas => canvas.toDataURL())).not.toBe(automaticGrid);
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.locator('#plot-axis-p')).toHaveText('P (kN)');
+  await expect(page.locator('#plot-axis-m')).toHaveText('M (kNm)');
+  await expect(page.locator('#plot-axis-p')).toBeVisible();
+  await expect(page.locator('#plot-axis-m')).toBeVisible();
+  const mobilePlot = await curve.boundingBox();
+  expect(mobilePlot.x + mobilePlot.width).toBeLessThanOrEqual(375);
+  await page.setViewportSize(viewport);
+
 
   await add.click();
   await add.click();

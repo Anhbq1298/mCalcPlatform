@@ -44,9 +44,15 @@
       <dl id="checks"></dl>
     </section>
     <section class="interaction" aria-labelledby="interaction-title">
-      <h2 id="interaction-title">Axial force–moment interaction</h2>
-      <canvas id="interaction-curve" role="img" aria-label="Axial force versus moment about the applied bending direction"></canvas>
-      <p>Blue: resistance curve. Red: applied load.</p>
+      <h2 id="interaction-title">P–M at governing angle</h2>
+      <div class="interaction-grid">
+        <label>Grid P (kN) <input id="plot-grid-p" type="number" min="0" step="any" placeholder="auto"></label>
+        <label>M (kNm) <input id="plot-grid-m" type="number" min="0" step="any" placeholder="auto"></label>
+      </div>
+      <div class="interaction-axis" id="plot-axis-p">P (kN)</div>
+      <canvas id="interaction-curve" role="img" aria-labelledby="interaction-title" aria-describedby="plot-axis-p plot-axis-m interaction-caption"></canvas>
+      <div class="interaction-axis interaction-axis-m" id="plot-axis-m">M (kNm)</div>
+      <p id="interaction-caption"></p>
     </section>
   </main>
   <script type="module" src="/platform/tools/rc-circular-column/src/page.mjs"></script>

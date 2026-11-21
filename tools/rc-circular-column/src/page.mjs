@@ -15,6 +15,10 @@ const status = byId('calculation-status');
 const section = byId('circular-section');
 const legend = byId('section-legend');
 const curve = byId('interaction-curve');
+const plotGridP = byId('plot-grid-p');
+const plotGridM = byId('plot-grid-m');
+const plotCaption = byId('interaction-caption');
+for (const input of [plotGridP, plotGridM]) input.addEventListener('input', draw);
 const checks = byId('checks');
 const summary = byId('column-check-summary');
 let state = newDefaults();
@@ -82,7 +86,12 @@ byId('convert-links').addEventListener('click', () => {
 
 function draw() {
   drawSection(section, legend, state);
-  drawInteraction(curve, rendered);
+  const angle = rendered && (state.mx || state.my)
+    ? (Math.atan2(state.my, state.mx) * 180 / Math.PI + 360) % 360 : null;
+  drawInteraction(curve, rendered, { gridP: plotGridP.valueAsNumber, gridM: plotGridM.valueAsNumber, angle });
+  plotCaption.textContent = !rendered ? '' : angle == null
+    ? 'Pure axial demand. Gold marker: applied load.'
+    : 'Moment direction θ = ' + angle.toFixed(1) + '°, measured from +Mx toward +My. Gold marker: applied load.';
 }
 
 function refresh() {
