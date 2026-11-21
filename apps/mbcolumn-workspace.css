@@ -149,6 +149,7 @@ body, label.f select, table.faces, .tag { font-family: var(--column-ui-font); }
   .reinforcement-dialog-body { grid-template-columns: minmax(0, 1fr); }
   .reinforcement-drawing { grid-row: 1; }
   .reinforcement-slot { height: 250px; }
+  #longitudinal-editor #section-canvas-wrap .readout { display: none; }
   .reinforcement-dialog > footer { flex-wrap: wrap; justify-content: flex-end; }
   .reinforcement-dialog > footer p:not(:empty) { flex-basis: 100%; }
 }
