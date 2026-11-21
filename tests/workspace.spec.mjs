@@ -1,3 +1,5 @@
+import { legacyDefaults } from '../tools/rc-circular-column/src/legacy-inputs.mjs';
+import { importPackage } from '../packages/design-sdk/src/package-file.mjs';
 import { encodeZip } from '../packages/design-sdk/src/zip.mjs';
 import { expect, test } from '../vendor/calccanvas/node_modules/@playwright/test/index.mjs';
 
@@ -123,7 +125,7 @@ test('saves independent calculations in nested folders and reopens the file in f
     ['Calculation Worksheet', 'mCalcCanvas', 'Design worksheet'],
     ['Composite Beam', 'serviceability', 'Composite check in L3'],
     ['RC Column', 'EC2', 'Column check in L3'],
-    ['Circular RC Column', 'spiral', 'Circular check in L3'],
+    ['Circular RC Column', 'closed links', 'Circular check in L3'],
   ]) {
     await addModule(page, search, title, name);
     await page.getByRole('link', { name, exact: true }).click();
@@ -243,35 +245,99 @@ test('solves mConcreteRecCol locally and restores shear inputs by design ID', as
   await expect(shear.getByRole('row').filter({ hasText: '350.0' })).toContainText('ULS 1', { timeout: 60000 });
 });
 
-test('calculates and saves a Circular RC Column using the reference worksheet', async ({ page }) => {
+test('circular closed link layers update SVG, resistance, persistence and reports', async ({ page }, info) => {
   test.setTimeout(120000);
-  await page.goto('./');
-  await page.getByRole('article').filter({ hasText: 'mConcreteCircCol' }).getByRole('link', { name: 'New design' }).click();
-  await expect(page).toHaveTitle('mConcreteCircCol');
-  const count = page.getByLabel('Reinforcement cages', { exact: true });
+  await page.goto('t/rc-circular-column/?new=1');
   const summary = page.locator('#column-check-summary');
-  const section = page.locator('#circular-section');
-  expect((await summary.boundingBox()).x).toBeGreaterThan((await section.boundingBox()).x);
-  await expect(page.getByLabel('Inner spiral pitch (mm)')).toBeHidden();
-  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.', { timeout: 65000 });
-  await expect(summary).toContainText('0.769');
-  await expect(page.getByLabel('VEd (kN, magnitude)', { exact: true })).toHaveValue('2500');
-  await expect(summary.getByRole('row').filter({ hasText: 'Shear utilization' })).toContainText('0.872');
-  await expect(summary.locator('[data-overall-ur]')).toHaveText('0.872');
-  await expect(summary.getByRole('row').filter({ hasText: 'Outer bar clearance' })).toContainText('Pass');
-  await expect(page.locator('#checks')).toContainText('1022.4 mm');
-
-  await count.fill('2');
-  await page.getByLabel('Inner spiral pitch (mm)').fill('140');
-  await expect(page.locator('#section-legend')).toContainText('Inner (green)');
-  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.', { timeout: 65000 });
-  await expect(summary).not.toContainText('0.769');
-  await expect(summary.getByRole('row').filter({ hasText: 'Inner cage fit' })).toContainText('Pass');
+  const status = page.locator('#calculation-status');
+  await expect(status).toHaveText('Calculation complete.');
+  await expect(page.locator('#circular-section svg')).toBeVisible();
+  await expect(page.locator('[data-link="L1"]')).toHaveAttribute('r', '454');
+  await expect(page.locator('[data-link="L2"]')).toHaveAttribute('r', '390');
+  await expect(summary.getByRole('row').filter({ hasText: 'intrudes' })).toContainText('20.00 mm');
+  await expect(summary).toContainText('FAIL');
+  const ratio = await summary.locator('[data-overall-ur]').textContent();
+  await page.getByLabel('L2 longitudinal diameter', { exact: true }).fill('28');
+  await expect(status).toHaveText('Calculation complete.');
+  await expect(summary.locator('[data-overall-ur]')).not.toHaveText(ratio);
+  await page.getByLabel('L2 longitudinal radialClear').fill('50');
+  await expect(page.locator('#detailing-checks')).toContainText('38.00 mm');
+  await page.getByRole('button', { name: 'Add longitudinal layer', exact: true }).click();
+  await expect(page.getByLabel('L3 longitudinal count')).toBeVisible();
+  await expect(summary).toContainText('no associated closed link');
+  await page.getByRole('button', { name: 'Add transverse layer', exact: true }).click();
+  await page.getByLabel('L3 longitudinal radialClear').fill('50');
+  await page.getByLabel('L3 transverse spacing').fill('125');
+  await expect(status).toHaveText('Calculation complete.');
+  await expect(page.locator('#circular-section [data-link]')).toHaveCount(3);
+  await page.screenshot({ path: info.outputPath('circular-closed-links.png'), fullPage: true });
   await save(page);
   await page.reload();
-  await expect(count).toHaveValue('2');
-  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.', { timeout: 65000 });
-  await expect(page.getByLabel('Inner spiral pitch (mm)')).toHaveValue('140');
+  await expect(page.getByLabel('L3 transverse spacing')).toHaveValue('125');
+  await expect(page.getByLabel('L2 longitudinal radialClear')).toHaveValue('50');
+  await expect(status).toHaveText('Calculation complete.');
+  await page.getByRole('button', { name: 'Remove L3 longitudinal layer', exact: true }).click();
+  await expect(page.locator('#circular-section [data-link]')).toHaveCount(2);
   await shell(page).getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
+  const reportImage = page.locator('img[src^="data:image/svg+xml;base64,"]');
+  await expect(reportImage).toBeVisible();
+  expect(await reportImage.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
+});
+
+async function circularRecord(page, id, value) {
+  return page.evaluate(async ({ id, value }) => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('mcalc-platform', 1);
+      request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+    });
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('designs', value ? 'readwrite' : 'readonly');
+      const request = value ? tx.objectStore('designs').put(value) : tx.objectStore('designs').get(id);
+      tx.oncomplete = () => { db.close(); resolve(request.result); }; tx.onerror = () => reject(tx.error);
+    });
+  }, { id, value });
+}
+
+test('migrates saved circular inputs and preserves unknown fields in portable packages', async ({ page }, info) => {
+  await page.goto('t/rc-circular-column/?new=1');
+  await expect(shell(page).getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+  await save(page);
+  const design = { id: 'legacy-circular', tool: 'rc-circular-column', toolVersion: '0.1.0', schema: 1,
+    inputs: { ...legacyDefaults, cages: 2, unknown: { retain: 42 } },
+    meta: { name: 'Legacy circular', mark: 'C1', label: 'member.column', notes: '' } };
+  await circularRecord(page, design.id, design);
+  await page.goto('t/rc-circular-column/?design=legacy-circular');
+  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.');
+  await expect(page.getByLabel('L2 longitudinal radialClear')).toHaveValue('16');
+  await expect(page.locator('#section-legend')).toContainText('R_L=444.5');
+  await expect(page.locator('#detailing-checks')).toContainText('Legacy spiral inputs converted');
+  expect((await circularRecord(page, design.id)).schema).toBe(1);
+  await save(page);
+  const stored = await circularRecord(page, design.id);
+  expect(stored.schema).toBe(2); expect(stored.inputs.unknown).toEqual({ retain: 42 });
+  const download = page.waitForEvent('download');
+  await shell(page).getByRole('button', { name: 'Export .mcalc', exact: true }).click();
+  const file = info.outputPath('circular-migration.mcalc'); await (await download).saveAs(file);
+  const fs = await import('node:fs/promises');
+  const contents = await importPackage(new Blob([await fs.readFile(file)]));
+  expect(contents.designs[0].inputs.longitudinal).toEqual(stored.inputs.longitudinal);
+  expect(contents.designs[0].inputs.unknown).toEqual({ retain: 42 });
+  await shell(page).getByRole('button', { name: 'Duplicate', exact: true }).click();
+  await expect(page).not.toHaveURL(/design=legacy-circular/);
+  await expect(page.getByLabel('L2 longitudinal radialClear')).toHaveValue('16');
+});
+
+test('future circular document and input schemas are protected from writes', async ({ page }) => {
+  await page.goto('t/rc-circular-column/?new=1');
+  await save(page);
+  const id = new URL(page.url()).searchParams.get('design');
+  const saved = await circularRecord(page, id);
+  for (const future of [{ ...saved, schema: 3 }, { ...saved, inputs: { ...saved.inputs, inputVersion: 3 } }]) {
+    await circularRecord(page, id, future);
+    await page.reload();
+    await expect(shell(page).getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    await expect(shell(page)).toContainText(/newer|Newer/);
+    expect(await circularRecord(page, id)).toEqual(future);
+  }
 });

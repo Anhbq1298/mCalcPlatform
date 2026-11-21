@@ -1,7 +1,9 @@
 import { renderColumnSummary, resistanceRow } from '../../../apps/column-summary.mjs';
 import '../../../apps/column-summary.css';
 import { registerPage } from '../../../apps/tool-page.mjs';
-import { defaults, inputGroups, validateInputs } from './inputs.mjs';
+import { defaults, inputGroups, validateInputs, restoreInputs } from './inputs.mjs';
+import { mountLayerTables } from './layer-tables.mjs';
+import { detailingChecks } from './detailing.mjs';
 import { drawInteraction, drawSection } from './drawing.mjs';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
@@ -16,7 +18,7 @@ const legend = byId('section-legend');
 const curve = byId('interaction-curve');
 const checks = byId('checks');
 const summary = byId('column-check-summary');
-let state = { ...defaults };
+let state = structuredClone(defaults);
 let rendered;
 let worker;
 let pending;
@@ -31,14 +33,13 @@ for (const [title, fields] of inputGroups) {
   const heading = document.createElement('legend');
   heading.textContent = title;
   group.append(heading);
-  if (title === 'Inner cage') group.dataset.innerCage = '';
-  for (const [id, label, , , , min, max, step] of fields) {
+  for (const [id, label, , min, max, step] of fields) {
     const row = document.createElement('label');
     const name = document.createElement('span');
     name.textContent = label;
     const input = document.createElement('input');
     input.id = id;
-    input.type = id === 'classA' ? 'checkbox' : 'number';
+    input.type = ['classA', 'reducedZone'].includes(id) ? 'checkbox' : 'number';
     input.step = step ?? 'any';
     if (min !== undefined) input.min = min;
     if (max !== undefined) input.max = max;
@@ -48,18 +49,39 @@ for (const [title, fields] of inputGroups) {
   form.append(group);
 }
 
+const renderLayers = mountLayerTables(form, () => state, () => { scheduleCalculation(); draw(); });
+function detailingRows() {
+  return detailingChecks(state).checks.map(c => ({ label: c.message, status: c.status === 'review' ? 'incomplete' : c.status,
+    statusLabel: c.status === 'review' ? 'Review' : undefined,
+    detail: c.value === null ? undefined : c.value.toFixed(2) + ' mm' + (c.limit === null ? '' : ' / threshold ' + c.limit.toFixed(2) + ' mm') }));
+}
+function renderChecks(result, message) {
+  const rows = detailingRows();
+  renderColumnSummary(summary, [
+    ...(result ? [resistanceRow('P–M utilization', result.combined),
+      resistanceRow('Conditional shear utilization', result.shear)] : []),
+    ...rows.filter(row => row.status === 'fail'),
+    { label: 'Project and detailing review', status: 'incomplete', statusLabel: 'Review',
+      detail: 'Verify code edition/NA, cover basis, restraint, anchorage and circular-link shear applicability.' },
+  ], message);
+  const details = document.createElement('details');
+  const title = document.createElement('summary'); title.textContent = 'All geometry and applicability checks (' + rows.length + ')';
+  const body = document.createElement('div'); body.id = 'detailing-checks';
+  renderColumnSummary(body, rows, 'Geometric checks and engineering review items');
+  details.append(title, body); summary.append(details);
+}
 function draw() {
   drawSection(section, legend, state);
   drawInteraction(curve, rendered);
 }
 
 function refresh() {
-  for (const [key, value] of Object.entries(defaults)) {
+  for (const [key] of inputGroups.flatMap(([, fields]) => fields)) {
     const field = byId(key);
-    if (key === 'classA') field.checked = Boolean(state[key]);
-    else field.value = state[key] ?? value;
+    if (field.type === 'checkbox') field.checked = Boolean(state[key]);
+    else field.value = state[key];
   }
-  form.querySelector('[data-inner-cage]').hidden = state.cages !== 2;
+  renderLayers();
   draw();
 }
 
@@ -73,6 +95,7 @@ function scheduleCalculation() {
   renderColumnSummary(summary, [], 'Updating checks…');
   try {
     validateInputs(state);
+    renderChecks(null, 'Updating resistance checks…');
   } catch (error) {
     status.textContent = error.message;
     renderColumnSummary(summary, [], error.message);
@@ -87,7 +110,6 @@ form.addEventListener('input', event => {
   if (!(input.id in defaults)) return;
   state[input.id] = input.type === 'checkbox' ? Number(input.checked) : input.valueAsNumber;
   scheduleCalculation();
-  form.querySelector('[data-inner-cage]').hidden = state.cages !== 2;
   draw();
 });
 
@@ -124,16 +146,12 @@ function evaluate() {
 
 function display(result) {
   rendered = result;
-  renderColumnSummary(summary, [
-    resistanceRow('P–M utilization', result.combined),
-    resistanceRow('Shear utilization', result.shear),
-    ...result.detailing,
-  ]);
+  renderChecks(result);
   checks.replaceChildren();
   for (const [label, value, unit] of [
     ['Effective web width', result.width, ' mm'],
     ['Compression field cot θ', result.cot, ''],
-    ['Spiral shear resistance stress', result.linkStress, ' MPa'],
+    ['Conditional link shear resistance stress', result.linkStress, ' MPa'],
     ['Concrete strut stress', result.strutStress, ' MPa'],
   ]) {
     const name = document.createElement('dt');
@@ -158,7 +176,7 @@ function calculateCurrent() {
   }).catch(error => {
     if (revision === start) {
       status.textContent = error.message;
-      renderColumnSummary(summary, [], error.message);
+      renderChecks(null, error.message);
       calculation = undefined;
     }
     throw error;
@@ -174,12 +192,16 @@ refresh();
 scheduleCalculation();
 
 registerPage('rc-circular-column', {
+  migrate: (inputs, schema) => {
+    if (schema !== 1) throw new Error('Unsupported circular column migration.');
+    return restoreInputs(inputs);
+  },
   snapshot: () => {
     validateInputs(state);
-    return { ...state };
+    return structuredClone(state);
   },
   restore: inputs => {
-    const next = { ...defaults, ...inputs };
+    const next = restoreInputs(inputs);
     validateInputs(next);
     state = next;
     refresh();

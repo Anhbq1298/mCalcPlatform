@@ -46,3 +46,16 @@ dd { margin: 0; font-variant-numeric: tabular-nums; }
   .column-layout > :not(:first-child) { border-left: 0; border-top: 1px solid var(--rule); }
   #column-inputs, .interaction, .checks { grid-column: 1; grid-row: auto; }
 }
+
+#circular-section { width: 100%; aspect-ratio: 1; }
+#circular-section svg { display:block; width:100%; height:100%; }
+.layer-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+.layer-table th { text-align:left; font-weight:500; }
+.layer-table td { padding: .2rem; }
+.layer-table input { min-width:2.6rem; }
+.layer-table + button { margin-top:.4rem; }
+details { margin-top: 1rem; }
+summary { cursor: pointer; color: var(--steel); }
+.column-layout { grid-template-columns: minmax(25rem, 29rem) minmax(18rem, 1fr) minmax(18rem, 25rem); }
+@media(max-width:75rem) { .column-layout {grid-template-columns: minmax(25rem, 1fr) minmax(19rem, 1fr);} .checks {grid-column:2;grid-row:auto;} }
+@media(max-width:48rem) { .column-layout {grid-template-columns: minmax(0,1fr);} #column-inputs,.interaction,.checks {grid-column:1;grid-row:auto;} }

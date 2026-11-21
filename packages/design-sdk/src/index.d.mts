@@ -37,6 +37,8 @@ export interface WorkspaceStore {
   importPackage(contents: PackageContents): Promise<IDBValidKey | undefined>;
 }
 export interface ToolPageAdapter {
+  /** Advance inputs from this schema to the next schema, preserving unknown fields. */
+  migrate?(inputs: Record<string, unknown>, fromSchema: number): object | Promise<object>;
   snapshot(): object | Promise<object>;
   restore(inputs: Record<string, unknown>): void | Promise<void>;
   reset?(): void | Promise<void>;
