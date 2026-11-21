@@ -30,13 +30,15 @@ export function createReport(template, input, section, result) {
   text('Circular RC Column Check', true);
   text('Section resistance snapshot for the saved actions. Recalculate in the column tool after changing inputs.');
   text('Section material model: pinned Canvas assumptions. Confinement enhancement is disabled.');
-  text('Detailing and slenderness screen: EN 1992-1-1:2004 recommended values. National Annex unverified.');
+  text('Detailing and member effects: EN 1992-1-1:2004 recommended values. National Annex unverified.');
   define('D', input.diameter, R`\,\mathrm{mm}`);
   define('f_{ck}', input.concrete, R`\,\mathrm{MPa}`);
   define('f_{yk}', input.steel, R`\,\mathrm{MPa}`);
   define('N_{Ed}', input.axial, R`\,\mathrm{kN}`);
-  define('M_{Ed.x}', input.mx, R`\,\mathrm{kN}\cdot\mathrm{m}`);
-  define('M_{Ed.y}', input.my, R`\,\mathrm{kN}\cdot\mathrm{m}`);
+  define('M_{in.x}', input.mx, R`\,\mathrm{kN}\cdot\mathrm{m}`);
+  define('M_{in.y}', input.my, R`\,\mathrm{kN}\cdot\mathrm{m}`);
+  define('M_{Ed.x}', result.moments[0], R`\,\mathrm{kN}\cdot\mathrm{m}`);
+  define('M_{Ed.y}', result.moments[1], R`\,\mathrm{kN}\cdot\mathrm{m}`);
   define('V_{Ed}', input.shear, R`\,\mathrm{kN}`);
   text(input.transverse === 'links' ? 'Circular Stirrups (Closed Links)' : 'Continuous Spiral (Helix)', true);
   for (const [index, ring] of section.rings.entries()) {

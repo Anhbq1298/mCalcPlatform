@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createDesign, exportDesignFile, importDesignFile } from '../../../packages/design-sdk/src/index.mjs';
 import { detailing } from '../src/detailing.mjs';
-import { elevationGeometry } from '../src/elevation.mjs';
 import { minimumClearance } from '../src/geometry.mjs';
 import { defaults, migrateInputs, newDefaults, validateInputs } from '../src/inputs.mjs';
 import { shearCheck } from '../src/shear.mjs';
-import { sectionResistance, slendernessCheck } from '../src/section.mjs';
+import { sectionResistance } from '../src/section.mjs';
+import { memberMoments } from '../src/slenderness.mjs';
 import { readFileSync } from 'node:fs';
 
 const near = (actual, expected, tolerance = 1e-8) =>
@@ -64,26 +64,20 @@ test('mode settings persist independently and only the cage and shear status cha
   const input = reference(false);
   input.layers[1].offset = 19;
   input.reinforcement.spirals[0] = { diameter: 16, spacing: 120 };
-  input.effectiveLengthX = 4000;
+  input.effectiveLengthX = 8000;
   input.effectiveLengthY = 3500;
   const closed = validateInputs(input);
   const linksResult = sectionResistance(input, closed);
-  const linksSlenderness = slendernessCheck(input, closed);
+  const linksSlenderness = memberMoments(input, closed);
   const linksShear = shearCheck(input, closed);
-  const linksElevation = elevationGeometry(input, closed.rings);
   input.transverse = 'spirals';
   const spiral = validateInputs(input);
   assert.deepEqual(spiral.bars, closed.bars);
   assert.deepEqual(sectionResistance(input, spiral), linksResult);
-  assert.deepEqual(slendernessCheck(input, spiral), linksSlenderness);
+  assert.deepEqual(memberMoments(input, spiral), linksSlenderness);
   assert.equal(linksShear.statusLabel, 'Not Verified');
   for (const row of [linksShear, shearCheck(input, spiral)]) assert.equal(row.ratio, undefined);
-  assert.equal(linksElevation.layers[0].links[1] - linksElevation.layers[0].links[0], 150);
-  const [{ turns }] = elevationGeometry(input, spiral.rings).layers;
-  assert.equal(turns[0].rear, false);
-  assert.equal(turns[1].rear, true);
-  near(turns[0].points[0][1] + 120, turns[1].points.at(-1)[1]);
-  near(turns[0].points[0][0], turns[1].points.at(-1)[0]);
+
 });
 
 test('migrates v1 spiral and v2 closed-link designs with their saved bar centres and unknown fields', () => {
@@ -98,7 +92,7 @@ test('migrates v1 spiral and v2 closed-link designs with their saved bar centres
   ] }, 2);
   assert.deepEqual(validateInputs(oldLinks).rings.map(ring => ring.barRadius), [432, 371.5]);
   assert.deepEqual(oldLinks.layers[0].custom, { mark: 'X' });
-  assert.throws(() => migrateInputs({}, 4), /Unsupported/);
+  assert.throws(() => migrateInputs({}, 5), /Unsupported/);
 });
 
 test('round-trips mode settings, offset, and radius through the native .mccol file', async () => {
@@ -116,12 +110,33 @@ test('round-trips mode settings, offset, and radius through the native .mccol fi
 test('new designs use closed links; missing lengths and externally assessed actions are explicit', () => {
   const input = newDefaults();
   assert.equal(input.transverse, 'links');
-  assert.equal(slendernessCheck(input, validateInputs(input)).statusLabel, 'Not Verified');
+  assert.equal(memberMoments(input, validateInputs(input)).row.statusLabel, 'Not Verified');
   input.effectiveLengthX = 1000;
   input.effectiveLengthY = 1000;
-  assert.equal(slendernessCheck(input, validateInputs(input)).status, 'pass');
+  assert.equal(memberMoments(input, validateInputs(input)).row.status, 'pass');
   input.effectiveLengthX = 8000;
-  assert.equal(slendernessCheck(input, validateInputs(input)).statusLabel, 'Not Verified');
+  assert.equal(memberMoments(input, validateInputs(input)).row.statusLabel, 'Second order applied');
   input.secondOrderIncluded = 1;
-  assert.match(slendernessCheck(input, validateInputs(input)).detail, /externally/);
+  assert.match(memberMoments(input, validateInputs(input)).row.detail, /externally/);
+});
+
+test('D1000 nominal curvature matches hand calculation by axis and feeds PMM', () => {
+  const input = reference();
+  input.layers.pop();
+  input.reinforcement.links.pop();
+  input.reinforcement.spirals.pop();
+  Object.assign(input, { axial: 8000, mx: -1000, my: 500, effectiveLengthX: 8000, effectiveLengthY: 1000 });
+  const section = validateInputs(input);
+  const calculated = memberMoments(input, section);
+  // With d = 500 + 432/√2, λx = 32, λy = 4, λlim ≈ 15.6,
+  // EC2 5.8.8 gives M2x = 565.03 kNm; imperfection moments are 160 and 20 kNm.
+  near(calculated.mx, -1725.03, 0.01);
+  near(calculated.my, 520);
+  assert.ok(sectionResistance({ ...input, ...calculated }, section).combined > sectionResistance(input, section).combined);
+  assert.equal(calculated.row.hideRatio, true);
+  const old = migrateInputs({ ...input, unknown: 42 }, 3);
+  assert.equal(old.unknown, 42);
+  assert.equal(old.creepRatio, 2);
+  input.layers[0].count = 19;
+  assert.equal(memberMoments(input, validateInputs(input)).row.statusLabel, 'Not Verified');
 });

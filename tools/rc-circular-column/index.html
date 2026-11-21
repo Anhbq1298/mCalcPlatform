@@ -49,10 +49,11 @@
       </fieldset>
       <fieldset id="slenderness-inputs">
         <legend>Slenderness</legend>
+        <label><span>Effective length X (mm)</span><input id="effectiveLengthX" type="number" min="1" step="any"></label>
+        <label><span>Effective length Y (mm)</span><input id="effectiveLengthY" type="number" min="1" step="any"></label>
         <details>
-          <summary>Effective lengths and action basis</summary>
-          <label><span>Effective length X (mm)</span><input id="effectiveLengthX" type="number" min="1" step="any"></label>
-          <label><span>Effective length Y (mm)</span><input id="effectiveLengthY" type="number" min="1" step="any"></label>
+          <summary>Creep and action basis</summary>
+          <label><span>Effective creep ratio φef</span><input id="creepRatio" type="number" min="0" step="any"></label>
           <label><span>Entered moments include externally assessed second-order effects</span><input id="secondOrderIncluded" type="checkbox"></label>
         </details>
       </fieldset>
@@ -61,11 +62,6 @@
       <h2 id="section-title">Reinforcement section</h2>
       <svg id="circular-section" viewBox="0 0 500 460" role="img" aria-label="Circular concrete section" aria-describedby="section-legend"></svg>
       <p id="section-legend"></p>
-      <details class="cage-elevation" open>
-        <summary>Reinforcement elevation</summary>
-        <svg id="circular-elevation" role="img" aria-label="Circular reinforcement elevation" aria-describedby="elevation-legend"></svg>
-        <p id="elevation-legend"></p>
-      </details>
     </section>
     <section class="checks" aria-labelledby="results-title">
       <h2 id="results-title">Check summary</h2>
