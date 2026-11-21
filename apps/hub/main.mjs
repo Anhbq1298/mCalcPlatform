@@ -125,11 +125,15 @@ function calculationCard(doc, project, folder) {
   const rename = button('Rename', async () => {
     const name = await named('Rename calculation', 'Calculation name', doc.meta.name);
     if (!name) return;
-    await db.updateDesign(doc.id, current => ({ ...current, meta: { ...current.meta, name } }));
+    await db.updateDesign(doc.id, current => {
+      if (tool && current.schema > tool.schema) throw new Error('This calculation uses a newer schema and is read-only.');
+      return { ...current, meta: { ...current.meta, name } };
+    });
     await refresh();
     document.getElementById(open.id)?.focus();
   });
   rename.setAttribute('aria-label', 'Rename ' + doc.meta.name);
+  rename.disabled = !!tool && doc.schema > tool.schema;
   actions.append(rename);
   if (doc.report) actions.append(link('Worksheet', designUrl(doc, project, folder, true), 'button'));
   if (project) actions.append(button('Move', () => chooseProject(doc, project)));
@@ -217,7 +221,7 @@ async function start() {
   const params = new URL(location.href).searchParams;
   await refresh();
   const project = projects.find(item => item.id === params.get('project'));
-  if (project) select(project, project.folders.find(item => item.id === params.get('folder')));
+  if (project && location.hash !== '#tools') select(project, project.folders.find(item => item.id === params.get('folder')));
   if (params.has('add')) {
     const design = designs.get(params.get('add'));
     select(project, project?.folders.find(item => item.id === folderId));

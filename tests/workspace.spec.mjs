@@ -144,7 +144,9 @@ test('saves independent calculations in nested folders and reopens the file in f
   try {
     const reopened = await fresh.newPage();
     await reopened.goto('./#projects');
-    await reopened.locator('#import').setInputFiles(exported);
+    const fileChooser = reopened.waitForEvent('filechooser');
+    await reopened.getByRole('button', { name: 'Open Project', exact: true }).click();
+    await (await fileChooser).setFiles(exported);
     await reopened.getByRole('button', { name: 'Framing', exact: true }).click();
     await reopened.getByRole('button', { name: 'L3', exact: true }).click();
     await expect(reopened.getByRole('heading', { name: 'Project ABC › Framing › L3' })).toBeVisible();

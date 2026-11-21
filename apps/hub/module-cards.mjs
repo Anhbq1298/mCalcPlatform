@@ -81,6 +81,11 @@ export function pickModule(destination) {
     qs('no-modules').hidden = found.length > 0;
   }
 
+  modal.onkeydown = event => {
+    if (event.key !== 'Escape' || event.isComposing) return;
+    event.preventDefault();
+    modal.close();
+  };
   search.oninput = renderOptions;
   name.oninput = update;
   qs('cancel-design').onclick = () => modal.close();
