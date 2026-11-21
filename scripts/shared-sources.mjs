@@ -1,11 +1,16 @@
-import { cp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export async function stageSharedSources(root, upstream) {
   const data = join(root, 'platform/assets/sections/steel');
-  for (const file of ['catalogue.json', 'UK-LICENSE.txt', 'EUROPE-LICENSE.txt', 'W-LICENSE.txt']) {
-    await cp(join(upstream, 'src/engineering/steel/data', file), join(data, file));
+  const sourceData = join(upstream, 'src/engineering/steel/data');
+  await cp(join(sourceData, 'catalogue.json'), join(data, 'catalogue.json'));
+  const notices = join(root, 'public/notices/steel');
+  await mkdir(notices, { recursive: true });
+  for (const file of ['UK-LICENSE.txt', 'EUROPE-LICENSE.txt', 'W-LICENSE.txt']) {
+    await cp(join(sourceData, file), join(notices, file));
   }
+  await cp(join(data, 'SOURCES.md'), join(notices, 'SOURCES.md'));
   const sections = JSON.parse(await readFile(join(data, 'catalogue.json'), 'utf8'));
   const ids = new Set(sections.map(section => section.id));
   if (ids.size !== sections.length || !ids.has(1211)
@@ -20,12 +25,8 @@ export async function stageSharedSources(root, upstream) {
 
   const tools = join(root, 'src/tools');
   const composite = join(tools, 'composite');
-  const formatPath = join(composite, 'format.ts');
-  const format = await readFile(formatPath, 'utf8');
-  const palette = format.split('\n').find(line => line.startsWith('export const C ='));
-  if (!palette) throw new Error('The composite palette moved upstream.');
   const ui = '../../../platform/packages/ui-kit';
-  await writeFile(formatPath, palette + "\nexport { fmt, subParts } from '" + ui + "/src/index';\n");
+  await writeFile(join(composite, 'format.ts'), "export { C, fmt, subParts } from '" + ui + "/src/index';\n");
   await writeFile(join(composite, 'rich.tsx'), "export { Rich, SvgRich } from '" + ui + "/src/index';\n");
   await cp(join(composite, 'composite.css'), join(root, 'platform/packages/ui-kit/drawing.css'));
   await writeFile(join(composite, 'composite.css'), "@import '" + ui + "/drawing.css';\n");
