@@ -60,6 +60,10 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
       return { ...owner, report: snapshot };
     }
     const doc = previous ? { ...previous, inputs, meta: { ...previous.meta, name } } : createDesign(tool, name, inputs);
+    if (previous && adapter.migrate && previous.schema < tool.schema) {
+      doc.schema = tool.schema;
+      doc.toolVersion = tool.version;
+    }
     delete doc.pending;
     if (previous && JSON.stringify(previous.inputs) !== JSON.stringify(inputs)) {
       delete doc.report;
@@ -80,7 +84,7 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
       return doc;
     }
     await db.updateDesign(doc.id, latest => {
-      if (latest.schema > tool.schema || latest.tool !== tool.id
+      if (latest.schema !== current.schema || latest.tool !== tool.id
         || latest.pending !== current.pending || JSON.stringify(latest.inputs) !== JSON.stringify(current.inputs)) {
         throw new Error('This design changed in another tab. Reopen it before saving.');
       }
@@ -188,7 +192,12 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
         if (current.pending) {
           await adapter.reset?.();
           message('Save to keep your calculation inputs.');
-        } else await adapter.restore(structuredClone(current.inputs));
+        } else {
+          const raw = structuredClone(current.inputs);
+          const inputs = adapter.migrate && current.schema < tool.schema
+            ? await adapter.migrate(raw, current.schema) : raw;
+          await adapter.restore(inputs);
+        }
       } else if (location.searchParams.has('new')) {
         await getAdapter()?.reset?.();
       }

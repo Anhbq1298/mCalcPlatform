@@ -46,3 +46,14 @@ dd { margin: 0; font-variant-numeric: tabular-nums; }
   .column-layout > :not(:first-child) { border-left: 0; border-top: 1px solid var(--rule); }
   #column-inputs, .interaction, .checks { grid-column: 1; grid-row: auto; }
 }
+
+#circular-section { display: block; width: 100%; max-height: 32rem; }
+#section-legend span { display: block; }
+.cad-dimension { fill: var(--ink); font: 14px ui-monospace, monospace; }
+.layer-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.layer-table th, .layer-table td { padding: .2rem; }
+.layer-table th { font-size: .75rem; text-align: center; }
+.layer-table th:first-child { width: 2.6rem; text-align: left; }
+.layer-buttons { display: flex; gap: .4rem; margin-top: .4rem; }
+.layer-buttons button, #convert-links { font: inherit; color: var(--ink); background: white; border: 1px solid var(--rule); border-radius: 3px; padding: .3rem .55rem; }
+.layer-buttons button:disabled { opacity: .45; }

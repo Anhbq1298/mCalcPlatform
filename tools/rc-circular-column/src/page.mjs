@@ -1,7 +1,8 @@
 import { renderColumnSummary, resistanceRow } from '../../../apps/column-summary.mjs';
 import '../../../apps/column-summary.css';
 import { registerPage } from '../../../apps/tool-page.mjs';
-import { defaults, inputGroups, validateInputs } from './inputs.mjs';
+import { defaults, inputGroups, newDefaults, restoreInputs, validateInputs } from './inputs.mjs';
+import { mountLayers } from './layer-controls.mjs';
 import { drawInteraction, drawSection } from './drawing.mjs';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
@@ -16,7 +17,7 @@ const legend = byId('section-legend');
 const curve = byId('interaction-curve');
 const checks = byId('checks');
 const summary = byId('column-check-summary');
-let state = { ...defaults };
+let state = newDefaults();
 let rendered;
 let worker;
 let pending;
@@ -31,7 +32,7 @@ for (const [title, fields] of inputGroups) {
   const heading = document.createElement('legend');
   heading.textContent = title;
   group.append(heading);
-  if (title === 'Inner cage') group.dataset.innerCage = '';
+  if (title.endsWith('cage')) group.dataset.legacyCage = title === 'Inner cage' ? 'inner' : 'outer';
   for (const [id, label, , , , min, max, step] of fields) {
     const row = document.createElement('label');
     const name = document.createElement('span');
@@ -45,8 +46,39 @@ for (const [title, fields] of inputGroups) {
     row.append(name, input);
     group.append(row);
   }
-  form.append(group);
+  form.insertBefore(group, title === 'Design actions' ? null : byId('layer-inputs'));
 }
+
+const refreshLayers = mountLayers(byId('layer-inputs'), () => state, () => {
+  scheduleCalculation();
+  draw();
+});
+
+function refreshTransverse() {
+  const links = state.transverse === 'links';
+  for (const group of form.querySelectorAll('[data-legacy-cage]')) {
+    group.hidden = links || (group.dataset.legacyCage === 'inner' && state.cages !== 2);
+  }
+  byId('cages').closest('label').hidden = links;
+  byId('layer-inputs').hidden = !links;
+  byId('legacy-links').hidden = links;
+  byId('aggregate').value = state.aggregate;
+  byId('section-title').textContent = links ? 'Section and closed links' : 'Section and spirals';
+  byId('spiralSteel').previousElementSibling.textContent = links ? 'Link steel fyk (MPa)' : 'Spiral steel fyk (MPa)';
+  byId('classA').previousElementSibling.textContent = links ? 'Class A links' : 'Class A spirals';
+  byId('cover').previousElementSibling.textContent = links ? 'Cover to outer link (mm)' : 'Cover to spiral (mm)';
+  byId('shear-basis').textContent = links ? 'Shear credits the outer closed link. Verify anchorage and end zones.' : '';
+}
+
+byId('convert-links').addEventListener('click', () => {
+  state.layers = Array.from({ length: state.cages }, (_, index) => {
+    const i = index + 1;
+    return { count: Math.max(4, state['count' + i]), bar: state['bar' + i], link: state['spiral' + i], spacing: state['pitch' + i] };
+  });
+  state.transverse = 'links';
+  scheduleCalculation();
+  refresh();
+});
 
 function draw() {
   drawSection(section, legend, state);
@@ -59,7 +91,8 @@ function refresh() {
     if (key === 'classA') field.checked = Boolean(state[key]);
     else field.value = state[key] ?? value;
   }
-  form.querySelector('[data-inner-cage]').hidden = state.cages !== 2;
+  refreshTransverse();
+  refreshLayers();
   draw();
 }
 
@@ -84,10 +117,10 @@ function scheduleCalculation() {
 
 form.addEventListener('input', event => {
   const input = event.target;
-  if (!(input.id in defaults)) return;
+  if (!(input.id in defaults) && input.id !== 'aggregate') return;
   state[input.id] = input.type === 'checkbox' ? Number(input.checked) : input.valueAsNumber;
   scheduleCalculation();
-  form.querySelector('[data-inner-cage]').hidden = state.cages !== 2;
+  if (input.id === 'cages') refreshTransverse();
   draw();
 });
 
@@ -133,7 +166,7 @@ function display(result) {
   for (const [label, value, unit] of [
     ['Effective web width', result.width, ' mm'],
     ['Compression field cot θ', result.cot, ''],
-    ['Spiral shear resistance stress', result.linkStress, ' MPa'],
+    ['Link shear resistance stress', result.linkStress, ' MPa'],
     ['Concrete strut stress', result.strutStress, ' MPa'],
   ]) {
     const name = document.createElement('dt');
@@ -176,10 +209,14 @@ scheduleCalculation();
 registerPage('rc-circular-column', {
   snapshot: () => {
     validateInputs(state);
-    return { ...state };
+    return structuredClone(state);
+  },
+  migrate: (inputs, from) => {
+    if (from !== 1) throw new Error('Unsupported circular column input version.');
+    return restoreInputs(inputs);
   },
   restore: inputs => {
-    const next = { ...defaults, ...inputs };
+    const next = restoreInputs(inputs);
     validateInputs(next);
     state = next;
     refresh();

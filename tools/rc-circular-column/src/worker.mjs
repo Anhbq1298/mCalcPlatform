@@ -1,18 +1,19 @@
 import { CalculationEngine } from '../../../../src/engine/index.ts';
 import { calcKey } from '../../../../src/canvas/calcOrder.ts';
 import template from '../../../../templates/RC_Circular_Column_Check.mCCV?raw';
+import { configureLinkWorksheet } from './link-worksheet.mjs';
 import { fields, validateInputs } from './inputs.mjs';
 
 function calculate(values) {
   validateInputs(values);
   const document = JSON.parse(template);
-  const math = Object.values(document.shapes).filter(shape => shape.type === 'math');
+  const closedLinks = values.transverse === 'links';
   const updated = new Map(fields.map(([id, , key, unit]) => {
     const suffix = unit === 'kN m' ? '\\,\\mathrm{kN}\\cdot\\mathrm{m}' : unit ? '\\,\\mathrm{' + unit + '}' : '';
     return [key, key + '\\coloneq' + values[id] + suffix];
   }));
   const consumed = new Set();
-  for (const { props } of math) {
+  for (const { props } of Object.values(document.shapes).filter(shape => shape.type === 'math')) {
     const key = props.latex.split('\\coloneq')[0];
     if (updated.has(key)) {
       props.latex = updated.get(key);
@@ -20,6 +21,8 @@ function calculate(values) {
     }
   }
   if (consumed.size !== updated.size) throw new Error('The circular column worksheet inputs have changed.');
+  const checks = closedLinks ? configureLinkWorksheet(document, values) : null;
+  const math = Object.values(document.shapes).filter(shape => shape.type === 'math');
   const shapes = Object.fromEntries(Object.values(document.shapes).map(shape => [shape.id, shape]));
   const engine = new CalculationEngine({ unitSystem: 'SI' });
   engine.batch(() => {
@@ -62,7 +65,7 @@ function calculate(values) {
     cot: values.shear === 0 ? null : read('\\mathrm{cot}_{\\theta}').number,
     linkStress: values.shear === 0 ? null : read('\\tau_{Rd.sy}').number,
     strutStress: values.shear === 0 ? null : read('\\sigma_{cd}').number,
-    detailing: [
+    detailing: checks ?? [
       detailingCheck(String.raw`s_{cl.1}\ge100\,\mathrm{mm}`, 'Outer bar clearance', '≥'),
       ...(values.cages === 2 ? [
         detailingCheck(String.raw`r_{2}\le r_{1}-\frac{\phi_{l1}+\phi_{l2}}{2}`, 'Inner cage fit', '≤'),

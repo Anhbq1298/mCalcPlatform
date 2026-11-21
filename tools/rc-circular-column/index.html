@@ -11,10 +11,28 @@
     <output id="calculation-status" aria-live="polite">Preparing worksheet</output>
   </header>
   <main class="column-layout">
-    <form id="column-inputs" aria-label="Column inputs"></form>
+    <form id="column-inputs" aria-label="Column inputs">
+      <fieldset id="layer-inputs">
+        <legend>Reinforcement layers</legend>
+        <label><span>Maximum aggregate size (mm)</span><input id="aggregate" type="number" min="1" step="any"></label>
+        <table class="layer-table">
+          <thead><tr><th scope="col">Layer</th><th scope="col">Bars</th><th scope="col">Bar Ø</th><th scope="col">Link Ø</th><th scope="col">Spacing</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="layer-buttons">
+          <button type="button" data-add-layer aria-label="Add reinforcement layer">+ Layer</button>
+          <button type="button" data-remove-layer aria-label="Remove innermost reinforcement layer">− Layer</button>
+        </div>
+        <p>Diameters and spacing in mm. Enter layers from outside to inside.</p>
+      </fieldset>
+      <div id="legacy-links" hidden>
+        <p>Saved spiral layout</p>
+        <button type="button" id="convert-links">Convert to closed links</button>
+      </div>
+    </form>
     <section class="section-view" aria-labelledby="section-title">
       <h2 id="section-title">Section and spirals</h2>
-      <canvas id="circular-section" role="img" aria-label="Circular concrete section" aria-describedby="section-legend"></canvas>
+      <svg id="circular-section" viewBox="0 0 500 460" role="img" aria-label="Circular concrete section" aria-describedby="section-legend"></svg>
       <p id="section-legend"></p>
     </section>
     <section class="checks" aria-labelledby="results-title">
@@ -22,6 +40,7 @@
       <p>EN 1992-1-1:2023 · One design load case</p>
       <div id="column-check-summary" aria-live="polite"></div>
       <h2 class="detail-title">Shear details</h2>
+      <p id="shear-basis"></p>
       <dl id="checks"></dl>
     </section>
     <section class="interaction" aria-labelledby="interaction-title">

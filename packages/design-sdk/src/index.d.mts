@@ -37,6 +37,7 @@ export interface WorkspaceStore {
   importPackage(contents: PackageContents): Promise<IDBValidKey | undefined>;
 }
 export interface ToolPageAdapter {
+  migrate?(inputs: Record<string, unknown>, from: number): Record<string, unknown> | Promise<Record<string, unknown>>;
   snapshot(): object | Promise<object>;
   restore(inputs: Record<string, unknown>): void | Promise<void>;
   reset?(): void | Promise<void>;

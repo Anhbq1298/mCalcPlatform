@@ -1,4 +1,4 @@
-import { cageGeometry } from './inputs.mjs';
+import { cageGeometry, linkGeometry } from './inputs.mjs';
 
 function frame(canvas) {
   const width = canvas.clientWidth, height = canvas.clientHeight;
@@ -10,48 +10,61 @@ function frame(canvas) {
   return { context, width, height };
 }
 
-export function drawSection(canvas, legend, values) {
-  const { context: g, width, height } = frame(canvas);
+const layerColors = ['#214c7b', '#28664e', '#8b4d2b', '#624487'];
+const svgNS = 'http://www.w3.org/2000/svg';
+
+function svgElement(parent, tag, attributes, text) {
+  const element = document.createElementNS(svgNS, tag);
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+  if (text) element.textContent = text;
+  parent.append(element);
+  return element;
+}
+
+export function drawSection(svg, legend, values) {
+  svg.replaceChildren();
   const radius = values.diameter / 2;
-  if (!(radius > 0)) {
+  if (!(radius > 0) || !Number.isFinite(radius)) {
     legend.textContent = 'Enter the section diameter to view the reinforcement.';
     return;
   }
-  const scale = Math.max(0, Math.min(width, height) - 50) / values.diameter;
-  const cages = cageGeometry(values);
-  const colors = ['#2b3a8c', '#237555'];
-  const circle = (x, y, r) => {
-    g.beginPath();
-    g.arc(x, y, r * scale, 0, 2 * Math.PI);
-  };
-  const x = width / 2, y = height / 2 - 4;
-  circle(x, y, radius);
-  g.fillStyle = '#e3e6df';
-  g.fill();
-  g.strokeStyle = '#1f2a30';
-  g.stroke();
-  cages.forEach((cage, index) => {
-    if (cage.barRadius <= 0 || !Number.isInteger(cage.count) || cage.count < 3 || cage.count > 300) return;
-    g.strokeStyle = colors[index];
-    g.fillStyle = colors[index];
-    circle(x, y, cage.spiralRadius);
-    g.lineWidth = Math.max(2, cage.spiral * scale);
-    if (index) g.setLineDash([7, 4]);
-    g.stroke();
-    g.setLineDash([]);
-    for (let bar = 0; bar < cage.count; bar++) {
-      const angle = 2 * Math.PI * bar / cage.count;
-      circle(x + cage.barRadius * scale * Math.cos(angle), y - cage.barRadius * scale * Math.sin(angle), cage.bar / 2);
-      g.fill();
+  const links = values.transverse === 'links';
+  const rings = links ? linkGeometry(values) : cageGeometry(values).map(cage => ({
+    ...cage, linkRadius: cage.spiralRadius, link: cage.spiral, spacing: cage.pitch,
+  }));
+  const scale = 180 / radius;
+  const x = 250, y = 200;
+  const section = svgElement(svg, 'g', { transform: 'translate(' + x + ' ' + y + ')' });
+  svgElement(section, 'circle', { r: 180, fill: '#fcfcfa', stroke: '#26333e', 'stroke-width': 1.5 });
+  svgElement(section, 'path', { d: 'M-190 0H190 M0-190V190', stroke: '#939fa7', 'stroke-width': .8, 'stroke-dasharray': '9 4 2 4' });
+  const legends = [];
+  rings.forEach((ring, index) => {
+    if (!(ring.barRadius > 0 && ring.linkRadius > 0 && ring.link > 0)
+      || !Number.isInteger(ring.count) || ring.count < 3 || ring.count > 300) return;
+    const color = layerColors[index % layerColors.length];
+    const group = svgElement(section, 'g', { 'data-layer': index + 1 });
+    svgElement(group, 'circle', { class: 'section-link', r: ring.linkRadius * scale,
+      fill: 'none', stroke: color, 'stroke-width': ring.link * scale });
+    for (let bar = 0; bar < ring.count; bar++) {
+      const angle = 2 * Math.PI * bar / ring.count;
+      svgElement(group, 'circle', { class: 'section-bar',
+        cx: ring.barRadius * scale * Math.cos(angle), cy: -ring.barRadius * scale * Math.sin(angle),
+        r: ring.bar / 2 * scale, fill: color });
     }
+    const mark = 'L' + (index + 1);
+    const gap = ring.radialClear == null ? '' : ' · radial clear ' + ring.radialClear.toFixed(1) + ' mm';
+    legends.push(mark + ': ' + ring.count + 'Ø' + ring.bar + ' · ' + (links ? 'link' : 'spiral')
+      + ' Ø' + ring.link + ' @ ' + ring.spacing + ' mm' + gap);
   });
-  g.textAlign = 'center';
-  g.fillStyle = '#1f2a30';
-  g.font = '500 13px Roboto, sans-serif';
-  g.fillText('Ø' + values.diameter + ' mm', x, height - 5);
-  legend.textContent = cages.map((cage, index) =>
-    (index ? 'Inner (green)' : 'Outer (blue)') + ': ' + cage.count + 'Ø' + cage.bar
-    + ' · spiral Ø' + cage.spiral + ' @ ' + cage.pitch + ' mm').join(' | ');
+  svgElement(svg, 'path', { d: 'M70 203v216 M430 203v216 M67 409H433 M65 414l10-10 M425 414l10-10',
+    stroke: '#44515c', 'stroke-width': .9, fill: 'none' });
+  svgElement(svg, 'text', { x, y: 435, 'text-anchor': 'middle', class: 'cad-dimension' },
+    'Ø' + values.diameter + ' mm');
+  legend.replaceChildren(...legends.map(text => {
+    const line = document.createElement('span');
+    line.textContent = text;
+    return line;
+  }));
 }
 
 export function drawInteraction(canvas, result) {
