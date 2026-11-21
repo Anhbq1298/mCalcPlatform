@@ -166,11 +166,11 @@ export function buildScene(result) {
   }
   const at = (points, z) => points.map(p => ({ ...p, z }));
   const effective = r => (result.model ? intervalPolylines(result.model, r, result.model.intervalsAt(r).intervals) : [pathPolyline(result.model?.column ?? column, r)]);
-  for (const [r, color, dash, label] of [[u1Offset, COLORS.u1, [6, 3], head?.kind === 'large' ? 'u1,int' : 'u1'], [aOut, COLORS.uout, [8, 4], 'u_out,ef']]) {
+  for (const [r, color, dash, label] of [[u1Offset, COLORS.u1, [6, 3], head?.kind === 'large' ? (head.inner ? 'u1,int' : 'u1,ext') : 'u1'], [aOut, COLORS.uout, [8, 4], 'u_out,ef']]) {
     if (!(r > 0)) continue;
     effective(r).forEach((points, index) => lines.push({ kind: 'perimeter', points: at(points, h + 1), color, width: 1.5, dash, label: index ? null : label }));
   }
-  const ext = head?.kind === 'large' ? head.sections[1] : null;
+  const ext = head?.kind === 'large' && head.inner ? head.sections.find(item => item.id === 'ext') : null;
   if (ext) lines.push({ kind: 'perimeter', points: at(pathPolyline(ext.model.column, 2 * head.d), h + 1), color: COLORS.u1, width: 1.2, dash: [10, 3, 2, 3], label: 'u1,ext' });
   const cover = slabInput.cover || 25;
   for (const link of result.layout?.links ?? []) {

@@ -2,9 +2,11 @@
 // Each control section is solved as an ordinary internal-column check by calculate() with a modified
 // loaded area or depth; the results are merged so that the worst section governs.
 //   l_H < 2h_H: one section in the slab at r_cont (Eq. 6.33 circular, Eq. 6.34/6.35 rectangular).
-//   l_H > 2h_H: a section inside the head with d_H = d + h_H at 2d_H from the column face, and a
-//               section in the slab at 2d from the head edge. Eq. 6.36/6.37 are stated for circular
-//               columns; for rectangular heads the same offsets are an interpretation.
+//   l_H > 2h_H: a section in the slab at 2d from the head edge (the head is the loaded area) and,
+//               when it fits inside the head (2d_H ≤ l_H), a section at 2d_H from the column face with
+//               d_H = d + h_H. Eq. 6.36/6.37 state this for circular columns; rectangular heads use the
+//               same geometric construction (as Tekla Structural Designer documents). Method notes for
+//               users are in help.html, not in the UI.
 import { calculate, worstState } from './calculate.mjs';
 import { perimeterAtOffset } from './geometry.mjs';
 import { STATES, derivedSection, restoreInputs } from './inputs.mjs';
@@ -100,21 +102,25 @@ export function calculateDesign(raw) {
     return merge(result, null, momentBeta, info, input);
   }
   const dH = d + geo.hH;
-  const offset = Math.min(2 * dH, geo.lMin);
-  const headIssues = [...momentBeta];
-  if (offset < 2 * dH - 1e-9) headIssues.push({ state: STATES.confirm, message: `2d_H = ${(2 * dH).toFixed(0)} mm exceeds l_H = ${geo.lMin.toFixed(0)} mm: Fig. 6.18 assumes l_H > 2(d + h_H). The inner section is taken at the head edge.` });
-  if (!geo.circular && input.head.confirmed !== true) headIssues.push({ state: STATES.confirm, message: 'Eq. 6.36/6.37 are given for circular columns (§6.4.2(11)). For this rectangular head the sections are offset 2d_H from the column face and 2d from the head edge. Confirm this interpretation to remove the status.' });
-  const inner = calculate(deeper(input, geo.hH), { u1Offset: offset, linkLimit: geo.lMin - input.slab.cover, label: 'Inside the drop (d_H)' });
+  const inside = 2 * dH <= geo.lMin + 1e-9; // the inner control perimeter fits inside the head
   const size = geo.circular ? { diameter: input.head.diameter } : { cx: input.head.lx, cy: input.head.ly };
-  const outer = calculate(asColumn(input, size), { face: { skip: true }, label: 'Slab outside the drop at u1,ext', noLinks: 'v_Ed > v_Rd,c in the slab outside the drop. Links outside the drop are not implemented; enlarge the drop or the slab depth.' });
+  const noLinksOutside = 'v_Ed > v_Rd,c in the slab outside the drop. Links outside the drop are not implemented; enlarge the drop or the slab depth.';
+  const extSection = outer => ({ id: 'ext', label: 'Slab outside the drop', d, offset: 2 * d, model: outer.model, u1: outer.u1, eq: geo.circular ? 'Eq. 6.36' : '§6.4.2(9)' });
+  if (!inside) {
+    // Only the slab section; the face check uses the column perimeter with d_H (§6.4.2(10)).
+    const face = { u0: perimeterAtOffset(input.column, 0), d: dH, label: 'Maximum punching stress at the column face (d_H)' };
+    const outer = calculate(asColumn(input, size), { face, label: 'Slab outside the drop at u1,ext', noLinks: noLinksOutside });
+    const info = { kind: 'large', inner: false, ...geo, d, dH, sections: [extSection(outer)] };
+    if (!outer.loads?.length) return { ...outer, input, head: info };
+    return merge(outer, null, momentBeta, info, input);
+  }
+  const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - input.slab.cover, label: 'Inside the drop (d_H)' });
+  const outer = calculate(asColumn(input, size), { face: { skip: true }, label: 'Slab outside the drop at u1,ext', noLinks: noLinksOutside });
   const info = {
-    kind: 'large', ...geo, d, dH,
-    sections: [
-      { id: 'int', label: 'Inside the drop', d: dH, offset, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' },
-      { id: 'ext', label: 'Slab outside the drop', d, offset: 2 * d, model: outer.model, u1: outer.u1, eq: geo.circular ? 'Eq. 6.36' : '§6.4.2(9)' },
-    ],
+    kind: 'large', inner: true, ...geo, d, dH,
+    sections: [{ id: 'int', label: 'Inside the drop', d: dH, offset: 2 * dH, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' }, extSection(outer)],
   };
   if (!inner.loads?.length) return { ...inner, input, head: info };
   if (!outer.loads?.length) return { ...outer, input, head: info, status: worstState([outer.status, inner.status]) };
-  return merge(inner, outer, headIssues, info, input);
+  return merge(inner, outer, momentBeta, info, input);
 }

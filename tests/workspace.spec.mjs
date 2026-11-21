@@ -372,8 +372,7 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await expect(page.locator('#section-view')).toContainText('h_H');
   await expect(page.locator('#section-view')).toContainText('u1,ext');
   await expect(page.getByLabel('Include a drop panel (concentric)')).toBeChecked();
-  await page.getByLabel('Rectangular drop: offsets 2d_H / 2d accepted (§6.4.2(9)–(11))').uncheck();
-  await expect(status).toContainText('Requires confirmation');
+  await expect(page.locator('#punching-inputs')).not.toContainText('accepted');
   await page.getByLabel('Load a worked case').selectOption('provided-fail');
   await expect(status).toContainText('Fail');
   await expect(page.locator('#punching-inputs math').first()).toBeVisible();

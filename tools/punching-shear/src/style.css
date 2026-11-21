@@ -82,3 +82,5 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 #selection-info { min-height: 2.4em; }
 #code-basis .column-summary-table td:last-child { font-weight: 400; text-align: left; }
 #layer-schedule td:nth-last-child(-n + 2) { white-space: normal; text-align: left; min-width: 6.5rem; }
+.help-link { margin-left: auto; font-size: .85rem; color: var(--muted, #56636a); text-decoration: none; border: 1px solid var(--rule); border-radius: 4px; padding: .15rem .6rem; }
+.help-link:hover { color: inherit; }

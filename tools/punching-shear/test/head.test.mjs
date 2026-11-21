@@ -12,7 +12,7 @@ const base = (head, extra = {}) => ({
   column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 },
   slab: { h: 250, depthMode: 'explicit', dx: 215, dy: 205, cover: 25, xMin: -6000, xMax: 6000, yMin: -6000, yMax: 6000 },
   flexure: { areaMode: 'explicit', asx: 1340, asy: 1340 }, loads: [{ name: 'ULS 1', V: 700, Mx: 0, My: 0 }],
-  head: { enabled: true, shape: 'rectangular', confirmed: true, ...head }, ...extra,
+  head: { enabled: true, shape: 'rectangular', ...head }, ...extra,
 });
 
 test('r_cont for l_H ≤ 2h_H: lesser of Eq. 6.34 and 6.35 with l1 ≤ l2, Eq. 6.33 for circular', () => {
@@ -56,10 +56,17 @@ test('l_H > 2h_H: perimeters inside the drop (d_H) and in the slab outside the d
   assert.equal(result.status, STATES.pass);
 });
 
-test('rectangular head with l_H > 2h_H requires confirmation of the interpretation', () => {
-  const result = calculateDesign(base({ lx: 2400, ly: 2400, depth: 150, confirmed: false }, { loads: [{ name: 'ULS 1', V: 600, Mx: 0, My: 0 }] }));
-  assert.equal(result.status, STATES.confirm);
-  assert.match(result.issues.map(item => item.message).join(' '), /circular columns/);
+test('rectangular head with l_H > 2h_H needs no confirmation; the inner section is checked only when it fits', () => {
+  const result = calculateDesign(base({ lx: 2400, ly: 2400, depth: 150 }, { loads: [{ name: 'ULS 1', V: 600, Mx: 0, My: 0 }] }));
+  assert.equal(result.status, STATES.pass);
+  assert.equal(result.head.inner, true);
+  // 2h_H = 300 < l_H = 350 < 2d_H = 720: only the slab section outside the drop, face check with d_H.
+  const narrow = calculateDesign(base({ lx: 1100, ly: 1100, depth: 150 }, { loads: [{ name: 'ULS 1', V: 500, Mx: 0, My: 0 }] }));
+  assert.equal(narrow.head.inner, false);
+  assert.deepEqual(narrow.head.sections.map(item => item.id), ['ext']);
+  close(narrow.u1, 4 * 1100 + 2 * Math.PI * 420, 1e-3);
+  const face = narrow.loads[0].rows.find(row => row.id === 'max');
+  close(face.demand, (1.15 * 500e3) / (1600 * 360), 1e-6);
 });
 
 test('unsupported drop configurations are reported, not computed', () => {

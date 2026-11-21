@@ -21,7 +21,7 @@ export function newDefaults() {
     materials: { fck: 30, fyk: 500 },
     prestress: { sigmaX: 0, sigmaY: 0 },
     flexure: { phiX: 16, sX: 150, phiY: 16, sY: 150, outer: 'x', asx: 1090, asy: 1090, areaMode: 'explicit' },
-    head: { enabled: false, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, depth: 150, confirmed: false },
+    head: { enabled: false, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, depth: 150 },
     openings: [],
     loadType: 'net',
     loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],

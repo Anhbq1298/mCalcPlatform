@@ -49,7 +49,7 @@ export function sectionSvg(result, { width = 640 } = {}) {
   const rows = [];
   if (layers.length) rows.push(['chain']);
   if (head?.kind === 'small') rows.push(['r', u1Offset, `r_cont = ${head.rcont.r.toFixed(0)}`, -face]);
-  else if (d > 0) rows.push(['r', u1Offset, `${head?.kind === 'large' ? '2d_H' : '2d'} = ${u1Offset.toFixed(0)}`, 0]);
+  else if (d > 0 && !(head?.kind === 'large' && !head.inner)) rows.push(['r', u1Offset, `${head?.kind === 'large' ? '2d_H' : '2d'} = ${u1Offset.toFixed(0)}`, 0]);
   if (head) rows.push(['r', lH, `l_H = ${lH.toFixed(0)}`, 0]);
   if (extOffset !== null) rows.push(['r', extOffset, `l_H + 2d = ${extOffset.toFixed(0)}`, 0]);
   if (aOut > 0) rows.push(['r', aOut, `a_out = ${aOut.toFixed(0)}`, 0]);
@@ -149,7 +149,7 @@ export function sectionSvg(result, { width = 640 } = {}) {
 
   // Control sections: vertical markers with labels staggered over two rows.
   const markers = [];
-  if (d > 0) markers.push([u1Offset, head?.kind === 'large' ? 'u1,int' : 'u1', DASH.u1]);
+  if (d > 0 && !(head?.kind === 'large' && !head.inner)) markers.push([u1Offset, head?.kind === 'large' ? 'u1,int' : 'u1', DASH.u1]);
   if (extOffset !== null) markers.push([extOffset, 'u1,ext', DASH.ext]);
   if (aOut > 0) markers.push([aOut, 'u_out,ef', DASH.uout]);
   markers.sort((m1, m2) => m1[0] - m2[0]);

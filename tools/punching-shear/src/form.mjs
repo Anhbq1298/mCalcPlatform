@@ -47,7 +47,6 @@ export const GROUPS = [
     ['head.ly', 'Drop $l_y$ (mm)', 'number', null, s => s.head.enabled && s.head.shape === 'rectangular'],
     ['head.diameter', 'Drop diameter $D_H$ (mm)', 'number', null, s => s.head.enabled && s.head.shape === 'circular'],
     ['head.depth', 'Depth below slab $h_H$ (mm)', 'number', null, s => s.head.enabled],
-    ['head.confirmed', 'Rectangular drop: offsets $2d_H$ / $2d$ accepted (§6.4.2(9)–(11))', 'checkbox', null, s => s.head.enabled && s.head.shape === 'rectangular'],
   ]],
   ['Openings', []],
   ['Materials', [

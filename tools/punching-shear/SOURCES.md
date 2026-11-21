@@ -42,12 +42,12 @@ Scope: internal rectangular (any rotation) and circular columns; rectangular edg
 | Column head l_H < 2h_H: check only in the slab, r_cont = 2d + l_H + 0.5c (circular) | §6.4.2(8), Eq. 6.33, Fig. 6.17 | `head.mjs` | Implemented; solved as a circular loaded area of diameter 2(r_cont − 2d) |
 | Rectangular head l_H < 2h_H: r_cont = min(2d + 0.56√(l1·l2), 2d + 0.69·l1), l1 ≤ l2 | §6.4.2(8), Eq. 6.34, 6.35 | `head.mjs` | Implemented (l1 ≤ l2 confirmed in the BS EN text) |
 | Head l_H > 2h_H: sections inside the head with d_H = d + h_H and in the slab | §6.4.2(9)–(10), Fig. 6.18 | `head.mjs` | Implemented, internal columns only |
-| r_cont,ext = l_H + 2d + 0.5c, r_cont,int = 2(d + h_H) + 0.5c | §6.4.2(11), Eq. 6.36, 6.37 | `head.mjs` | Circular: code rule. Rectangular: the same offsets (2d from the head edge, 2d_H from the column face) are an interpretation and stay at Requires confirmation until accepted |
+| r_cont,ext = l_H + 2d + 0.5c, r_cont,int = 2(d + h_H) + 0.5c | §6.4.2(11), Eq. 6.36, 6.37 | `head.mjs` | Circular: code rule. Rectangular: perimeters built as offsets of the drop outline (2d) and of the column (2d_H, only when it fits inside the drop), as documented by Tekla Structural Designer (Punching shear checks to EC2). Interpretation, explained in `help.html`; it does not hold the status |
 
 ### Drop panels: decisions that go beyond the text
 
 - Face check for l_H < 2h_H uses the column perimeter with the slab d (conservative; EC2 is silent).
-- For 2h_H < l_H < 2(d + h_H) the inner perimeter at 2d_H would leave the head; it is placed at the head edge and flagged.
+- For 2h_H < l_H < 2(d + h_H) the inner perimeter at 2d_H would leave the head; only the slab section is checked and the face check uses d_H (Tekla: inner perimeter only when it fits).
 - Links are kept inside the drop (outermost layer ≤ l_H − cover). When u_out,ef with d_H lies beyond the drop, the slab beyond the edge is covered by the u1,ext check and the case is flagged.
 - If the slab section outside the head needs links, the result is Unsupported geometry: links outside the head are not implemented.
 - Straddling cases (l_H < 2h_H in one direction, > 2h_H in the other), offset heads, heads at edges or corners, heads with openings, and mixed shapes (circular head on a rectangular column) are reported as unsupported.

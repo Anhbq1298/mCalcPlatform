@@ -4,7 +4,7 @@
 const confirmed = { beta: { method: 'simplified', confirmed: true, userValue: 1.15 } };
 const engaged = { reinforcement: { mode: 'auto', diameter: 10, shape: 'single', legGap: 100, layers: [], anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true } } };
 const slab = (h, d, extra = {}) => ({ slab: { h, depthMode: 'explicit', dx: d + 5, dy: d - 5, cover: 25, xMin: -6000, xMax: 6000, yMin: -6000, yMax: 6000, ...extra } });
-const head = values => ({ head: { enabled: true, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, depth: 150, confirmed: true, ...values } });
+const head = values => ({ head: { enabled: true, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, depth: 150, ...values } });
 
 export const EXAMPLES = [
   {
@@ -49,7 +49,7 @@ export const EXAMPLES = [
   },
   {
     id: 'drop-large', title: '9 · Drop with l_H > 2h_H, links inside the drop', expect: 'Pass',
-    note: 'Sections inside the drop (d_H) and in the slab (2d from the drop edge); rectangular offsets confirmed.',
+    note: 'Sections inside the drop (d_H, 2d_H from the column) and in the slab (2d from the drop edge).',
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 2400, ly: 2400, depth: 150 }), column: { shape: 'rectangular', position: 'internal', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 1250, Mx: 0, My: 0 }] },
   },
   {
