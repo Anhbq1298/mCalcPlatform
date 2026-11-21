@@ -82,3 +82,10 @@ test('LaTeX labels render to MathML and plain text', () => {
   assert.equal(labelText('$\\sigma_{cx}$ (MPa)'), 'σ_cx (MPa)');
   assert.equal(labelText('$V_{Ed}$'), 'V_Ed');
 });
+
+test('the governing check of a drop design is never an informational row', () => {
+  const example = EXAMPLES.find(item => item.id === 'drop-large');
+  const result = calculateDesign(example.input);
+  const row = result.loads[0].rows.find(entry => entry.label === result.governing.check);
+  assert.ok(row && ![STATES.linksRequired, STATES.notRequired].includes(row.status), result.governing.check);
+});

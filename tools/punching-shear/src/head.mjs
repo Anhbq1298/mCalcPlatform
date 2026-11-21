@@ -64,7 +64,8 @@ function merge(primary, extra, headIssues, headInfo, input) {
   const all = [...(primary.issues || []), ...(extra?.issues || []), ...headIssues];
   const issues = all.filter((item, index) => all.findIndex(other => other.message === item.message) === index);
   const notes = [...(primary.notes || []), ...(extra?.notes || []).filter(note => !(primary.notes || []).includes(note))];
-  const rowsOf = governing?.rows.filter(entry => entry.ur !== null && Number.isFinite(entry.ur)) ?? [];
+  const informational = [STATES.notRequired, STATES.linksRequired];
+  const rowsOf = governing?.rows.filter(entry => entry.ur !== null && Number.isFinite(entry.ur) && !informational.includes(entry.status)) ?? [];
   const governingRow = rowsOf.reduce((best, entry) => (!best || entry.ur > best.ur ? entry : best), null);
   return {
     ...primary, loads, issues, notes, input, checkInput: primary.input, head: headInfo,
