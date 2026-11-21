@@ -1,6 +1,6 @@
-import { createDesign, createProject, createStore, duplicateDesign, importPackage } from '../../packages/design-sdk/src/index.mjs';
-import { findTool } from '../registry.mjs';
-import { button, dialog, el, link, qs, saveFile, status } from './dom.mjs';
+import { createDesign, createProject, createStore, designFileName, duplicateDesign, exportDesignFile, importDesignFile, importPackage, isDesignExtension } from '../../packages/design-sdk/src/index.mjs';
+import { findTool, tools } from '../registry.mjs';
+import { button, dialog, el, link, qs, saveBlob, saveFile, status } from './dom.mjs';
 import { pickModule, renderCatalog, thumbnail } from './module-cards.mjs';
 import { folderBreadcrumb, renderTree } from './project-tree.mjs';
 import './style.css';
@@ -142,6 +142,11 @@ function calculationCard(doc, project, folder) {
     await refresh();
   }));
   actions.append(button('Export', () => saveFile(doc.meta.name, { designs: [doc] })));
+  if (tool && isDesignExtension(tool.fileExtension)) {
+    actions.append(button('Save .' + tool.fileExtension, async () => {
+      try { saveBlob(designFileName(doc, tool), await exportDesignFile(doc, tool)); } catch (error) { status(error.message); }
+    }));
+  }
   card.append(thumbnail(tool), info, actions);
   return card;
 }
@@ -206,6 +211,14 @@ qs('import').onchange = async event => {
   const [file] = event.target.files;
   if (!file) return;
   try {
+    if (isDesignExtension(file.name.split('.').pop().toLowerCase())) {
+      const design = await importDesignFile(file, tools);
+      if (await db.getDesign(design.id)) design.id = crypto.randomUUID();
+      await db.saveDesign(design);
+      await refresh();
+      status('Opened ' + file.name + '.');
+      return;
+    }
     const contents = await importPackage(file);
     const id = await db.importPackage(contents);
     await refresh();

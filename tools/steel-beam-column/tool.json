@@ -9,6 +9,7 @@
     "member.beam"
   ],
   "entry": "t/steel-beam-column/",
+  "fileExtension": "msbc",
   "description": "Steel beam-column section and member checks for I/H, RHS, SHS, and CHS sections.",
   "inputs": {
     "type": "object"

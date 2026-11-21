@@ -7,6 +7,7 @@
   "folder": "columns",
   "labels": ["member.column"],
   "entry": "t/rc-circular-column/",
+  "fileExtension": "mccol",
   "description": "Circular reinforced concrete column interaction, closed links and shear checks.",
   "inputs": { "type": "object" },
   "outputs": {},

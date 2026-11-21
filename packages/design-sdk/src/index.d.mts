@@ -16,7 +16,7 @@ export interface DesignTool<I, R = Record<string, unknown>> {
 export interface ToolManifest {
   id: string; name: string; version: string; schema: number; labels: string[]; folder: string;
   entry: string; description: string;
-  title?: string; code?: string; keywords?: string[]; localDraft?: string;
+  title?: string; code?: string; keywords?: string[]; localDraft?: string; fileExtension?: string;
 }
 export interface ProjectDoc {
   id: string; name: string; settings: Record<string, unknown>;
@@ -53,6 +53,10 @@ export declare const projectFolders: [string, string][];
 export declare function createStore(factory?: IDBFactory): WorkspaceStore;
 export declare function exportPackage(contents: PackageContents): Promise<Blob>;
 export declare function importPackage(file: Blob): Promise<PackageContents>;
+export declare function isDesignExtension(extension: string): boolean;
+export declare function designFileName(doc: DesignDoc, tool: ToolManifest): string;
+export declare function exportDesignFile(doc: DesignDoc, tool: ToolManifest): Promise<Blob>;
+export declare function importDesignFile(file: File, tools: ToolManifest[]): Promise<DesignDoc>;
 export declare function mountToolShell(options: {
   tool: ToolManifest; getAdapter(): ToolPageAdapter | undefined; home: URL; reportUrl: URL; reportOwner?: DesignDoc;
 }): void;
