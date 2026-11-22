@@ -9,7 +9,31 @@ export function thumbnail(tool) {
   return art;
 }
 
-function moduleCard(tool, pick) {
+function nativeFileButton(tool, openFile) {
+  const extension = '.' + tool.fileExtension;
+  const input = el('input');
+  input.type = 'file';
+  input.accept = extension;
+  input.hidden = true;
+  const open = el('button', 'Open ' + extension);
+  open.type = 'button';
+  const message = el('output', undefined, 'tool-file-error');
+  message.setAttribute('aria-live', 'polite');
+  open.onclick = () => input.click();
+  input.onchange = async () => {
+    const [file] = input.files;
+    if (!file || open.disabled) return;
+    input.value = '';
+    open.disabled = true;
+    message.textContent = '';
+    try { await openFile(file, tool); }
+    catch (error) { message.textContent = error.message; }
+    finally { open.disabled = false; }
+  };
+  return [open, input, message];
+}
+
+function moduleCard(tool, pick, openFile) {
   const title = tool.title ?? tool.name;
   const card = el(pick ? 'label' : 'article', undefined, 'module-card');
   const info = el('div', undefined, 'module-info');
@@ -36,10 +60,7 @@ function moduleCard(tool, pick) {
     standalone.searchParams.set('new', '1');
     const actions = el('div', undefined, 'module-actions');
     actions.append(link('New design', standalone, 'button'));
-    if (tool.localDraft) {
-      standalone.search = '?legacy=1';
-      actions.append(link(tool.localDraft, standalone, 'legacy-draft'));
-    }
+    if (tool.fileExtension) actions.append(...nativeFileButton(tool, openFile));
     card.append(actions);
   }
   return card;
@@ -72,7 +93,7 @@ function browseTools({ tools, search, categories, results, empty, renderCards })
   render();
 }
 
-export function renderCatalog(tools) {
+export function renderCatalog(tools, openFile) {
   const results = qs('catalog');
   browseTools({
     tools,
@@ -80,7 +101,7 @@ export function renderCatalog(tools) {
     categories: qs('tool-categories'),
     results,
     empty: qs('catalog-empty'),
-    renderCards: found => results.replaceChildren(...found.map(tool => moduleCard(tool, false))),
+    renderCards: found => results.replaceChildren(...found.map(tool => moduleCard(tool, false, openFile))),
   });
 }
 

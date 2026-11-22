@@ -60,7 +60,10 @@ body.hub { margin:0; }
 .design-codes { display:flex; flex-wrap:wrap; gap:.25rem; }
 .design-code { padding:.15rem .4rem; border:1px solid var(--rule); border-radius:4px; background:var(--surface); color:var(--muted); font-size:.75rem; }
 .module-actions,.calculation-card .actions { padding:.65rem 1rem 1rem; margin-top:auto; display:flex; gap:.55rem; flex-wrap:wrap; align-items:center; }
-.legacy-draft { color:var(--green); font-size:.83rem; }
+.module-actions { gap:.4rem; }
+.tool-file-error { flex-basis:100%; color:#8c2e25; font-size:.84rem; overflow-wrap:anywhere; }
+.tool-file-error:empty { position:absolute; }
+.hub .module-actions > :is(button,.button) { padding-inline:.45rem; font-size:.82rem; white-space:nowrap; }
 .thumbnail {
   --art:#5a8b72; height:7.6rem; position:relative; overflow:hidden;
   background-color:#e8f0e8;
