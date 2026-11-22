@@ -14,7 +14,7 @@
 // offset (grid points beyond a column corner are projected onto the rounded path). For cruciform rails
 // the gap around a column corner is not a tangential spacing: Fig. 6.22 B shows it larger than 1.5d inside
 // u1 and covers it by the reduced u_out,ef (interpretation, stated in the Help).
-import { pathPieces, toGlobal } from './geometry.mjs';
+import { distanceToColumn, pathPieces, toGlobal } from './geometry.mjs';
 import { exclusion } from './perimeters.mjs';
 import { ringGaps, thinGrid } from './grid-thin.mjs';
 
@@ -180,7 +180,10 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
   const column = model.column;
   if (type === 'cruciform' && column.shape === 'circular') return { layers: [], reason: 'Cruciform rails need a rectangular column; use radial rails or the grid.' };
   // No link is placed where it would be ineffective: outside the slab, in an opening or in its shadow.
-  const placeable = p => !exclusion(model, toGlobal(column, p));
+  const placeable = (p, index) => {
+    const point = toGlobal(column, p);
+    return !exclusion(model, point) && (!Number.isFinite(maxOffset) || distanceToColumn(column, point) <= Math.min(maxOffset, index === 0 ? 0.5 * d : Infinity) + 1e-9);
+  };
   const required = Math.max(aOut - outerK * d, first);
   const minCount = Math.max(2, Math.ceil((required - first) / sr - 1e-9) + 1);
   const maxCount = Math.min(MAX_LAYERS, Math.floor((maxOffset - first) / sr + 1e-9) + 1);
@@ -191,7 +194,7 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
       return offsets.map((offset, k) => ({
         offset, diameter, shape, start: 0, omitted: [], arrangement: type,
         points: (type === 'grid' ? gridFor(column, offsets, st, k, onBars) : railPoints(column, type, n, offset, d))
-          .filter(placeable)
+          .filter(point => placeable(point, k))
           .map(p => ({ ...p, s: arcLengthAt(column, offset, p) })),
       }));
     };

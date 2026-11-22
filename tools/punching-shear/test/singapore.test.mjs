@@ -74,7 +74,10 @@ test('SG compact zone governs auto and provided layouts below the 3d boundary', 
   assert.equal(auto.compactOuterZone, true);
   assert.equal(auto.status, 'Pass');
   assert.deepEqual(auto.layout.layers.map(layer => layer.offset), [80, 230]);
-  assert.ok(auto.loads[0].rows.some(row => row.id === 'sg-last-max' && row.resistance === 313.5));
+  const farthest = auto.loads[0].rows.find(row => row.id === 'sg-last-max');
+  assert.equal(farthest.resistance, 313.5);
+  assert.ok(farthest.demand > 230 && farthest.demand <= 313.5);
+  assert.ok(auto.loads[0].rows.find(row => row.id === 'sg-first-max').demand <= 104.5);
 
   input.reinforcement.mode = 'provided';
   input.reinforcement.groups = [80, 150, 150].map(spacing => ({ spacing, st: 100, diameter: 10, shape: 'single' }));

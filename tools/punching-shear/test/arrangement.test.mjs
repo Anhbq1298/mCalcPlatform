@@ -186,13 +186,20 @@ test('rotated column: grid on the bars around the circumscribed rectangle, links
   const input = newDefaults();
   input.reinforcement.enabled = true;
   input.column.rotation = 30;
-  input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }];
+  input.loads = [{ name: 'U', V: 900, Mx: 0, My: 0 }];
   const result = calculateDesign(input);
   assert.equal(result.envelope.sr, 150);
   const xs = [...new Set(result.layout.links.map(link => Math.round(link.position.x * 1e3) / 1e3))].sort((a, b) => a - b);
   const odd = xs.slice(1).map((x, i) => x - xs[i]).filter(step => Math.abs(step - 150) > 1e-3);
   assert.ok(odd.length <= 2, String(odd)); // global bar lines at the bar spacing (closing bar at the centre)
   assert.equal(result.status, 'Pass');
+
+  input.loads[0].V = 800;
+  const compactGrid = calculateDesign(input);
+  assert.equal(compactGrid.compactOuterZone, true);
+  assert.equal(compactGrid.loads[0].rows.find(row => row.id === 'tangential').status, 'Fail');
+  input.reinforcement.arrangement = 'radial';
+  assert.equal(calculateDesign(input).status, 'Pass');
 });
 
 test('drop: grid links run out to the drop edge (less cover) on every side; extra links not in the checks', async () => {

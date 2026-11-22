@@ -94,7 +94,7 @@ export function mappedHeadLinks({ circle, rectModel, input, rc, lHalfMin, layers
     rows.push(row('concrete', '§6.4.4(1), Eq. 6.47', 'Concrete punching resistance at r_cont (links required)', load.vEd1, circle.resistance.vRdc, layout.layers.length ? STATES.linksRequired : STATES.fail, { unit: 'MPa', detail: layout.reason }));
     let layoutCheck = null;
     if (layout.layers.length) {
-      layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: circle.resistance.vRdc, vEd: load.vEd1, u1: circle.u1, aOut: tOut, summary, links, kMax: circle.profile.kMax, kMaxLabel: circle.profile.kMaxLabel, kMaxClause: circle.profile.kMaxClause, detailing, compactOuterZone });
+      layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: circle.resistance.vRdc, vEd: load.vEd1, u1: circle.u1, aOut: tOut, summary, links, kMax: circle.profile.kMax, kMaxLabel: circle.profile.kMaxLabel, kMaxClause: circle.profile.kMaxClause, detailing, compactOuterZone, loadedArea: rectModel.column });
       for (const entry of layoutCheck.rows) rows.push(MAPPED.has(entry.id) ? { ...entry, detail: [entry.detail, note].filter(Boolean).join(' ') } : entry);
       const share = load.aswReq / SECTORS;
       const sectorRow = sectorCoverage(links, summary, centre, load.aswReq).reduce((best, entry) => (!best || entry.ur > best.ur ? entry : best), null);

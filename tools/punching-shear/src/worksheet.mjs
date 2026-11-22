@@ -216,8 +216,10 @@ function combination(doc, result, load, i, rect, hasSr) {
       doc.math('Outer perimeter (§6.4.5(4))', R`u_{out.ef.${i}}\ge u_{out.${i}}`, { displayUnit: 'mm', mode: 'auto' });
     } else if (!result.compactOuterZone) doc.math('Outer coverage (§6.4.5(4))', R`a_{L${last}}\ge a_{out.${i}}-1.5d`, { displayUnit: 'mm', mode: 'auto' });
     if (result.compactOuterZone) {
-      doc.math('SG NA §6.4.5(4): first layer', R`0.3d\le a_{L1}`, { displayUnit: 'mm', mode: 'auto' });
-      doc.math('SG NA §6.4.5(4): last layer', R`a_{L${last}}\le1.5d`, { displayUnit: 'mm', mode: 'auto' });
+      for (const id of ['sg-first-min', 'sg-first-max', 'sg-last-max']) {
+        const zone = load.rows.find(entry => entry.id === id);
+        if (zone) doc.text(`SG NA §6.4.5(4) · ${esc(zone.label)} · ${zone.demand.toFixed(1)} / ${zone.resistance.toFixed(1)} mm · ${esc(zone.status)}`, 12);
+      }
     }
   }
 }

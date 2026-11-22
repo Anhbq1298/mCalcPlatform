@@ -65,7 +65,7 @@ function loadResult(ctx, item, layout, summary, links, detailing) {
   else {
     const { materials } = input;
     const outerEf = layout.outerEf ? { ...layout.outerEf, uReq: item.uOut } : null;
-    layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: res.vRdc, vEd: vEd1, u1: ctx.u1, aOut: Math.min(aOut, ctx.layoutOut ?? aOut), summary, links, kMax: ctx.profile.kMax, kMaxLabel: ctx.profile.kMaxLabel, kMaxClause: ctx.profile.kMaxClause, detailing, outerEf, compactOuterZone: ctx.compactOuterZone });
+    layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: res.vRdc, vEd: vEd1, u1: ctx.u1, aOut: Math.min(aOut, ctx.layoutOut ?? aOut), summary, links, kMax: ctx.profile.kMax, kMaxLabel: ctx.profile.kMaxLabel, kMaxClause: ctx.profile.kMaxClause, detailing, outerEf, compactOuterZone: ctx.compactOuterZone, loadedArea: ctx.model.column });
     rows.push(...layoutCheck.rows);
   }
   return { ...item, ...load, rows, layoutCheck, status: worstState(rows.map(entry => entry.status)), ur: Math.max(0, ...rows.filter(counts).map(entry => entry.ur)) };
