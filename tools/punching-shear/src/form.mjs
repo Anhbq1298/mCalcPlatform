@@ -77,13 +77,15 @@ export const GROUPS = [
     ['beta.userValue', '$\\beta$ (user value)', 'number', null, s => s.beta.method === 'user'],
   ]],
   ['Punching reinforcement', [
-    ['reinforcement.mode', 'Mode', 'select', [option('auto', 'Auto design'), option('provided', 'Check provided')]],
-    ['reinforcement.diameter', 'Link $\\phi$ (mm)', 'select', LINK_DIAMETERS.map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
-    ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg link'), option('double', 'Two-leg link')], s => s.reinforcement.mode === 'auto'],
-    ['reinforcement.legGap', 'Two-leg link width $b_l$ (mm)', 'number'],
-    ['reinforcement.anchorage.type', 'Link anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')]],
-    ['reinforcement.anchorage.mandrelFactor', 'Mandrel diameter $\\phi_m/\\phi$', 'number'],
-    ['reinforcement.anchorage.extension', 'Straight extension $l_{ext}$ (mm)', 'number'],
+    ['reinforcement.mode', 'Links', 'select', [option('auto', 'Auto design'), option('provided', 'Provided arrangement (table)')]],
+    ['reinforcement.diameter', 'Bar Ø (mm)', 'select', LINK_DIAMETERS.map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
+    ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg'), option('double', 'Two-leg')], s => s.reinforcement.mode === 'auto'],
+    ['@layers', '', 'anchor'],
+    ['', 'Link detailing', 'heading'],
+    ['reinforcement.anchorage.type', 'Anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')]],
+    ['reinforcement.anchorage.mandrelFactor', 'Mandrel Ø / bar Ø', 'number'],
+    ['reinforcement.anchorage.extension', 'Straight extension (mm)', 'number'],
+    ['reinforcement.legGap', 'Two-leg link width (mm)', 'number', null, s => (s.reinforcement.mode === 'auto' ? s.reinforcement.shape === 'double' : (s.reinforcement.groups || []).some(group => group.shape === 'double'))],
     ['reinforcement.anchorage.engaged', 'Links enclose top and bottom flexural bars', 'checkbox'],
   ]],
 ];
@@ -104,7 +106,21 @@ export function buildForm(form, anchors, getState, onChange) {
     group.addEventListener('toggle', () => {
       if (group.open && !form.classList.contains('all-open')) for (const other of cards) if (other.group !== group) other.group.open = false;
     });
+    let placed = false;
     for (const [path, label, type, options, visible = yes] of fields) {
+      if (type === 'anchor') {
+        // A host element (e.g. the link arrangement table) placed among the fields.
+        const anchor = anchors[labelText(title)] ?? anchors[title];
+        if (anchor) { anchor.classList.add('wide'); body.append(anchor); placed = true; }
+        continue;
+      }
+      if (type === 'heading') {
+        const head = document.createElement('p');
+        head.className = 'card-subhead wide';
+        head.textContent = label;
+        body.append(head);
+        continue;
+      }
       const row = document.createElement('label');
       const name = document.createElement('span');
       name.innerHTML = labelHtml(label);
@@ -120,12 +136,12 @@ export function buildForm(form, anchors, getState, onChange) {
       control.dataset.path = path;
       control.setAttribute('aria-label', labelText(label));
       row.append(name, control);
-      if (type === 'checkbox' || type === 'select' && options.some(entry => entry.label.length > 24)) row.classList.add('wide');
+      if (type === 'checkbox' || path === 'reinforcement.mode' || type === 'select' && options.some(entry => entry.label.length > 18)) row.classList.add('wide');
       body.append(row);
       rows.push({ row, control, path, type, options, visible });
     }
     const anchor = anchors[labelText(title)] ?? anchors[title];
-    if (anchor) { anchor.classList.add('wide'); body.append(anchor); }
+    if (anchor && !placed) { anchor.classList.add('wide'); body.append(anchor); }
     form.append(group);
   }
   form.addEventListener('input', event => {

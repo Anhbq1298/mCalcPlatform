@@ -48,12 +48,13 @@ const refreshLoads = mountTable(byId('loads-anchor'), {
 const layerAnchor = byId('layers-anchor');
 const layerTableHost = document.createElement('div');
 layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons:not(.arrangement-head)'));
+for (const cell of layerTableHost.querySelectorAll('thead th')) if (cell.textContent === 's_t (mm)') cell.innerHTML = 's<sub>t</sub> (mm)';
 // Link arrangement: rows of n layers at radial spacing s (row 1 from the column face) with links at
 // tangential spacing s_t along each layer.
 const refreshLayers = mountTable(layerTableHost, {
   caption: 'Link arrangement',
-  columns: [['count', '$n$', number], ['spacing', '$s$ (mm)', number], ['diameter', '$\\phi$', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
-    ['shape', 'Shape', 'select', [{ value: 'single', label: '1-leg' }, { value: 'double', label: '2-leg' }]], ['st', '$s_t$ (mm)', number]],
+  columns: [['count', 'n', number], ['spacing', 's (mm)', number], ['diameter', 'Ø', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
+    ['shape', 'Legs', 'select', [{ value: 'single', label: '1' }, { value: 'double', label: '2' }]], ['st', 's_t (mm)', number]],
   getRows: () => state.reinforcement.groups,
   newRow: (index, previous) => {
     const d = result?.section?.d ?? 200;

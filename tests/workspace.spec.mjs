@@ -447,7 +447,7 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await expect(schedule).toHaveCount(4);
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
   await page.getByRole('button', { name: 'Auto arrangement' }).click();
-  await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
+  await expect(page.getByLabel('Links', { exact: true })).toHaveValue('provided');
   await page.getByRole('button', { name: 'Link arrangement: add row' }).click();
   await expect(schedule).toHaveCount(5);
   await page.locator('#plan-view [data-link="L2-3"]').click();
@@ -465,7 +465,7 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   const before = await status.textContent();
   await page.reload();
   await expect(shell.getByLabel('Design name')).toHaveValue('PS-01 internal column', { timeout: 45000 });
-  await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
+  await expect(page.getByLabel('Links', { exact: true })).toHaveValue('provided');
   await expect(schedule).toHaveCount(5);
   await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
   await expect(page.getByLabel('2 M_y', { exact: true })).toHaveValue('60');
