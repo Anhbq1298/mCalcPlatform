@@ -76,3 +76,18 @@ test('drop with links beyond the drop: worksheet and drawings build, slab layers
   assert.match(section, /DROP PANEL 2000 × 2000/);
   assert.match(section, /data-layer="L6"/);
 });
+
+test('stress figure: plastic distribution, one moment → peak v_V + v_M at u1 equals β·v_V (Eq. 6.39)', async () => {
+  const { exampleById } = await import('../src/examples.mjs');
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { stressSvg } = await import('../src/stress-view.mjs');
+  const input = structuredClone(exampleById('internal-moment').input);
+  input.loads = [{ name: 'ULS 1', V: 600, Mx: 0, My: 90 }];
+  const result = calculateDesign(input);
+  const svg = stressSvg(result, { width: 720 });
+  const vmax = [...svg.matchAll(/v<tspan[^>]*>max<\/tspan> = v<tspan[^>]*>V<\/tspan> \+ Σv<tspan[^>]*>M<\/tspan> = ([0-9.]+)/g)].map(m => Number(m[1]));
+  const check = [...svg.matchAll(/check: β·v<tspan[^>]*>V<\/tspan> = ([0-9.]+)/g)].map(m => Number(m[1]));
+  // Panel 2 is u1: the plastic peak and the Eq. 6.39 value agree to the printed 3 decimals.
+  assert.ok(vmax.length >= 2 && check.length >= 2, svg.slice(0, 200));
+  assert.ok(Math.abs(vmax[1] - check[1]) <= 0.0011, `${vmax[1]} vs ${check[1]}`);
+});

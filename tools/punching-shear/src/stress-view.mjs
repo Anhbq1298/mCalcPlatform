@@ -1,7 +1,7 @@
 // Shear stress along the control perimeters u0, u1 and u_out (or u1,ext for a drop), drawn as
 // isometric "fences" whose height and colour give v_Ed. Mean stress v = V_Ed/(u·d).
-// With β from moments at an internal column the moment part is drawn linear about the centroid,
-// scaled to the peak β·v (Eq. 6.39 uses the plastic distribution of Fig. 6.19, same peak)
+// With β from moments at an internal column the fence is the plastic distribution of Fig. 6.19:
+// v_Ed = v_V ± v_M per axis (see factors)
 // Otherwise (simplified or user β, edge and corner columns) the fence is the uniform envelope β·v.
 // The picture illustrates the check; the check itself uses β·v at each perimeter.
 import { kInternalRect, localEccentricities } from './demand.mjs';
@@ -25,42 +25,39 @@ function samples(model, r) {
   return lines.map(points => points.map(p => toLocal(model.column, p)));
 }
 
-// Stress factor f(s) for each sample (1 = mean).
+// Stress along one perimeter as factors of the mean v_V = V_Ed/(u·d): f(s) = 1 + Σ a_i·sgn(x_i(s)).
+// Fully plastic distribution of Fig. 6.19 behind Eq. 6.39: on each side of the centroid axis the
+// moment adds or removes a constant v_M = k·M_Ed/(W_1·d), so a_i = v_M,i/v_V = k·e_i·u/W_i with
+// W_i = ∫|x_i| dl of this perimeter (Eq. 6.40) and k from Table 6.1. Rectangular columns: one term per
+// axis (Eq. 6.39 for each moment); circular: one term about the resultant eccentricity (Eq. 6.42,
+// k = 0.6). Without moments, or with the simplified or a user β, the uniform envelope β·v_V is drawn.
 function factors(paths, load, column, internal, beta) {
-  const flat = paths.flat();
-  const uniform = () => paths.map(path => path.map(() => beta));
+  const uniform = () => ({ f: paths.map(path => path.map(() => beta)), terms: null });
   if (!internal || !/6\.(39|42|43)/.test(String(load.beta?.method ?? ''))) return uniform();
-  if (!(load.V > 0) || beta <= 1 + 1e-9) return uniform();
+  if (!(load.V > 0)) return uniform();
   const { e1, e2 } = localEccentricities(column, load.V, load.Mx, load.My);
   let u = 0;
   let cx = 0;
   let cy = 0;
-  for (const path of paths) for (let i = 1; i < path.length; i += 1) {
-    const l = Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
-    u += l; cx += l * (path[i].x + path[i - 1].x) / 2; cy += l * (path[i].y + path[i - 1].y) / 2;
-  }
+  const each = fn => { for (const path of paths) for (let i = 1; i < path.length; i += 1) fn(path[i - 1], path[i], Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y)); };
+  each((a, b, l) => { u += l; cx += l * (a.x + b.x) / 2; cy += l * (a.y + b.y) / 2; });
   if (!(u > 0)) return uniform();
   cx /= u; cy /= u;
-  // Moment part shown as a linear (elastic) distribution about the perimeter centroid,
-  // τ ∝ k·e·x/J with J = ∫x² dl: continuous, zero mean, so the mean stays V/(u·d). It is scaled so
-  // that its peak equals β times the mean, the value the check uses. Eq. 6.39 itself rests on the
-  // plastic (stepped) distribution of Fig. 6.19, which has the same peak; the step is not drawn.
-  let jx = 0;
-  let jy = 0;
-  for (const path of paths) for (let i = 1; i < path.length; i += 1) {
-    const l = Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
-    jx += l * ((path[i].x + path[i - 1].x) / 2 - cx) ** 2;
-    jy += l * ((path[i].y + path[i - 1].y) / 2 - cy) ** 2;
+  // Axes: x and y of the column, or for a circular column the resultant direction alone.
+  const e = Math.hypot(e1, e2);
+  const axes = column.shape === 'circular'
+    ? (e > 1e-9 ? [{ dx: e1 / e, dy: e2 / e, e, k: 0.6, name: 'e' }] : [])
+    : [{ dx: 1, dy: 0, e: e1, k: kInternalRect(column.cx, column.cy), name: 'x' }, { dx: 0, dy: 1, e: e2, k: kInternalRect(column.cy, column.cx), name: 'y' }].filter(axis => Math.abs(axis.e) > 1e-9);
+  if (!axes.length) return uniform();
+  for (const axis of axes) {
+    let w = 0;
+    each((a, b, l) => { w += l * Math.abs(((a.x + b.x) / 2 - cx) * axis.dx + ((a.y + b.y) / 2 - cy) * axis.dy); });
+    axis.W = w;
+    axis.a = w > 0 ? (axis.k * Math.abs(axis.e) * u) / w : 0;
   }
-  const circular = column.shape === 'circular';
-  const kx = circular ? 0.6 : kInternalRect(column.cx, column.cy);
-  const ky = circular ? 0.6 : kInternalRect(column.cy, column.cx);
-  const ax = jx > 0 ? (kx * e1) / jx : 0;
-  const ay = jy > 0 ? (ky * e2) / jy : 0;
-  const shape = p => ax * (p.x - cx) + ay * (p.y - cy);
-  const peak = Math.max(...flat.map(shape));
-  if (!(peak > 0)) return uniform();
-  return paths.map(path => path.map(p => 1 + ((beta - 1) * shape(p)) / peak));
+  const side = (p, axis) => Math.sign(((p.x - cx) * axis.dx + (p.y - cy) * axis.dy) * Math.sign(axis.e)) || 1;
+  const f = paths.map(path => path.map(p => 1 + axes.reduce((sum, axis) => sum + axis.a * side(p, axis), 0)));
+  return { f, terms: axes.map(({ name, a, k, W, e: ecc }) => ({ name, a, k, W, e: ecc })) };
 }
 
 export function stressSvg(result, { width = 640, load = null } = {}) {
@@ -95,7 +92,9 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     const m = panel.m;
     panel.paths = samples(m, panel.r);
     panel.mean = (governing.V * 1000) / (panel.u * panel.d);
-    panel.f = factors(panel.paths, governing, m.column, internal && panel.plastic, beta);
+    const shape = factors(panel.paths, governing, m.column, internal && panel.plastic, beta);
+    panel.f = shape.f;
+    panel.terms = shape.terms;
     panel.vmax = panel.mean * Math.max(...panel.f.flat());
     panel.vmin = panel.mean * Math.min(...panel.f.flat());
     const dx = m.column.x - column.x;
@@ -123,7 +122,8 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   const top = 34;
   const halfH = Math.max(...panels.map(panel => panel.halfH));
   const baseY = top + 96 + halfH;
-  const height = Math.round(baseY + halfH + 96);
+  const textLines = Math.max(...panels.map(panel => 3 + (panel.terms ? 2 * panel.terms.length + 2 : 0)));
+  const height = Math.round(baseY + halfH + 52 + 14 * textLines + 34);
   const parts = [];
   const cos = Math.cos(Math.PI / 6);
   const sin = Math.sin(Math.PI / 6);
@@ -172,11 +172,20 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     // Labels.
     const tx = panelW * index + 10;
     const ty = baseY + halfH + 22;
-    const varies = panel.vmax - panel.vmin > 1e-6;
+    // v_Ed = v_V + v_M: the shear part and, per axis, the moment part of the plastic distribution.
+    const lines = [`v_V = V_Ed/(u·d) = ${panel.mean.toFixed(3)} MPa`];
+    if (panel.terms) {
+      for (const t of panel.terms) {
+        lines.push(`v_M,${t.name} = k·V_Ed·e_${t.name}/(W_1·d) = ${(t.a * panel.mean).toFixed(3)} MPa`);
+        lines.push(`   k ${t.k.toFixed(2)} · e_${t.name} ${Math.abs(t.e).toFixed(0)} mm · W_1 ${(t.W / 1e6).toFixed(2)}·10⁶ mm²`);
+      }
+      lines.push(`v_max = v_V + Σv_M = ${panel.vmax.toFixed(3)} MPa`);
+      lines.push(`v_min = v_V − Σv_M = ${panel.vmin.toFixed(3)} MPa`);
+      lines.push(`check: β·v_V = ${(beta * panel.mean).toFixed(3)} MPa (β = ${beta.toFixed(3)})`);
+    } else lines.push(`β·v_V = ${panel.vmax.toFixed(3)} MPa (uniform${internal ? '' : ', edge/corner β'})`);
+    if (panel.limit) lines.push(`${panel.limitName} = ${panel.limit.toFixed(3)} MPa`);
     parts.push(`<text x="${n(tx)}" y="${top - 12}" style="font-weight:500">${esc(panel.name)} = ${panel.u.toFixed(0)} mm · d = ${panel.d.toFixed(0)}</text>`
-      + `<text class="small" x="${n(tx)}" y="${n(ty)}">v = V_Ed/(u·d) = ${panel.mean.toFixed(3)} MPa</text>`
-      + `<text class="small" x="${n(tx)}" y="${n(ty + 14)}">${varies ? `v_max = ${panel.vmax.toFixed(3)}, v_min = ${panel.vmin.toFixed(3)}` : `β·v = ${panel.vmax.toFixed(3)} MPa (uniform)`}</text>`
-      + (panel.limit ? `<text class="small" x="${n(tx)}" y="${n(ty + 28)}">${esc(panel.limitName)} = ${panel.limit.toFixed(3)} MPa</text>` : ''));
+      + lines.map((line, k) => `<text class="small" x="${n(tx)}" y="${n(ty + 14 * k)}">${esc(line)}</text>`).join(''));
   });
   // Colour scale.
   const ly = height - 34;
@@ -184,7 +193,7 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   const stops = Array.from({ length: 11 }, (_, i) => `<stop offset="${i * 10}%" stop-color="${colour(i / 10)}"/>`).join('');
   parts.push(`<defs><linearGradient id="v-ramp">${stops}</linearGradient></defs><rect x="14" y="${ly}" width="${lw}" height="8" fill="url(#v-ramp)"/>`
     + `<text class="small" x="14" y="${ly + 20}">v_min of the panel</text><text class="small" x="${14 + lw}" y="${ly + 20}" text-anchor="end">v_max of the panel</text>`
-    + `<text class="small" x="${24 + lw}" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · moment part linear, peak = β·v' : ' · uniform β envelope'}</text>`
+    + `<text class="small" x="${24 + lw}" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · plastic distribution, Fig. 6.19: v_Ed = v_V ± v_M' : ' · uniform β envelope'}</text>`
     + `<text class="small" x="${24 + lw}" y="${ly + 22}">Height: one scale for all panels. Panels not to the same plan scale.</text>`);
   return svgDocument(width, height, 'Shear stress along the control perimeters', parts.join(''));
 }
