@@ -18,6 +18,8 @@
   "permissions": [],
   "title": "Punching Shear",
   "code": "EC2",
+  "category": "concrete",
+  "designCodes": [{ "id": "EN-1992-1-1", "label": "EC2 · EN 1992-1-1" }],
   "keywords": [
     "eurocode 2",
     "punching shear",
