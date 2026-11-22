@@ -174,36 +174,35 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     for (const seg of segments.filter(item => item.depth >= centreDepth)) drawSeg(seg);
     // V_Ed arrow at the column centre.
     const [ax, ay] = iso({ x: 0, y: 0 }, 0);
-    parts.push(`<line x1="${n(ax)}" y1="${n(ay - 70)}" x2="${n(ax)}" y2="${n(ay - 8)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(ax - 4)} ${n(ay - 14)}L${n(ax)} ${n(ay - 4)}L${n(ax + 4)} ${n(ay - 14)}Z" fill="${COLORS.ink}"/><text x="${n(ax + 6)}" y="${n(ay - 60)}" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">V_Ed</text>`);
-    // Moment arrows: an arc over the column in the plane of each moment, ending on the side the moment
-    // pushes down (+M_y toward +X, +M_x toward +Y, as on the loading plan), labelled with its value.
+    parts.push(`<line x1="${n(ax)}" y1="${n(ay - 70)}" x2="${n(ax)}" y2="${n(ay - 8)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(ax - 4)} ${n(ay - 14)}L${n(ax)} ${n(ay - 4)}L${n(ax + 4)} ${n(ay - 14)}Z" fill="${COLORS.ink}"/><text x="${n(ax)}" y="${n(ay - 76)}" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">V_Ed</text>`);
+    // Moment vectors (double-headed arrows, right-hand rule), tail on the V_Ed line at the slab
+    // plane. The moment the column applies to the slab is r × F with F = −V_Ed·Z at e = (e_x, e_y):
+    // (−V·e_y, V·e_x, 0) = (−M_x, +M_y, 0) with this tool's sign convention (+M_y moves the load to
+    // +X, +M_x to +Y), so a positive M_y points along +Y and a positive M_x along −X.
     const rot = ((column.rotation || 0) * Math.PI) / 180;
-    const moments = [
-      { value: governing.My, name: 'M_y', ux: Math.cos(-rot), uy: Math.sin(-rot) },
-      { value: governing.Mx, name: 'M_x', ux: -Math.sin(-rot), uy: Math.cos(-rot) },
+    const vectors = [
+      { value: governing.My, name: 'M_y', gx: 0, gy: 1 },
+      { value: -governing.Mx, name: 'M_x', gx: 1, gy: 0, label: governing.Mx },
     ].filter(m => Math.abs(m.value) > 1e-9);
-    moments.forEach((m, k) => {
-      // Arc in screen space along the moment's plan direction: fixed size, above the V_Ed arrow foot.
-      const [o0, o1] = isoAt({ x: 0, y: 0 }, 0);
-      const [d0, d1] = isoAt({ x: m.ux * 1000, y: m.uy * 1000 }, 0);
-      const len = Math.hypot(d0 - o0, d1 - o1) || 1;
+    const [o0, oBase] = iso({ x: 0, y: 0 }, 0);
+    parts.push(`<circle cx="${n(o0)}" cy="${n(oBase - 36)}" r="2.2" fill="#5b2a86"/>`);
+    const o1 = oBase - 36; // on the V_Ed line, above the slab
+    vectors.forEach(m => {
+      const q = { x: m.gx * Math.cos(rot) + m.gy * Math.sin(rot), y: -m.gx * Math.sin(rot) + m.gy * Math.cos(rot) };
+      const [d0, d1] = isoAt({ x: q.x * 1000, y: q.y * 1000 }, 0);
+      const ox0 = isoAt({ x: 0, y: 0 }, 0);
+      const len = Math.hypot(d0 - ox0[0], d1 - ox0[1]) || 1;
       const sgn = Math.sign(m.value);
-      const dx = (sgn * (d0 - o0)) / len;
-      const dy = (sgn * (d1 - o1)) / len;
-      const R = 30 + 10 * k;
-      const lift = 46 + 8 * k;
-      const pts = Array.from({ length: 25 }, (_, q) => {
-        const th = Math.PI * (1 - q / 24); // − side, over the top, to the + side
-        return [o0 + R * Math.cos(th) * dx, o1 + R * Math.cos(th) * dy - lift - 16 * Math.sin(th)];
-      });
-      const [ex, ey] = pts.at(-1);
-      const [px, py] = pts.at(-2);
-      const ang = Math.atan2(ey - py, ex - px);
-      const tip = [[ex, ey], [ex - 7 * Math.cos(ang - 0.45), ey - 7 * Math.sin(ang - 0.45)], [ex - 7 * Math.cos(ang + 0.45), ey - 7 * Math.sin(ang + 0.45)]];
-      const label = `${m.name} = ${Math.abs(m.value).toFixed(0)} kN·m`;
-      parts.push(`<path d="M${pts.map(p => p.map(n).join(' ')).join('L')}" fill="none" stroke="#5b2a86" stroke-width="1.5"/>`
-        + `<path d="M${tip.map(p => p.map(n).join(' ')).join('L')}Z" fill="#5b2a86"/>`
-        + `<text class="small" x="${n(ex + (dx >= 0 ? 6 : -6))}" y="${n(ey + 10)}" text-anchor="${dx >= 0 ? 'start' : 'end'}" fill="#5b2a86" style="fill:#5b2a86" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">${label}</text>`);
+      const ux = (sgn * (d0 - ox0[0])) / len;
+      const uy = (sgn * (d1 - ox0[1])) / len;
+      const L = 52;
+      const ex = o0 + L * ux;
+      const ey = o1 + L * uy;
+      const head = (tx, ty) => `<path d="M${n(tx)} ${n(ty)}L${n(tx - 8 * ux - 4 * uy)} ${n(ty - 8 * uy + 4 * ux)}L${n(tx - 8 * ux + 4 * uy)} ${n(ty - 8 * uy - 4 * ux)}Z" fill="#5b2a86"/>`;
+      const value = Math.abs(m.label ?? m.value);
+      parts.push(`<line x1="${n(o0)}" y1="${n(o1)}" x2="${n(ex - 6 * ux)}" y2="${n(ey - 6 * uy)}" stroke="#5b2a86" stroke-width="1.6"/>`
+        + head(ex, ey) + head(ex - 7 * ux, ey - 7 * uy)
+        + `<text class="small" x="${n(ux >= 0 ? Math.min(ex + 5, panelW * (index + 1) - 92) : Math.max(ex - 5, panelW * index + 92))}" y="${n(ey - 10)}" text-anchor="${ux >= 0 ? 'start' : 'end'}" fill="#5b2a86" style="fill:#5b2a86" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">${m.name} = ${(m.label ?? m.value) < 0 ? '−' : ''}${value.toFixed(0)} kN·m</text>`);
     });
     // Global axes (X, Y in plan, Z up) at the lower right of the panel.
     {
@@ -252,6 +251,6 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   const stops = Array.from({ length: 11 }, (_, i) => `<stop offset="${i * 10}%" stop-color="${colour(i / 10)}"/>`).join('');
   parts.push(`<defs><linearGradient id="v-ramp">${stops}</linearGradient></defs>`
     + `<text class="small" x="14" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · plastic distribution (Fig. 6.19): v_Ed = v_V ± v_M · colour per panel, v_min to v_max' : ' · uniform β envelope'}</text>`
-    + `<text class="small" x="14" y="${ly + 22}">${moment ? `Moments: +M_y loads the +X side, +M_x the +Y side (e_x = ${(governing.My / governing.V * 1000).toFixed(0)} mm, e_y = ${(governing.Mx / governing.V * 1000).toFixed(0)} mm). ` : ''}Heights on one scale.</text>`);
+    + `<text class="small" x="14" y="${ly + 22}">${moment ? `Double arrows: moment vectors, right-hand rule (e_x = ${(governing.My / governing.V * 1000).toFixed(0)} mm, e_y = ${(governing.Mx / governing.V * 1000).toFixed(0)} mm). ` : ''}Heights on one scale.</text>`);
   return svgDocument(width, height, 'Shear stress along the control perimeters', parts.join(''));
 }
