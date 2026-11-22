@@ -146,9 +146,8 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 #calculation-status[data-tone="warn"] { background: #fbecd2; color: #7a4508; }
 .input-card .layer-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: .3rem; }
 .input-card .layer-table th { font-weight: 500; font-size: .8rem; color: #4a5650; text-align: left; padding: 0 .15rem .2rem; }
-.input-card .layer-table th:first-child { width: 1.4rem; }
-.input-card .layer-table th:nth-child(2) { width: 2.6rem; }
-.input-card .layer-table th:nth-child(5) { width: 2.8rem; }
+.input-card .layer-table th:first-child { width: 1.9rem; }
+.input-card .layer-table th:nth-child(4) { width: 3rem; }
 .input-card .layer-table td { padding: .12rem; }
 .input-card .layer-table tbody th { color: #7a857f; font-size: .75rem; }
 .input-card .layer-table input, .input-card .layer-table select { width: 100%; min-width: 0; box-sizing: border-box; padding: .2rem .3rem; font-size: .85rem; text-align: right; }

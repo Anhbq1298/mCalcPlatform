@@ -79,12 +79,12 @@ test('different diameters per layer: Eq. 6.52 uses the smallest layer A_sw', () 
   assert.ok(Math.abs(reinforced.aswMin - 24 * Math.PI * 16) < 1e-9);
 });
 
-test('arrangement rows need positive spacing and whole layer counts', () => {
+test('arrangement rows need a positive radial spacing and tangential spacing', () => {
   const input = newDefaults();
   input.beta.confirmed = true;
   input.reinforcement = { ...input.reinforcement, mode: 'provided', groups: [{ count: 1, spacing: 230, diameter: 10, shape: 'single', links: 20 }, { count: 1, spacing: -150, diameter: 10, shape: 'single', links: 20 }] };
   assert.equal(calculate(input).status, 'Incomplete input');
-  input.reinforcement.groups[1] = { count: 1.5, spacing: 150, diameter: 10, shape: 'single', links: 20 };
+  input.reinforcement.groups[1] = { spacing: 150, diameter: 10, shape: 'single', st: -5 };
   assert.equal(calculate(input).status, 'Incomplete input');
 });
 

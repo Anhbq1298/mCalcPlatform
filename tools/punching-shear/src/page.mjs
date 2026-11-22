@@ -48,19 +48,19 @@ const refreshLoads = mountTable(byId('loads-anchor'), {
 const layerAnchor = byId('layers-anchor');
 const layerTableHost = document.createElement('div');
 layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons:not(.arrangement-head)'));
-// Link arrangement: rows of n layers at radial spacing s (row 1 from the column face) with links at
-// tangential spacing s_t along each layer.
+// Link arrangement: one row per layer, radial spacing s from the previous layer (L1 from the column
+// face) and links at tangential spacing s_t along the layer.
 const refreshLayers = mountTable(layerTableHost, {
   caption: 'Link arrangement',
-  columns: [['count', 'n', number], ['spacing', 's (mm)', number], ['diameter', 'Ø', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
+  columns: [['spacing', 's (mm)', number], ['diameter', 'Ø', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
     ['shape', 'Legs', 'select', [{ value: 'single', label: '1' }, { value: 'double', label: '2' }]], ['st', 's_t (mm)', number]],
   getRows: () => state.reinforcement.groups,
   newRow: (index, previous) => {
     const d = result?.section?.d ?? 200;
     const step = Math.floor((previous ? 0.75 * d : 0.4 * d) / 5) * 5;
-    return { count: 1, spacing: step, diameter: previous?.diameter ?? 10, shape: previous?.shape ?? 'single', st: previous?.st ?? Math.floor((1.5 * d) / 5) * 5 };
+    return { spacing: step, diameter: previous?.diameter ?? 10, shape: previous?.shape ?? 'single', st: previous?.st ?? Math.floor((1.5 * d) / 5) * 5 };
   },
-  onChange: () => schedule(), addLabel: '+ Row', removeLabel: '− Row', rowLabel: index => String(index + 1),
+  onChange: () => schedule(), addLabel: '+ Layer', removeLabel: '− Layer', rowLabel: index => 'L' + (index + 1),
 });
 for (const cell of layerTableHost.querySelectorAll('thead th')) {
   if (cell.textContent !== 's_t (mm)') continue;

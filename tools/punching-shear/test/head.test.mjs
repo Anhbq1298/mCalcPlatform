@@ -123,7 +123,9 @@ test('spacing groups expand to layers from the column face; old saves migrate', 
   const layers = groupLayers({ groups: [{ count: 1, spacing: 100, diameter: 10, shape: 'single', links: 12 }, { count: 3, spacing: 150, diameter: 10, shape: 'single', links: 16 }], omitted: { L3: [2] } });
   assert.deepEqual(layers.map(layer => layer.offset), [100, 250, 400, 550]);
   assert.deepEqual(layers[2].omitted, [2]);
-  assert.deepEqual(layersToGroups(layers).map(g => [g.count, g.spacing, g.links]), [[1, 100, 12], [3, 150, 16]]); // no summary: link counts kept
+  assert.deepEqual(layersToGroups(layers).map(g => [g.spacing, g.links]), [[100, 12], [150, 16], [150, 16], [150, 16]]); // one row per layer; no summary: link counts kept
+  const rows = restoreInputs({ reinforcement: { mode: 'provided', groups: [{ count: 1, spacing: 100, diameter: 10, shape: 'single', st: 200 }, { count: 2, spacing: 150, diameter: 10, shape: 'single', st: 250 }] } }).reinforcement.groups;
+  assert.deepEqual(rows.map(g => [g.spacing, g.st, g.count]), [[100, 200, undefined], [150, 250, undefined], [150, 250, undefined]]);
   const old = restoreInputs({ slab: { h: 260 }, head: { enabled: true, depth: 140 }, reinforcement: { mode: 'provided', layers: [{ offset: 80, diameter: 8, shape: 'single', links: 8, omitted: [1] }, { offset: 235, diameter: 8, shape: 'single', links: 8 }] } });
   assert.equal(old.head.thickness, 400);
   assert.deepEqual(old.reinforcement.groups.map(g => g.spacing), [80, 155]);
