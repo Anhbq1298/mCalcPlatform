@@ -95,7 +95,7 @@ export function calculate(rawInput, options = {}) {
   const { d, model } = ctx;
   const { materials, reinforcement } = input;
   // Auto arrangement: the user's bar Ø and maximum spacings are constraints; see optimise.mjs.
-  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && !options.srFixed) return optimise(calculate, input, options, d);
+  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && !options.srFixed && !options.noLinks) return optimise(calculate, input, options, d);
   // Radial spacing for the required A_sw (Eq. 6.52) and the layer grid: the auto arrangement's s_r, else
   // the recommended 0.75d rounded down to 5 mm.
   const srLimit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
