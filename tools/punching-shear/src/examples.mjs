@@ -18,6 +18,11 @@ export const CASES = [
     input: { ...confirmed, ...engaged, loads: [{ name: 'ULS 1', V: 800, Mx: 0, My: 0 }] },
   },
   {
+    id: 'internal-moment', title: '2b · Rectangular column, biaxial moments (Eq. 6.43)', expect: 'Pass',
+    note: 'β from M_x and M_y by Eq. 6.43; the stress figure shows the plastic distribution of Fig. 6.19.',
+    input: { ...engaged, beta: { method: 'moment', confirmed: false, userValue: 1.15 }, ...slab(250, 210), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 600, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 600, Mx: 50, My: 90 }] },
+  },
+  {
     id: 'circular-moment', title: '3 · Circular column, β from moments (Eq. 6.42)', expect: 'Pass',
     note: 'Resultant eccentricity of both moments; links designed automatically.',
     input: { ...engaged, beta: { method: 'moment', confirmed: false, userValue: 1.15 }, ...slab(280, 240), column: { shape: 'circular', position: 'internal', diameter: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1570, asy: 1570, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 850, Mx: 40, My: 60 }] },
@@ -100,7 +105,7 @@ const byId = Object.fromEntries(CASES.map(item => [item.id, item]));
 // is reported in the results. The remaining CASES are reference cases for tests.
 const card = (id, title, position, drop, example) => ({ id, title, position, drop, variants: [{ ...byId[example], label: title }] });
 export const EXAMPLE_CARDS = [
-  card('interior', 'Interior', 'internal', false, 'internal-links'),
+  card('interior', 'Interior', 'internal', false, 'internal-moment'),
   card('edge', 'Edge', 'edge', false, 'edge'),
   card('corner', 'Corner', 'corner', false, 'corner'),
   card('interior-drop', 'Interior + drop', 'internal', true, 'drop-through'),
