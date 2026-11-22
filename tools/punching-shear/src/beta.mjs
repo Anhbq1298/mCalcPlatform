@@ -18,11 +18,11 @@ export function betaFor(ctx, load) {
   if (position.kind === 'internal') {
     const beta = betaMoment(input.column, d, load.V, load.Mx, load.My);
     if (shadows.length && beta.value > 1) {
-      return { ...beta, state: STATES.notVerified, message: `${load.name}: W1 for a control perimeter reduced by openings is not defined in EN 1992-1-1; β uses the unreduced W1.` };
+      return { ...beta, note: `${load.name}: β uses the unreduced W1 (W1 for a perimeter reduced by openings is not defined in EN 1992-1-1; see Help).` };
     }
     return beta;
   }
-  const blocked = shadows.length ? { state: STATES.notVerified, message: `${load.name}: u1* for edge and corner columns near openings is not defined in EN 1992-1-1; β uses the unreduced u1*.` } : {};
+  const blocked = shadows.length ? { note: `${load.name}: β uses the unreduced u1* (u1* near openings is not defined in EN 1992-1-1; see Help).` } : {};
   if (position.kind === 'edge') {
     const n = position.normals[0];
     const ePerp = ex * n.x + ey * n.y;

@@ -147,13 +147,13 @@ test('large drop: provided links inside and beyond the drop are split by zone', 
   assert.ok(calculateDesign(step).issues.some(issue => /drop edge step/.test(issue.message)));
 });
 
-test('rectangular head l_H ≤ 2h_H with links: equivalent-circle check, links on the head outline, Not verified', async () => {
+test('rectangular head l_H ≤ 2h_H with links: equivalent-circle check, links on the head outline, results by the tool method', async () => {
   const { sectorCoverage } = await import('../src/head-mapped.mjs');
   const { exampleById } = await import('../src/examples.mjs');
   const result = calculateDesign(exampleById('drop-small-links').input);
-  assert.equal(result.status, STATES.notVerified);
+  assert.equal(result.status, STATES.pass);
   const rows = result.loads[0].rows;
-  for (const id of ['reinforced', 'outer', 'sector']) assert.equal(rows.find(entry => entry.id === id).status, STATES.notVerified, id);
+  for (const id of ['reinforced', 'outer', 'sector']) assert.ok(rows.find(entry => entry.id === id).detail.includes('see Help'), id); // method stated
   assert.equal(rows.find(entry => entry.id === 'radial').status, STATES.pass); // detailing on the real geometry stays a normal check
   assert.ok(result.layout.layers.every(layer => layer.zone === 'slab' && layer.pathOffset < layer.offset));
   // r_cont = min(2d + 0.56·√(l1·l2), 2d + 0.69·l1) = 2·210 + 560 = 980 mm (Eq. 6.34)

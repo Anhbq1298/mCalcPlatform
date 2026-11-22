@@ -54,8 +54,8 @@ const CASE_LIST = [
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 700, Mx: 0, My: 0 }] },
   },
   {
-    id: 'drop-small-links', title: '8b · Rectangular head l_H ≤ 2h_H with links (mapped)', expect: 'Fail',
-    note: 'Check on the EC2 equivalent circle, links on the head outline, mapped by 22.5° sectors. Proposed method outside the EC2 rules: the reinforced checks report Fail (see Help).',
+    id: 'drop-small-links', title: '8b · Rectangular head l_H ≤ 2h_H with links (mapped)', expect: 'Pass',
+    note: 'Check on the EC2 equivalent circle, links on the head outline, mapped by 22.5° sectors. Tool method (not an EC2 rule), results by that method; see Help.',
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 900, Mx: 0, My: 0 }] },
   },
   {

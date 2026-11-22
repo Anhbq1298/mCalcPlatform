@@ -138,7 +138,7 @@ export function calculate(rawInput, options = {}) {
   ctx.layoutOut = layoutOut;
   const results = demands.map(item => loadResult(ctx, item, layout, summary, links, detailing));
 
-  const notes = [...geometry.notes, ...limitNotes];
+  const notes = [...geometry.notes, ...limitNotes, ...new Set(results.map(entry => entry.beta?.note).filter(Boolean))];
   const capped = results.filter(entry => entry.rows.some(item => (item.id === 'max' || item.id === 'kmax') && item.status === STATES.fail));
   if (capped.length) notes.unshift(`${capped.map(entry => entry.name).join(', ')}: v_Ed exceeds v_Rd,max or the upper limit with links. Adding links cannot resolve this; increase the slab depth, column size or concrete strength.`);
   const governing = results.reduce((best, entry) => (entry.ur > best.ur ? entry : best), results[0]);
