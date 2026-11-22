@@ -79,8 +79,8 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const zBot = -hH - stub;
   const topPad = 96;
   const bodyHeight = (zTop - zBot) * scale;
-  const dimsHeight = 84; // room for three callout landings below the column stub
-  const legendHeight = 74; // up to two lines of values plus two notes
+  const dimsHeight = 40; // room for the drop callout landing below the column stub
+  const legendHeight = 120; // symbol legend (up to two rows), up to three lines of values, two notes
   const height = Math.round(topPad + bodyHeight + dimsHeight + legendHeight);
   const drawHeight = height - legendHeight;
   const X = t => padL + (t - left) * scale;
@@ -223,9 +223,8 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   if (head) values.push(`h_tot = ${h + hH}`);
   if (section) values.push(`d = (d_x + d_y)/2 = ${((section.dx + section.dy) / 2).toFixed(0)}`);
   if (head?.kind === 'large' && head.inner) values.push(`d_H = d + (h_tot − h) = ${head.dH.toFixed(0)}`);
-  // Callouts (45° leaders, QLEADER style). A callout flips to the left when its text would leave
-  // the drawing. Landings: links highest, top bars below them, bars under the soffit below the slab.
-  // Values wrap to the drawing width (about 6.3 px per character at 11 px).
+  // Callouts (45° leaders, QLEADER style) for the links and the drop only; flexural bars are in the
+  // legend. A callout flips when its text would leave the drawing. Values wrap to the drawing width (about 6.3 px per character at 11 px).
   const valueLines = [];
   for (const value of values) {
     const lastLine = valueLines.at(-1);
@@ -237,7 +236,6 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const XC = t => X(cs * t);
   const far = cs > 0 ? right : -left;
   const dropEndC = cs > 0 ? dropEnd : dropEndL;
-  const xDropBarC = cs > 0 ? xDropBar : -xDropBarL;
   const place = (x, y, dy, landing, lines, color) => {
     const run = Math.max(14, Math.abs(landing - y));
     const textWidth = Math.max(...lines.map(line => line.length)) * 6.2 + 10;
@@ -246,30 +244,19 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
     else if (dx < 0 && x - run - textWidth < 4) dx = 1;
     return callout(x, y, dx, dy, run, lines, color);
   };
-  const lastLink = layers.length ? cs * linkAt(layers.at(-1), cs) : face;
   const firstLink = layers.length ? cs * linkAt(layers[0], cs) : face;
   if (layers.length && firstLink <= far) {
     const ids = layers.length > 1 ? `${layers[0].id ?? 'L1'}–${layers.at(-1).id ?? 'L' + layers.length}` : layers[0].id ?? 'L1';
     const phis = [...new Set(layers.map(layer => layer.diameter))].map(phi => 'Ø' + phi).join('/');
     parts.push(place(XC(firstLink) + 2 * cs, Z(legTop) + 2, -1, Z(h) - 66, [`SHEAR LINKS ${ids}, ${phis}`, `${layers[0].shape === 'double' ? 'TWO-LEG' : 'SINGLE-LEG'}, SEE SCHEDULE`], COLORS.link));
   }
-  // Top bars: from the far end on the callout side, leader back toward the column.
-  parts.push(callout(XC(far) - 14 * cs, Z(zTopBar), -cs, -1, Math.max(14, Z(zTopBar) - (Z(h) - 40)), ['TOP BARS (FLEXURE INPUT)']));
-  if (head && dropEndC < far) {
-    parts.push(place(XC(xDropBarC), Z((zb + zbDrop) / 2), 1, Z(zBot) + 22, ['DROP BARS, CRANKED AT DROP EDGE (SCHEM.)']));
-    const tb = dropEndC + 0.55 * (far - dropEndC);
-    parts.push(place(XC(tb), Z(zb), 1, Z(zBot) + 48, ['SLAB BOTTOM BARS (SCHEMATIC)']));
-  } else {
-    const tb = lastLink + 0.5 * Math.max(0, far - lastLink);
-    parts.push(place(XC(tb), Z(bottomBar(cs * tb)), 1, Z(zBot) + 22, [head ? 'DROP / BOTTOM BARS (SCHEMATIC)' : 'BOTTOM BARS (SCHEMATIC)']));
-  }
-  // Drop panel callout from its soffit: on the side opposite the bar callouts when the drop shows
-  // there (landing below theirs), else toward the column.
+  // Drop panel callout from its soffit, on the side opposite the link callout when the drop shows
+  // there. Flexural bars carry no callouts: the legend identifies them.
   const dropEndOpp = cs > 0 ? dropEndL : dropEnd;
   if (head && Math.max(dropEndC, dropEndOpp) > face + 1) {
     const size = input.head.shape === 'circular' ? 'Ø' + input.head.diameter : input.head.lx + ' × ' + input.head.ly;
     const lines = [`DROP PANEL ${size}, h_tot = ${h + hH}`];
-    const run = Math.max(14, Z(zBot) + 74 - Z(-hH));
+    const run = Math.max(14, Z(zBot) + 22 - Z(-hH));
     const textWidth = lines[0].length * 6.2 + 10;
     const opposite = dropEndOpp > face + 1;
     const x0 = opposite ? XC(-(face + 0.45 * (dropEndOpp - face))) : XC(face + 0.35 * (dropEndC - face));
@@ -277,9 +264,26 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
     const dx = fits(-cs) ? -cs : cs;
     parts.push(callout(x0, Z(-hH), dx, 1, run, lines, COLORS.drop));
   }
-  parts.push(`<line x1="0" y1="${n(drawHeight)}" x2="${width}" y2="${n(drawHeight)}" stroke="${COLORS.rule}"/>`
-    + valueLines.map((line, i) => `<text class="small" x="14" y="${n(drawHeight + 16 + 15 * i)}">${esc(line)}</text>`).join('')
-    + `<text class="small" x="14" y="${n(drawHeight + 16 + 15 * valueLines.length)}">Section ${name} (local ${axis})${section ? ` · top bars d_x ${section.dx.toFixed(0)}, d_y ${section.dy.toFixed(0)}` : ''} · bottom bars schematic · legs at their offsets.</text>`
-    + `<text class="small" x="14" y="${n(drawHeight + 31 + 15 * valueLines.length)}">Hook anchorage requires detailing confirmation (§8.5). Distances in mm from the column face.</text>`);
+  // Symbol legend: links, flexural bars along and across the section.
+  const entries = [
+    [`<line x1="0" y1="-6" x2="0" y2="6" stroke="${COLORS.link}" stroke-width="2"/>`, 'Shear link'],
+    [`<line x1="-8" y1="0" x2="8" y2="0" stroke="${bar}" stroke-width="${barWidth}"/>`, section ? `Top bars (d_x ${section.dx.toFixed(0)}, d_y ${section.dy.toFixed(0)})` : 'Top bars'],
+    [`<path d="M-8 -4H0V4H8" fill="none" stroke="${bar}" stroke-width="${barWidth}"/>`, head ? 'Bottom and drop bars, cranked at the drop edge (schematic)' : 'Bottom bars (schematic)'],
+    [`<circle cx="0" cy="0" r="1.8" fill="${bar}"/>`, 'Bar across the section'],
+  ];
+  let lx = 22;
+  let legendY = drawHeight + 16;
+  const symbols = entries.map(([symbol, text]) => {
+    const w = 34 + text.length * 6.2;
+    if (lx > 22 && lx + w > width - 8) { lx = 22; legendY += 16; } // wrap to a second row
+    const g = `<g transform="translate(${n(lx)} ${n(legendY - 4)})">${symbol}</g><text class="small" x="${n(lx + 14)}" y="${n(legendY)}">${esc(text)}</text>`;
+    lx += w;
+    return g;
+  }).join('');
+  const y0 = legendY + 18;
+  parts.push(`<line x1="0" y1="${n(drawHeight)}" x2="${width}" y2="${n(drawHeight)}" stroke="${COLORS.rule}"/>` + symbols
+    + valueLines.map((line, i) => `<text class="small" x="14" y="${n(y0 + 15 * i)}">${esc(line)}</text>`).join('')
+    + `<text class="small" x="14" y="${n(y0 + 15 * valueLines.length)}">Section ${name} (local ${axis}) · legs at their offsets · hook anchorage requires detailing confirmation (§8.5).</text>`
+    + `<text class="small" x="14" y="${n(y0 + 15 + 15 * valueLines.length)}">Distances in mm from the column face.</text>`);
   return svgDocument(width, height, `Punching shear section ${name}`, parts.join(''));
 }
