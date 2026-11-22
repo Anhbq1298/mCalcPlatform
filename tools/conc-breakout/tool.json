@@ -1,0 +1,39 @@
+{
+  "id": "conc-breakout",
+  "name": "mConcBreakout",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "schema": 1,
+  "folder": "connections",
+  "labels": [
+    "member.connection"
+  ],
+  "entry": "t/conc-breakout/",
+  "fileExtension": "mcbo",
+  "description": "Cast-in embedded steel plate with welded reinforcing bars and headed studs under N, V and M: rigid-plate equilibrium, EN 1992-4 stud and concrete breakout checks, bar welds and anchorage, plate bending.",
+  "inputs": {
+    "type": "object"
+  },
+  "outputs": {},
+  "permissions": [],
+  "title": "Embedded Plate & Concrete Breakout",
+  "code": "EC2",
+  "category": "concrete",
+  "designCodes": [
+    { "id": "EN-1992-4", "label": "EC2 · EN 1992-4" },
+    { "id": "EN-1992-1-1", "label": "EC2 · EN 1992-1-1" },
+    { "id": "EN-1993-1-8", "label": "EC3 · EN 1993-1-8" }
+  ],
+  "keywords": [
+    "embedded plate",
+    "cast-in plate",
+    "headed studs",
+    "concrete breakout",
+    "concrete cone",
+    "edge failure",
+    "pry-out",
+    "welded reinforcement",
+    "anchorage",
+    "infaso"
+  ]
+}

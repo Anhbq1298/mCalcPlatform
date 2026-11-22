@@ -19,18 +19,19 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 360, height: 780 
       const toolLibrary = library(page);
       const search = toolLibrary.getByRole('searchbox', { name: 'Search tools' });
       await expect(categories(toolLibrary, 'All')).toHaveAttribute('aria-pressed', 'true');
-      await expect(cards(toolLibrary)).toHaveCount(6);
+      await expect(cards(toolLibrary)).toHaveCount(7);
       for (const [toolName, extension] of [
         ['Calculation Worksheet', 'mccv'], ['RC Column', 'mrcol'], ['Circular RC Column', 'mccol'],
         ['Steel Beam-Column', 'msbc'], ['Composite Beam', 'mcb'], ['Punching Shear', 'mpsh'],
+        ['Embedded Plate & Concrete Breakout', 'mcbo'],
       ]) {
         const card = cards(toolLibrary).filter({ has: page.getByRole('heading', { name: toolName, exact: true }) });
         await expect(card.getByRole('button', { name: 'Open .' + extension, exact: true })).toBeVisible();
         await expect(card.locator('input[type=file]')).toHaveAttribute('accept', '.' + extension);
       }
       await expect(badge(toolLibrary)).toHaveText([
-        'EC4 · EN 1994-1-1', 'EC2 · EN 1992-1-1', 'EC2 · EN 1992-1-1',
-        'EC2 · EN 1992-1-1', 'EC3 · EN 1993-1-1',
+        'EC4 · EN 1994-1-1', 'EC2 · EN 1992-4', 'EC2 · EN 1992-1-1', 'EC3 · EN 1993-1-8',
+        'EC2 · EN 1992-1-1', 'EC2 · EN 1992-1-1', 'EC2 · EN 1992-1-1', 'EC3 · EN 1993-1-1',
       ]);
       const firstRow = await cards(toolLibrary).evaluateAll(elements =>
         elements.filter(element => element.offsetTop === elements[0].offsetTop).length);
@@ -42,7 +43,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 360, height: 780 
       await page.keyboard.press('Enter');
       await expect(concrete).toBeFocused();
       await expect(concrete).toHaveAttribute('aria-pressed', 'true');
-      await expect(cards(toolLibrary)).toHaveCount(3);
+      await expect(cards(toolLibrary)).toHaveCount(4);
       await search.fill('EN-1992-1-1 circular');
       await expect(cards(toolLibrary)).toHaveCount(1);
       await expect(toolLibrary.getByRole('heading', { name: 'Circular RC Column' })).toBeVisible();
@@ -70,11 +71,11 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 360, height: 780 
       await dialog.getByRole('button', { name: 'Save' }).click();
       await page.getByRole('button', { name: '+ Add design module', exact: true }).click();
       await expect(categories(dialog, 'All')).toHaveAttribute('aria-pressed', 'true');
-      await expect(cards(dialog)).toHaveCount(6);
+      await expect(cards(dialog)).toHaveCount(7);
       const search = dialog.getByRole('searchbox', { name: 'Search modules' });
       await expect(search).toBeFocused();
       await categories(dialog, 'Concrete').click();
-      await expect(badge(dialog)).toHaveText(Array(3).fill('EC2 · EN 1992-1-1'));
+      await expect(badge(dialog)).toHaveText(['EC2 · EN 1992-4', 'EC2 · EN 1992-1-1', 'EC3 · EN 1993-1-8', ...Array(3).fill('EC2 · EN 1992-1-1')]);
       await search.fill('mbcolumn-lite ec2');
       await expect(cards(dialog)).toHaveCount(1);
       await dialog.getByRole('heading', { name: 'RC Column', exact: true }).click();
