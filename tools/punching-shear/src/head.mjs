@@ -51,13 +51,11 @@ export function headGeometry(input) {
   for (const side of SIDES) sides[side] = Math.abs(extents[side]) - (side.startsWith('x') ? half.x : half.y);
   const interior = SIDES.filter(side => !extents.free[side]);
   const lH = circular ? [(head.diameter - column.diameter) / 2] : interior.map(side => sides[side]);
-  // Fig. 6.17 needs l_H < 2h_H (§6.4.2(8)), Fig. 6.18 l_H > 2h_H (§6.4.2(10)). At l_H = 2h_H the two
-  // constructions coincide for a circular head (r_cont = 2d + l_H + 0.5c either way), so equality is taken
-  // as Fig. 6.18: the slab check then runs on the actual drop outline instead of the smaller, conservative
-  // equivalent circle of Eq. 6.34/6.35, and a side exactly at 2h_H does not make the drop "mixed".
+  // Fig. 6.17 (§6.4.2(8)) applies when the head lies within l_H < 2h_H on every side; otherwise Fig. 6.18
+  // (l_H ≥ 2h_H, AC2). A rectangular head with some sides below and some at or beyond 2h_H is therefore
+  // checked by Fig. 6.18: sections inside the head with d_H and in the slab at 2d from the head outline.
   const below = lH.every(value => value < 2 * hH - 1e-9);
-  const above = lH.every(value => value >= 2 * hH - 1e-9);
-  return { circular, lH, lSides: sides, extents, lMin: Math.min(...lH), hH, kind: below ? 'small' : above ? 'large' : 'mixed' };
+  return { circular, lH, lSides: sides, extents, lMin: Math.min(...lH), hH, kind: below ? 'small' : 'large', straddles: !below && lH.some(value => value < 2 * hH - 1e-9) };
 }
 
 // r_cont from the column centroid for l_H < 2h_H (Eq. 6.33–6.35). l1 ≤ l2 are the overall head sizes.
@@ -203,21 +201,6 @@ export function calculateDesign(raw, forcedKind = null) {
   const geo = forcedKind ? { ...geo0, kind: forcedKind } : geo0;
   // β from moments with a drop: column (inside) or drop (outside) as the loaded area, see Help.
   const momentBeta = [];
-  if (geo.kind === 'mixed') {
-    // l_H straddles 2h_H (Fig. 6.17 one way, Fig. 6.18 the other): EN 1992-1-1 gives no rule. The tool
-    // checks the drop both ways and reports the governing one: worse status, then the higher unreinforced
-    // v_Ed / v_Rd,c (the construction that needs more links), then the higher UR. Ranking by the UR after
-    // links would let a construction that needs links lose to one that needs none; see Help.
-    const both = ['small', 'large'].map(kind => calculateDesign(raw, kind));
-    const governingState = worstState(both.map(item => item.status));
-    const plain = item => Math.max(0, ...(item.loads ?? []).flatMap(load => load.rows ?? []).filter(row => /concrete$/.test(row.id)).map(row => row.ur ?? 0));
-    const key = item => [plain(item), item.governing?.ur ?? 0];
-    const worse = both.filter(item => item.status === governingState)
-      .reduce((a, b) => { const [pa, ua] = key(a); const [pb, ub] = key(b); return pb > pa + 1e-9 || (Math.abs(pb - pa) <= 1e-9 && ub > ua) ? b : a; });
-    const which = worse === both[0] ? 'Fig. 6.17 (l_H < 2h_H)' : 'Fig. 6.18 (l_H ≥ 2h_H)';
-    const note = `l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm straddles 2h_H = ${(2 * geo.hH).toFixed(0)} mm: the drop is checked as Fig. 6.17 and as Fig. 6.18; ${which} governs (see Help).`;
-    return { ...worse, methods: [...(worse.methods ?? []), 'Mixed drop: envelope of Fig. 6.17 and Fig. 6.18'], notes: [note, ...(worse.notes ?? [])] };
-  }
   const internal = (base.position?.kind ?? 'internal') === 'internal';
   const e = geo.extents;
   const dropAsColumn = geo.circular ? { diameter: input.head.diameter }
@@ -226,6 +209,9 @@ export function calculateDesign(raw, forcedKind = null) {
   const inside = geo.kind === 'large' && 2 * dH <= geo.lMin + 1e-9; // the inner control perimeter fits inside the head
   const provided = input.reinforcement.enabled !== false && input.reinforcement.mode === 'provided';
   const split = provided ? splitLayers(input, geo, inside) : { drop: [], slab: [], issues: [], notes: [] };
+  if (geo.straddles && !forcedKind) {
+    split.notes.push(`l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm: not every side has l_H < 2h_H = ${(2 * geo.hH).toFixed(0)} mm, so Fig. 6.18 applies (§6.4.2(8)–(9)); on the sides with l_H < 2h_H the section inside the head uses d_H as drawn in Fig. 6.18 (see Help).`);
+  }
   if (input.beta.method === 'moment') split.notes.push('β from moments with a drop uses the column (inside) or the drop (outside) as the loaded area (Eq. 6.39/6.42), see Help.');
   const zone = (layers, layerBase) => (provided ? { layers } : { layerBase });
   // Links needed around the drop: say how large a drop (same depth) would need none there.
