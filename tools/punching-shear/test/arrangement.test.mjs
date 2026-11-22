@@ -166,3 +166,15 @@ test('grid: outer rings at whole multiples of s_t within s_t, Eq. 6.52, Eq. 9.11
   const outer = row => thin.loads[0].rows.find(entry => entry.id === row);
   assert.ok(Math.abs(outer('outer').resistance - full.loads[0].rows.find(entry => entry.id === 'outer').resistance) < 1e-6); // gaps ≤ 2d: u_out,ef unchanged
 });
+
+test('auto grid follows the flexural bars: links on bar lines at the bar spacing, fallback with a note', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const run = edit => { const input = newDefaults(); input.reinforcement.enabled = true; input.reinforcement.thin = false; input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }]; edit(input); return calculateDesign(input); };
+  const on = run(input => { input.flexure.sX = input.flexure.sY = 125; });
+  assert.equal(on.envelope.sr, 125);
+  const xs = [...new Set(on.layout.layers.flatMap(layer => layer.points.map(p => Math.round(p.x * 1e3) / 1e3)))].sort((a, b) => a - b);
+  const steps = xs.slice(1).map((x, i) => x - xs[i]).filter(step => Math.abs(step - 125) > 1e-6);
+  assert.ok(steps.length <= 2, String(steps)); // bar spacing everywhere except the closing bar at the centre
+  const off = run(input => { input.flexure.sX = 150; input.flexure.sY = 200; });
+  assert.ok(off.notes.some(note => note.includes('Grid not on the flexural bars')));
+});

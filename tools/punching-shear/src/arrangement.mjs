@@ -90,19 +90,30 @@ function railPoints(column, type, rails, o, d) {
   return points;
 }
 
-function gridLines(half, offsets, st) {
+function gridLines(half, offsets, st, onBars = false) {
   const inner = half + offsets[0];
-  const n = Math.max(1, Math.ceil((2 * inner) / st - 1e-9));
-  const lines = Array.from({ length: n + 1 }, (_, i) => -inner + (2 * inner * i) / n);
+  let lines;
+  if (onBars) {
+    // Flexural bar lines: symmetric about the column, one bar line at s0 outside each face and then at the
+    // bar spacing inward; a closing bar on the centre line where the middle gap would exceed the spacing.
+    lines = [];
+    let v = inner;
+    for (; v > 1e-6; v -= st) lines.push(v, -v);
+    const smallest = Math.min(...lines.map(Math.abs));
+    if (Math.abs(v) < 1e-6 || 2 * smallest > st + 1e-9) lines.push(0);
+  } else {
+    const n = Math.max(1, Math.ceil((2 * inner) / st - 1e-9));
+    lines = Array.from({ length: n + 1 }, (_, i) => -inner + (2 * inner * i) / n);
+  }
   for (const o of offsets.slice(1)) lines.push(half + o, -half - o);
-  return lines.sort((p, q) => p - q);
+  return [...new Set(lines.map(v => Math.round(v * 1e6) / 1e6))].sort((p, q) => p - q);
 }
 
-function gridPoints(column, offsets, st, k) {
+function gridPoints(column, offsets, st, k, onBars = false) {
   const a = column.shape === 'circular' ? column.diameter / 2 : column.cx / 2;
   const b = column.shape === 'circular' ? column.diameter / 2 : column.cy / 2;
-  const xs = gridLines(a, offsets, st);
-  const ys = gridLines(b, offsets, st);
+  const xs = gridLines(a, offsets, st, onBars);
+  const ys = gridLines(b, offsets, st, onBars);
   const o = offsets[k];
   const on = (value, edge) => Math.abs(Math.abs(value) - edge) < 1e-6;
   const points = [];
@@ -155,6 +166,21 @@ export function faceGaps(column, offset, tangential) {
 
 const MAX_LAYERS = 60;
 
+// Whether the auto grid can sit on the flexural bar intersections (s_r = s_t = bar spacing).
+export function gridOnBars(input, d) {
+  const r = input.reinforcement ?? {};
+  if (r.mode !== 'auto' || (r.arrangement ?? 'grid') !== 'grid' || r.enabled === false) return { on: false };
+  const f = input.flexure ?? {};
+  const spacing = f.sX;
+  const why = !(f.sX > 0 && f.sY > 0) ? null
+    : Math.abs(f.sX - f.sY) > 1e-6 ? `bar spacings differ (${f.sX} / ${f.sY} mm)`
+      : Math.abs(input.column?.rotation ?? 0) > 1e-9 ? 'the column is rotated to the bars'
+        : spacing > 0.75 * d + 1e-9 ? `the bar spacing ${spacing} mm exceeds 0.75d = ${(0.75 * d).toFixed(0)} mm (§9.4.3(1))` : null;
+  if (!(spacing > 0)) return { on: false };
+  if (why) return { on: false, note: `Grid not on the flexural bars: ${why}; the entered s_r and s_t are used.` };
+  return { on: true, spacing };
+}
+
 // Largest gap between consecutive links along the path at a layer (for the rail search). On a path cut
 // by a slab edge the gap across the cut is not a tangential spacing and is skipped.
 function pathGap(model, layer) {
@@ -173,7 +199,7 @@ const MAX_RAILS = 80;
 // u_out,ef (§9.4.3(4) and the Note to §6.4.5(4)), at least two perimeters. With uReq (Fig. 6.22 applies)
 // layers are added until the effective outer perimeter reaches the length Eq. 6.54 requires. Radial rails
 // are added in pairs from the entered n_tang (a minimum) until s_t ≤ 1.5d inside u1 and u_out,ef is reached.
-export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500 }) {
+export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false }) {
   if (!(sr > 0)) return { layers: [], reason: 'Enter a radial spacing s_r > 0.' };
   if (type === 'grid' && !(st > 0)) return { layers: [], reason: 'Enter a grid spacing s_t > 0.' };
   const column = model.column;
@@ -187,7 +213,7 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
       const offsets = Array.from({ length: count }, (_, i) => first + i * sr);
       return offsets.map((offset, k) => ({
         offset, diameter, shape, start: 0, omitted: [], arrangement: type,
-        points: (type === 'grid' ? gridPoints(column, offsets, st, k) : railPoints(column, type, n, offset, d))
+        points: (type === 'grid' ? gridPoints(column, offsets, st, k, onBars) : railPoints(column, type, n, offset, d))
           .filter(placeable)
           .map(p => ({ ...p, s: arcLengthAt(column, offset, p) })),
       }));

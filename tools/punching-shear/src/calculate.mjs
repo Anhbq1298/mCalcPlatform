@@ -4,7 +4,7 @@ import { shearDemand } from './demand.mjs';
 import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
-import { arrangedLayers, faceGaps, outerPerimeterEf } from './arrangement.mjs';
+import { arrangedLayers, faceGaps, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
 import { offsetForLength } from './perimeters.mjs';
 import { profileFor } from './profile.mjs';
@@ -81,9 +81,13 @@ export function calculate(rawInput, options = {}) {
   // Radial spacing for the required A_sw (Eq. 6.52) and the layer grid: the auto arrangement's s_r, else
   // the recommended 0.75d rounded down to 5 mm.
   const srLimit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
-  ctx.envelopeSr = reinforcement.mode === 'auto' && reinforcement.sr > 0 ? Math.min(reinforcement.sr, srLimit) : srLimit;
-  const srNote = reinforcement.mode === 'auto' && reinforcement.sr > srLimit + 1e-9
-    ? `Auto arrangement: s_r = ${reinforcement.sr} mm exceeds 0.75d = ${(P.radialSpacing * d).toFixed(0)} mm (§9.4.3(1)); ${srLimit} mm used.` : null;
+  // Auto grid follows the flexural bars: links at bar intersections, s_r = s_t = bar spacing, when the
+  // spacing is the same both ways, the column is not rotated and the spacing is within 0.75d.
+  const barGrid = gridOnBars(input, d);
+  const sr = barGrid.on ? barGrid.spacing : reinforcement.sr;
+  ctx.envelopeSr = reinforcement.mode === 'auto' && sr > 0 ? Math.min(sr, srLimit) : srLimit;
+  const srNote = barGrid.note ?? (reinforcement.mode === 'auto' && sr > srLimit + 1e-9
+    ? `Auto arrangement: s_r = ${sr} mm exceeds 0.75d = ${(P.radialSpacing * d).toFixed(0)} mm (§9.4.3(1)); ${srLimit} mm used.` : null);
   const demands = loads.map(load => demandFor(ctx, load));
   const needing = demands.filter(item => item.required);
   if (needing.some(item => item.aOut === null)) {
@@ -119,7 +123,7 @@ export function calculate(rawInput, options = {}) {
     const uReq = fig622 && needing.length ? Math.max(...needing.map(item => model.intervalsAt(item.aOut).total)) : null;
     const generated = !needing.length
       ? { layers: [], reason: 'No punching reinforcement required.' }
-      : arrangedLayers({ model, d, aOut: layoutOut, type, sr: ctx.envelopeSr, st: reinforcement.st, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
+      : arrangedLayers({ model, d, aOut: layoutOut, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
     layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
     if (generated.note) limitNotes.push(generated.note);
     if (srNote && needing.length) limitNotes.push(srNote);
