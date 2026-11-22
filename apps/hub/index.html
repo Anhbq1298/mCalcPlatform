@@ -17,10 +17,16 @@
   <main>
     <section id="tools" aria-labelledby="tool-heading">
       <header class="section-head">
-        <h1 id="tool-heading">Tool Library</h1>
+        <h1 id="tool-heading">Engineering Design Tools</h1>
         <a class="button" id="submit" href="mailto:buiquanganh1298@gmail.com?subject=mCalc%20Tool%20Submission">Submit a tool</a>
       </header>
+      <p class="tool-intro muted">Select a design category or search for a calculation module.</p>
+      <div class="tool-filters">
+        <input type="search" id="tool-search" aria-label="Search tools" placeholder="Search by module, category, or design code">
+        <div class="tool-categories" id="tool-categories" role="group" aria-label="Tool categories"></div>
+      </div>
       <div class="catalog" id="catalog"></div>
+      <p id="catalog-empty" class="muted" role="status"></p>
     </section>
     <section id="projects" aria-labelledby="project-heading" hidden>
       <header class="section-head">
@@ -62,9 +68,12 @@
     <form>
       <h2 id="picker-title">Add design module</h2>
       <p id="picker-destination" class="muted"></p>
-      <label>Search modules <input type="search" id="module-search" placeholder="Search by module, app, or design code" autofocus></label>
+      <div class="tool-filters">
+        <label>Search modules <input type="search" id="module-search" placeholder="Search by module, category, or design code" autofocus></label>
+        <div class="tool-categories" id="module-categories" role="group" aria-label="Tool categories"></div>
+      </div>
       <div class="catalog" id="module-options" role="radiogroup" aria-label="Design modules"></div>
-      <p id="no-modules" class="muted" role="status" hidden>No modules found</p>
+      <p id="no-modules" class="muted" role="status"></p>
       <label>Design name <input id="design-name" maxlength="200" required disabled></label>
       <div class="actions">
         <button type="button" id="cancel-design">Cancel</button>

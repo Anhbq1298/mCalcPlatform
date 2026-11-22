@@ -14,5 +14,7 @@
   "permissions": [],
   "title": "Circular RC Column",
   "code": "EC2",
-  "keywords": ["eurocode 2", "reinforced concrete", "circular", "spiral", "shear", "pile"]
+  "category": "concrete",
+  "designCodes": [{ "id": "EN-1992-1-1", "label": "EC2 · EN 1992-1-1" }],
+  "keywords": ["mConcreteCirCol", "eurocode 2", "reinforced concrete", "circular", "spiral", "shear", "pile"]
 }

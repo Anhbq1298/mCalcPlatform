@@ -1,11 +1,13 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { toolCategories } from '../apps/tool-filters.mjs';
 import { projectFolders } from '../packages/design-sdk/src/index.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const folders = new Set(projectFolders.map(([id]) => id));
 const routes = new Set();
+const categories = new Set(toolCategories.slice(1).map(([id]) => id));
 let failed = false;
 function check(condition, reason) {
   if (!condition) { console.error(reason); failed = true; }
@@ -18,6 +20,13 @@ for (const dir of await readdir(join(root, 'tools'), { withFileTypes: true })) {
   check(Array.isArray(manifest.labels) && manifest.labels.length && folders.has(manifest.folder), 'Invalid purpose or folder: ' + dir.name);
   check(/^(?:[a-z0-9-]+\/)+$/.test(manifest.entry) && !routes.has(manifest.entry), 'Invalid or duplicate route: ' + manifest.entry);
   routes.add(manifest.entry);
+  check(categories.has(manifest.category), 'Invalid tool category: ' + dir.name);
+  if (manifest.designCodes !== undefined) {
+    const codes = manifest.designCodes;
+    check(Array.isArray(codes) && codes.every(code =>
+      typeof code?.id === 'string' && code.id.trim() && typeof code.label === 'string' && code.label.trim()) &&
+      new Set(codes.map(code => code.id)).size === codes.length, 'Invalid or duplicate design code: ' + dir.name);
+  }
 }
 async function scan(folder) {
   for (const item of await readdir(folder, { withFileTypes: true })) {

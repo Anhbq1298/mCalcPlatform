@@ -18,6 +18,8 @@
   "permissions": [],
   "title": "Steel Beam-Column",
   "code": "EC3",
+  "category": "steel",
+  "designCodes": [{ "id": "EN-1993-1-1", "label": "EC3 · EN 1993-1-1" }],
   "keywords": [
     "eurocode 3",
     "steel beam",
