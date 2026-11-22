@@ -12,6 +12,8 @@ const SHORT = {
   sector: 'Sector mapping (not EC2)',
 };
 const INFO = [STATES.notRequired, STATES.linksRequired];
+// Short name of a check; slab-section rows beyond a drop reuse the base name.
+const shortName = row => SHORT[row.id] ?? (row.id.startsWith('ext-') && SHORT[row.id.slice(4)] ? `Outside drop · ${SHORT[row.id.slice(4)]}` : row.label);
 const f = (value, digits = 3) => (Number.isFinite(value) ? value.toFixed(digits) : '—');
 const esc = text => String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
@@ -59,7 +61,7 @@ export function renderCompact(panel, result, loadName, selectedId, onSelect) {
   const bars = rows.map(row => {
     const width = Math.min(row.ur, 1.25) / 1.25 * 100;
     return `<button type="button" class="ur-row${row === pick ? ' is-selected' : ''}${row === governing ? ' is-governing' : ''}" data-check="${esc(row.id)}">`
-      + `<span class="ur-name">${esc(SHORT[row.id] ?? row.label)}<small>${esc(row.clause)}</small></span>`
+      + `<span class="ur-name">${esc(shortName(row))}<small>${esc(row.clause)}</small></span>`
       + `<span class="ur-bar"><span class="ur-fill ${tone(row.status)}" style="width:${width.toFixed(1)}%"></span><span class="ur-one"></span></span>`
       + `<span class="ur-value ${tone(row.status)}">${row.ur.toFixed(2)}</span></button>`;
   }).join('');
@@ -77,10 +79,10 @@ export function renderCompact(panel, result, loadName, selectedId, onSelect) {
   const warnings = load.rows.filter(row => row.warning && row.status !== STATES.pass)
     .map(row => `<p class="compact-warning">⚠ ${esc(row.detail ?? row.label)}</p>`).join('');
   panel.innerHTML = `<div class="compact-head"><span class="compact-ur ${tone(result.status)}">${governing ? governing.ur.toFixed(3) : '—'}</span><span class="compact-status ${tone(result.status)}">${esc(result.status)}</span></div>`
-    + `<p class="compact-governing">Governing: ${esc(governing ? (SHORT[governing.id] ?? governing.label) : '—')} · ${esc(load.name)}</p>`
+    + `<p class="compact-governing">Governing: ${esc(governing ? shortName(governing) : '—')} · ${esc(load.name)}</p>`
     + `<div class="ur-list" role="list">${bars}</div>${warnings}`
     + `<h3 class="compact-title">Key parameters</h3><div class="key-grid">${keys}</div>`
-    + `<h3 class="compact-title">How: ${esc(pick ? SHORT[pick.id] ?? pick.label : '')}</h3><div class="how">${lines.map(line => `<p>${esc(line)}</p>`).join('')}</div>`;
+    + `<h3 class="compact-title">How: ${esc(pick ? shortName(pick) : '')}</h3><div class="how">${lines.map(line => `<p>${esc(line)}</p>`).join('')}</div>`;
   htmlSubscripts(panel);
   for (const button of panel.querySelectorAll('.ur-row')) button.addEventListener('click', () => onSelect(button.dataset.check));
 }
