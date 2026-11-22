@@ -497,9 +497,11 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await page.locator('summary', { hasText: 'Drop panel' }).click();
   await expect(page.getByLabel('Include a drop panel (concentric)')).toBeChecked();
   await expect(page.locator('#punching-inputs')).not.toContainText('accepted');
+  await expect(page.locator('#column-check-summary')).toContainText('Fig. 6.18');
+  await expect(page.locator('#column-check-summary')).toContainText('in the drop and beyond the drop');
+  await expect(page.locator('#example-variants')).toBeHidden();
   await page.getByRole('button', { name: 'Interior', exact: true }).click();
-  await page.getByRole('button', { name: 'Provided layout (fails)' }).click();
-  await expect(status).toContainText('Fail');
+  await expect(status).toContainText('Pass');
   await expect(page.locator('#punching-inputs summary math').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Stress' }).click();
   await expect(page.locator('#stress-view svg')).toBeVisible();
