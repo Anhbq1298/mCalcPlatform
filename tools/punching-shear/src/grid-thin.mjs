@@ -102,3 +102,41 @@ export function dropFillPoints({ column, layers, sr, box, d = Infinity, widen = 
   }));
   return points;
 }
+
+// Radial arrangement inside a drop: every radial line of the last perimeter continues outward at s_r to
+// the drop edge (less cover), with one more link on the edge when the gap left exceeds s_r/4, so the outer
+// zone of the drop is reinforced up to the depth change. Face lines run perpendicular to their face, corner
+// lines away from the column corner. Detailing links, as for the grid: not part of any perimeter.
+export function radialDropFillPoints({ column, layers, sr, box }) {
+  if (!box || !layers.length || !(sr > 0) || Math.abs(column.rotation || 0) > 1e-9) return [];
+  const circular = column.shape === 'circular';
+  const a = circular ? 0 : column.cx / 2;
+  const b = circular ? 0 : column.cy / 2;
+  const inBox = p => p.x >= box.xMin - 1e-6 && p.x <= box.xMax + 1e-6 && p.y >= box.yMin - 1e-6 && p.y <= box.yMax + 1e-6;
+  const direction = p => {
+    if (circular) return { x: p.x, y: p.y };
+    if (Math.abs(p.y) <= b + 1e-6) return { x: Math.sign(p.x), y: 0 };
+    if (Math.abs(p.x) <= a + 1e-6) return { x: 0, y: Math.sign(p.y) };
+    return { x: p.x - Math.sign(p.x) * a, y: p.y - Math.sign(p.y) * b };
+  };
+  // Distance along the unit direction from p to the box boundary.
+  const reach = (p, u) => Math.min(
+    u.x > 1e-12 ? (box.xMax - p.x) / u.x : u.x < -1e-12 ? (box.xMin - p.x) / u.x : Infinity,
+    u.y > 1e-12 ? (box.yMax - p.y) / u.y : u.y < -1e-12 ? (box.yMin - p.y) / u.y : Infinity,
+  );
+  const points = [];
+  for (const p of layers.at(-1).points) {
+    if (!inBox(p)) continue;
+    const raw = direction(p);
+    const len = Math.hypot(raw.x, raw.y);
+    if (!(len > 0)) continue;
+    const u = { x: raw.x / len, y: raw.y / len };
+    const room = reach(p, u);
+    if (!(room > 0) || !Number.isFinite(room)) continue;
+    let k = 1;
+    for (; k * sr <= room + 1e-6; k += 1) points.push({ x: p.x + u.x * k * sr, y: p.y + u.y * k * sr });
+    const left = room - (k - 1) * sr;
+    if (left > sr / 4) points.push({ x: p.x + u.x * room, y: p.y + u.y * room });
+  }
+  return points;
+}

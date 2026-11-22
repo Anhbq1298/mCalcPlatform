@@ -205,3 +205,20 @@ test('drop at edge and corner columns: β outside the drop is capped at the colu
     assert.ok(steel(drop) < steel(flat), `${position} ${arrangement}: drop ${steel(drop)} ≥ flat ${steel(flat)}`);
   }
 });
+
+test('radial arrangement in a drop: radial lines continue to the drop edge (detailing links)', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  input.column = { ...input.column, cx: 400, cy: 400 };
+  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'radial' };
+  input.loads = [{ name: 'U', V: 1500, Mx: 20, My: 40 }];
+  const result = calculateDesign(input);
+  assert.equal(result.status, 'Pass');
+  const fill = result.layout.links.filter(link => link.edge);
+  assert.ok(fill.length > 0);
+  const edge = 1000 - input.slab.cover; // drop half-width less cover, local to the column centre
+  assert.ok(fill.every(link => Math.abs(link.position.x) <= edge + 1e-6 && Math.abs(link.position.y) <= edge + 1e-6));
+  assert.ok(Math.max(...fill.map(link => Math.max(Math.abs(link.position.x), Math.abs(link.position.y)))) >= edge - 1e-6);
+});

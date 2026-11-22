@@ -6,9 +6,10 @@ import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
 import { arcLengthAt, arrangedLayers, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
 import { optimise } from './optimise.mjs';
-import { dropFillPoints, ringGaps } from './grid-thin.mjs';
+import { dropFillPoints, radialDropFillPoints, ringGaps } from './grid-thin.mjs';
+import { toGlobal } from './geometry.mjs';
+import { exclusion, offsetForLength } from './perimeters.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
-import { offsetForLength } from './perimeters.mjs';
 import { profileFor } from './profile.mjs';
 import { CODE_PARAMETERS as P, outerPerimeterLength, requiredAswPerPerimeter } from './resistance.mjs';
 import { checkLayout, row } from './reinforcement-checks.mjs';
@@ -155,9 +156,13 @@ export function calculate(rawInput, options = {}) {
   const base = options.layerBase ?? 0;
   const links = buildLinks(model, layout.layers, layout.mode === 'auto' ? 'auto' : 'user', base);
   const summary = layerSummary(model, layout.layers, links, base);
-  // Drop: grid links out to the drop edge beyond the last ring (detailing; not counted in the checks).
-  if (layout.mode === 'auto' && layout.arrangement === 'grid' && options.dropBox && layout.layers.length) {
-    const fill = dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox, d, widen: reinforcement.thin !== false });
+  // Drop: links out to the drop edge beyond the last perimeter (detailing; not counted in the checks) —
+  // on the grid lines for the grid, along every radial line for the radial arrangement.
+  if (layout.mode === 'auto' && options.dropBox && layout.layers.length) {
+    const fill = (layout.arrangement === 'grid'
+      ? dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox, d, widen: reinforcement.thin !== false })
+      : radialDropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox }))
+      .filter(p => !exclusion(model, toGlobal(model.column, p)));
     const last = layout.layers.at(-1);
     const edge = { ...last, id: 'E', points: fill.map(p => ({ ...p, s: arcLengthAt(model.column, last.offset, p) })), omitted: [] };
     if (fill.length) links.push(...buildLinks(model, [edge], 'auto', base).map(link => ({ ...link, layerId: 'E', layerIndex: -1, edge: true })));
