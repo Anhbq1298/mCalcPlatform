@@ -2,6 +2,8 @@
 // label > span + control). Values are read from and written to a nested state object by path.
 // Labels are plain text with $…$ LaTeX spans rendered as MathML.
 import { LINK_DIAMETERS } from './inputs.mjs';
+import { SUMMARY } from './form-summary.mjs';
+import { htmlSubscripts } from './subscript.mjs';
 import { labelHtml, labelText } from './tex.mjs';
 
 const get = (state, path) => path.split('.').reduce((value, key) => value?.[key], state);
@@ -88,11 +90,20 @@ export const GROUPS = [
 
 export function buildForm(form, anchors, getState, onChange) {
   const rows = [];
+  const cards = [];
   for (const [title, fields] of GROUPS) {
-    const group = document.createElement('fieldset');
-    const legend = document.createElement('legend');
-    legend.innerHTML = labelHtml(title);
-    group.append(legend);
+    // Each group is a card: a one-line summary when closed; one card open at a time unless all are shown.
+    const group = document.createElement('details');
+    group.className = 'input-card';
+    const legend = document.createElement('summary');
+    legend.innerHTML = `<span class="card-title">${labelHtml(title)}</span><span class="card-summary"></span>`;
+    const body = document.createElement('div');
+    body.className = 'card-body';
+    group.append(legend, body);
+    cards.push({ group, title, text: legend.querySelector('.card-summary') });
+    group.addEventListener('toggle', () => {
+      if (group.open && !form.classList.contains('all-open')) for (const other of cards) if (other.group !== group) other.group.open = false;
+    });
     for (const [path, label, type, options, visible = yes] of fields) {
       const row = document.createElement('label');
       const name = document.createElement('span');
@@ -109,11 +120,12 @@ export function buildForm(form, anchors, getState, onChange) {
       control.dataset.path = path;
       control.setAttribute('aria-label', labelText(label));
       row.append(name, control);
-      group.append(row);
+      if (type === 'checkbox' || type === 'select' && options.some(entry => entry.label.length > 24)) row.classList.add('wide');
+      body.append(row);
       rows.push({ row, control, path, type, options, visible });
     }
     const anchor = anchors[labelText(title)] ?? anchors[title];
-    if (anchor) group.append(anchor);
+    if (anchor) { anchor.classList.add('wide'); body.append(anchor); }
     form.append(group);
   }
   form.addEventListener('input', event => {
@@ -130,6 +142,12 @@ export function buildForm(form, anchors, getState, onChange) {
   });
   function refresh() {
     const state = getState();
+    for (const card of cards) {
+      let text = '';
+      try { text = SUMMARY[card.title]?.(state) ?? ''; } catch { text = ''; }
+      card.text.textContent = text;
+      htmlSubscripts(card.text);
+    }
     for (const entry of rows) {
       entry.row.hidden = !entry.visible(state);
       const value = get(state, entry.path);
@@ -137,5 +155,10 @@ export function buildForm(form, anchors, getState, onChange) {
       else if (document.activeElement !== entry.control) entry.control.value = value ?? '';
     }
   }
+  refresh.showAll = on => {
+    form.classList.toggle('all-open', on);
+    for (const card of cards) card.group.open = on;
+  };
+  refresh.open = title => { for (const card of cards) card.group.open = card.title === title || form.classList.contains('all-open'); };
   return refresh;
 }

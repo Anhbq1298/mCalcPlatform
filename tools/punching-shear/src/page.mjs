@@ -11,6 +11,7 @@ import { htmlSubscripts } from './subscript.mjs';
 import { LINK_DIAMETERS, newDefaults, restoreInputs } from './inputs.mjs';
 import { newLayer } from './layout.mjs';
 import { planSvg } from './plan-view.mjs';
+import { renderCompact } from './output-view.mjs';
 import { renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
 import { sectionSvg } from './section-view.mjs';
 import { mountTable } from './table-controls.mjs';
@@ -32,6 +33,8 @@ let debounce;
 
 const anchors = { Openings: byId('openings-anchor'), 'Design actions': byId('loads-anchor'), 'Punching reinforcement': byId('layers-anchor') };
 const refreshForm = buildForm(form, anchors, () => state, () => schedule());
+refreshForm.open('Column');
+byId('show-all-inputs').addEventListener('input', event => refreshForm.showAll(event.target.checked));
 const number = 'number';
 const refreshOpenings = mountTable(byId('openings-anchor'), {
   caption: 'Openings', columns: [['x', '$X$', number], ['y', '$Y$', number], ['w', 'Width $b$', number], ['h', 'Height $h$', number]],
@@ -61,10 +64,12 @@ const refreshLayers = mountTable(layerTableHost, {
 
 // Calculation case: worked cases appear as cards only when "Worked case" is chosen.
 let activeCard = null;
+let selectedCheck = null;
 let activeVariant = null;
 function loadVariant(item) {
   state = restoreInputs(item.input);
   activeVariant = item.id;
+  selectedCheck = null;
   byId('example-note').textContent = item.note;
   selected = null;
   renderCards();
@@ -98,6 +103,12 @@ function renderCards() {
   htmlSubscripts(byId('example-variants'));
 }
 byId('case-mode').addEventListener('input', renderCards);
+// Drawing tabs: one drawing at a time in the centre column.
+const tabs = [...document.querySelectorAll('.drawing-tabs [role="tab"]')];
+for (const tab of tabs) tab.addEventListener('click', () => {
+  for (const other of tabs) other.setAttribute('aria-selected', String(other === tab));
+  for (const panel of document.querySelectorAll('.tab-panel')) panel.hidden = panel.dataset.panel !== tab.dataset.tab;
+});
 byId('load-type').addEventListener('input', event => { state.loadType = event.target.value; schedule(); });
 byId('combination').addEventListener('input', render);
 byId('copy-layout').addEventListener('click', () => {
@@ -153,7 +164,8 @@ function schedule() {
 function recalculate() {
   try {
     result = calculate(state);
-    status.textContent = 'Calculation complete · ' + result.status;
+    status.textContent = result.status + (Number.isFinite(result.governing?.ur) ? ` · UR ${result.governing.ur.toFixed(2)}` : '');
+    status.dataset.tone = result.status === 'Pass' ? 'pass' : result.status === 'Fail' ? 'fail' : 'warn';
   } catch (error) {
     result = null;
     status.textContent = 'Calculation error: ' + error.message;
@@ -167,7 +179,8 @@ function render() {
   const current = combination.value;
   combination.replaceChildren(...names.map(name => new Option(name + (name === result.governing?.load ? ' (governing)' : ''), name)));
   combination.value = names.includes(current) ? current : result.governing?.load ?? '';
-  renderSummary(byId('column-check-summary'), byId('design-status'), result, combination.value);
+  renderSummary(document.createElement('div'), byId('design-status'), result, combination.value);
+  renderCompact(byId('column-check-summary'), result, combination.value, selectedCheck, id => { selectedCheck = id; render(); });
   renderMessages(byId('messages'), result);
   renderDetails(byId('checks'), result, combination.value);
   renderBasis(byId('code-basis'), result.profile);

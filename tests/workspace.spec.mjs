@@ -305,6 +305,7 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.goto('./');
   await page.locator('a[href*="t/punching-shear/"]').filter({ hasText: 'New design' }).first().click();
   await expect(page.getByRole('heading', { name: /mPunchingShear/ })).toBeVisible();
+  await page.getByLabel('Show all inputs').check();
   const status = page.locator('#design-status');
   await expect(status).toContainText('Incomplete input');
   await page.getByLabel('Braced, spans differ ≤ 25 % (§6.4.3(6))').check();
@@ -343,7 +344,9 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
   await expect(page.getByLabel('2 M_y', { exact: true })).toHaveValue('60');
   await expect(status).toHaveText(before);
+  await page.getByRole('tab', { name: 'Section B–B' }).click();
   await expect(page.locator('#section-view-b svg')).toBeVisible();
+  await page.getByRole('tab', { name: 'Plan' }).click();
   const viewport = page.viewportSize();
   await page.setViewportSize({ width: 375, height: 812 });
   const plan = await page.locator('#plan-view svg').boundingBox();
@@ -362,14 +365,17 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await page.getByRole('button', { name: 'Interior + drop' }).click();
   await expect(status).toContainText('Pass');
   await expect(page.locator('#plan-view')).toContainText('u1,ext');
+  await page.getByRole('tab', { name: 'Section A–A' }).click();
   await expect(page.locator('#section-view')).toContainText('hH');
   await expect(page.locator('#section-view')).toContainText('u1,ext');
+  await page.locator('summary', { hasText: 'Drop panel' }).click();
   await expect(page.getByLabel('Include a drop panel (concentric)')).toBeChecked();
   await expect(page.locator('#punching-inputs')).not.toContainText('accepted');
   await page.getByRole('button', { name: 'Interior', exact: true }).click();
   await page.getByRole('button', { name: 'Provided layout (fails)' }).click();
   await expect(status).toContainText('Fail');
-  await expect(page.locator('#punching-inputs math').first()).toBeVisible();
+  await expect(page.locator('#punching-inputs summary math').first()).toBeVisible();
+  await page.getByRole('tab', { name: 'Stress' }).click();
   await expect(page.locator('#stress-view svg')).toBeVisible();
   await expect(page.locator('#sign-view')).toContainText('ULS 1');
 });

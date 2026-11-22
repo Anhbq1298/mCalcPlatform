@@ -19,6 +19,7 @@
         <div id="example-cards" class="example-cards" role="group" aria-label="Worked cases" hidden></div>
         <div id="example-variants" class="example-variants" role="group" aria-label="Variants" hidden></div>
         <p id="example-note" class="table-caption"></p>
+        <label class="show-all"><input type="checkbox" id="show-all-inputs"><span>Show all inputs</span></label>
       </fieldset>
       <div id="openings-anchor">
         <p class="table-caption">Openings (centre X, Y and size in mm)</p>
@@ -41,23 +42,38 @@
       </div>
     </form>
     <section class="section-view drawing-views" aria-labelledby="plan-title">
-      <h2 id="plan-title">Plan</h2>
-      <div id="plan-view" class="drawing" role="img" aria-label="Plan of column, control perimeters and links"></div>
-      <p id="selection-info">Select a link in the plan to inspect it.</p>
-      <h2 class="detail-title">Loading and sign convention</h2>
-      <div id="sign-view" class="drawing" role="img" aria-label="Loading plan and sign convention"></div>
-      <h2 class="detail-title">Section A–A (local x)</h2>
-      <div id="section-view" class="drawing" role="img" aria-label="Section A–A along the local x-axis"></div>
-      <h2 class="detail-title">Section B–B (local y)</h2>
-      <div id="section-view-b" class="drawing" role="img" aria-label="Section B–B along the local y-axis"></div>
-      <h2 class="detail-title">Shear stress along the control perimeters</h2>
-      <div id="stress-view" class="drawing" role="img" aria-label="Shear stress along u0, u1 and u_out"></div>
-      <h2 class="detail-title">Link layer schedule</h2>
-      <div class="schedule-wrap">
-        <table id="layer-schedule" class="column-summary-table">
-          <thead><tr><th scope="col">Layer</th><th scope="col">Offset</th><th scope="col">Ø</th><th scope="col">Shape</th><th scope="col">Links</th><th scope="col">Eff. legs</th><th scope="col">A_sw (mm²)</th><th scope="col">s_r</th><th scope="col">s_t max ≤ limit</th><th scope="col">Reinforcement</th><th scope="col">Detailing</th></tr></thead>
-          <tbody></tbody>
-        </table>
+      <h2 id="plan-title" class="visually-hidden">Drawings</h2>
+      <div class="drawing-tabs" role="tablist" aria-label="Drawings">
+        <button type="button" role="tab" data-tab="plan" aria-selected="true">Plan</button>
+        <button type="button" role="tab" data-tab="loading" aria-selected="false">Loading</button>
+        <button type="button" role="tab" data-tab="section-a" aria-selected="false">Section A–A</button>
+        <button type="button" role="tab" data-tab="section-b" aria-selected="false">Section B–B</button>
+        <button type="button" role="tab" data-tab="stress" aria-selected="false">Stress</button>
+        <button type="button" role="tab" data-tab="schedule" aria-selected="false">Schedule</button>
+      </div>
+      <div class="tab-panel" data-panel="plan">
+        <div id="plan-view" class="drawing" role="img" aria-label="Plan of column, control perimeters and links"></div>
+        <p id="selection-info">Select a link in the plan to inspect it.</p>
+      </div>
+      <div class="tab-panel" data-panel="loading" hidden>
+        <div id="sign-view" class="drawing" role="img" aria-label="Loading plan and sign convention"></div>
+      </div>
+      <div class="tab-panel" data-panel="section-a" hidden>
+        <div id="section-view" class="drawing" role="img" aria-label="Section A–A along the local x-axis"></div>
+      </div>
+      <div class="tab-panel" data-panel="section-b" hidden>
+        <div id="section-view-b" class="drawing" role="img" aria-label="Section B–B along the local y-axis"></div>
+      </div>
+      <div class="tab-panel" data-panel="stress" hidden>
+        <div id="stress-view" class="drawing" role="img" aria-label="Shear stress along u0, u1 and u_out"></div>
+      </div>
+      <div class="tab-panel" data-panel="schedule" hidden>
+        <div class="schedule-wrap">
+          <table id="layer-schedule" class="column-summary-table">
+            <thead><tr><th scope="col">Layer</th><th scope="col">Offset</th><th scope="col">Ø</th><th scope="col">Shape</th><th scope="col">Links</th><th scope="col">Eff. legs</th><th scope="col">A_sw (mm²)</th><th scope="col">s_r</th><th scope="col">s_t max ≤ limit</th><th scope="col">Reinforcement</th><th scope="col">Detailing</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
     <section class="checks" aria-labelledby="results-title">
@@ -67,10 +83,14 @@
       <div id="column-check-summary" aria-live="polite"></div>
       <p id="design-status"></p>
       <div id="messages"></div>
-      <h2 class="detail-title">Calculation details</h2>
-      <dl id="checks"></dl>
-      <h2 class="detail-title">Code basis</h2>
-      <div id="code-basis"></div>
+      <details class="all-values">
+        <summary>All intermediate values</summary>
+        <dl id="checks"></dl>
+      </details>
+      <details class="all-values">
+        <summary>Code basis &amp; assumptions</summary>
+        <div id="code-basis"></div>
+      </details>
     </section>
   </main>
   <script type="module" src="/platform/tools/punching-shear/src/page.mjs"></script>
