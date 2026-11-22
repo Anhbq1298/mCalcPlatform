@@ -11,7 +11,7 @@ export const COLORS = {
   ink: '#141414', muted: '#6b7076', rule: '#c9ced3', steel: '#141414', concrete: '#ffffff',
   slab: '#ffffff', edge: '#b9bec4', u1: '#141414', uout: '#141414', fail: '#b3261e', governing: '#8a8f94', opening: '#141414',
   gridMinor: '#f0f2f4', gridMajor: '#dde1e5',
-  link: '#d32f2f', bar: '#7a8088',
+  link: '#d32f2f', bar: '#7a8088', drop: '#1f6fd1',
 };
 
 // QLEADER-style callout: arrowhead at the feature, 45° leg of `run` px, horizontal landing, text on

@@ -201,7 +201,7 @@ function legend(width, height, legendHeight, show, values = '') {
     [true, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.ink}" stroke-dasharray="${DASH.u1}" stroke-width="1.3"/>`, 'u1'],
     [show.ext, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.ink}" stroke-dasharray="${DASH.ext}"/>`, 'u1,ext'],
     [show.out, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.ink}" stroke-dasharray="${DASH.uout}"/>`, 'u_out,ef'],
-    [show.head, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.ink}" stroke-dasharray="${DASH.hidden}"/>`, 'Drop (below)'],
+    [show.head, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.drop}" stroke-width="1.2" stroke-dasharray="${DASH.hidden}"/>`, 'Drop (hidden, below)'],
     [show.gap, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.governing}" stroke-width="4"/>`, 'Governing gap'],
     [true, `<line x1="0" y1="0" x2="14" y2="0" stroke="${COLORS.edge}" stroke-width="1.6"/>`, 'Slab edge'],
   ].filter(([on]) => on);
