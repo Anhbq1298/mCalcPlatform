@@ -233,7 +233,7 @@
     <tr><td>Auto arrangement</td><td>Constraints first (Ø range, max s<sub>r</sub>, bar grid); all combinations of Ø, radial lines and s<sub>r</sub>; least link steel of the passing layouts.</td><td>Tool procedure</td></tr>
     <tr><td>Eq. 6.52</td><td>Smallest effective A<sub>sw</sub> of any perimeter and the largest s<sub>r</sub>.</td><td>Conservative</td></tr>
     <tr><td>k<sub>max</sub></td><td>1.5·v<sub>Rd,c</sub> (CEN, A1:2014 Note) or 2·v<sub>Rd,c</sub> (SG / UK NA); links cannot fix a failure here.</td><td>Code / NA</td></tr>
-    <tr><td>Moments</td><td>Through β only; uniform β·v<sub>Ed</sub>. With a drop, the column (inside) or the drop (outside) is the loaded area for W1. The stress figure shows the plastic distribution (Fig. 6.19).</td><td>Code; drop W1 is an interpretation</td></tr>
+    <tr><td>Moments</td><td>Through β only; uniform β·v<sub>Ed</sub>. With a drop, the column (inside) or the drop (outside) is the loaded area for W1. Outside the drop β is taken no larger than the β of the column connection (same load, column as the loaded area, slab d): with the drop as the loaded area, β = u1/u1* (Eq. 6.44/6.46) grows with the drop size although the moment transferred does not, and would make a drop at an edge or corner column need more links than no drop. When the cap governs the β row says so. The stress figure shows the plastic distribution (Fig. 6.19).</td><td>Code; drop W1 and the β cap outside the drop are tool rules</td></tr>
     <tr><td>Links and flexural bars</td><td>Assumed to enclose the top and bottom flexural bars; not checked.</td><td>Stated assumption</td></tr>
     <tr><td>First layer &lt; 0.3d</td><td>Shown as a warning (The Concrete Centre guidance, not a code limit).</td><td>Guidance</td></tr>
   </tbody></table>
@@ -243,7 +243,7 @@
     <li>EN 1992-1-1:2004 + AC:2010 + A1:2014, Eurocode 2: Design of concrete structures — Part 1-1: §6.4 punching (Eq. 6.32–6.54, Figs. 6.12–6.22, Table 6.1), §8.3 and §8.5 (mandrels, link anchorage), §9.3.2 and §9.4.3 (slab and punching detailing). CEN recommended values unless a National Annex profile is chosen.</li>
     <li>A1:2014, §6.4.5(1) Note: k<sub>max</sub> = 1.5 upper limit with shear reinforcement.</li>
     <li>NA to SS EN 1992-1-1:2008 + A1:2010 (Singapore) and NA to BS EN 1992-1-1 (UK): profile values taken from secondary sources (SCIA Engineer NA tables; CADS and The Concrete Centre notes). Singapore is the default profile; its values were accepted by the user (22 Nov 2026) as matching the SG NA. The UK profile asks for a tick ("UK NA values checked") before giving a result.</li>
-    <li>The Concrete Centre guidance: first link perimeter ≥ 0.3d from the loaded area (reported as guidance, Requires confirmation).</li>
+    <li>The Concrete Centre guidance: first link perimeter ≥ 0.3d from the loaded area (reported as guidance).</li>
     <li><a href="https://support.tekla.com/doc/tekla-structural-designer/2025/ref_punching_shear_checks_ec2">Tekla Structural Designer: Punching shear checks to EC2</a>: control perimeter outside the drop, and inside it only when it fits; the drop outline as the loaded area of the outer section. Used for rectangular drops and links beyond the drop (interpretation).</li>
     <li>Blueprints (open source, MIT): implementations of Eq. 6.44–6.46 used to cross-check the edge and corner β formulas.</li>
     <li>Ancon (Leviat), Shearfix Punching Shear Reinforcement — EC2 Design Manual, Example 16.1 (cruciform u<sub>out,ef</sub>): https://www.ancon.co.uk/downloads/6431/Shearfix_Design_Manual_to_EC2.pdf</li>

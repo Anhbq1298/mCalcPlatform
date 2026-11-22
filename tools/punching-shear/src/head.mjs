@@ -165,6 +165,8 @@ export function calculateDesign(raw, forcedKind = null) {
   if (blocking.length) return { status: worstState(blocking.map(item => item.state)), issues: blocking, notes: [], profile: base.profile, loads: [], input };
 
   const d = base.section.d;
+  // β around the drop is capped at the column connection's β (calculate.mjs capBeta, see Help).
+  const betaCap = new Map((base.loads ?? []).map(load => [load.name, load.beta?.value]));
   const geo0 = headGeometry(input);
   const geo = forcedKind ? { ...geo0, kind: forcedKind } : geo0;
   // β from moments with a drop: column (inside) or drop (outside) as the loaded area, see Help.
@@ -199,7 +201,7 @@ export function calculateDesign(raw, forcedKind = null) {
   if (geo.kind === 'small' && !internal) {
     // Edge/corner: slab section around the clipped drop at 2d (Eq. 6.34/6.35 are for internal columns).
     const face = { u0: base.u0, d, label: 'Maximum punching stress at u0 (slab d, conservative)' };
-    const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
+    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
     return single(outer, { kind: 'small', edge: true, columnModel: base.model, ...geo, d, rcont: null, sections: [extSection(outer, 'Fig. 6.15 (interpretation)')] });
   }
   if (geo.kind === 'small') {
@@ -208,12 +210,12 @@ export function calculateDesign(raw, forcedKind = null) {
     const face = { u0: perimeterAtOffset(input.column, 0), d, label: 'Maximum punching stress at the column face (slab d, conservative)', detail: 'u0 = column perimeter; d of the slab ignores the head depth.' };
     // Circular heads: the equivalent circle is the head itself, so links follow the head outline.
     if (geo.circular) {
-      const outer = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, ...zone(split.slab, 0) });
+      const outer = calculate(sub, { betaCap, face, label: `Slab at r_cont (${rc.eq})`, ...zone(split.slab, 0) });
       return single(outer, { kind: 'small', columnModel: base.model, ...geo, d, rcont: rc, sections: [extSection(outer, rc.eq)] });
     }
     // Rectangular heads: check on the equivalent circle, links on the head outline (head-mapped.mjs).
-    const circle = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, noLinks: 'mapped' });
-    const rect = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, noLinks: 'geometry only' });
+    const circle = calculate(sub, { betaCap, face, label: `Slab at r_cont (${rc.eq})`, noLinks: 'mapped' });
+    const rect = calculate(asColumn(input, dropAsColumn), { betaCap, face: { skip: true }, noLinks: 'geometry only' });
     const info = { kind: 'small', columnModel: base.model, ...geo, d, rcont: rc, mapped: true, sections: [{ ...extSection(circle, rc.eq), model: rect.model ?? circle.model }] };
     if (!circle.loads?.length || !rect.model) return { ...circle, input, head: info };
     const mapped = mappedHeadLinks({ circle, rectModel: rect.model, input, rc, lHalfMin: Math.min(input.head.lx, input.head.ly) / 2, layers: split.slab });
@@ -224,13 +226,13 @@ export function calculateDesign(raw, forcedKind = null) {
   if (!inside) {
     // Only the slab section; the face check uses the column perimeter with d_H (§6.4.2(10)).
     const face = { u0: base.u0, d: dH, label: 'Maximum punching stress at u0 (d_H)' };
-    const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, 0) });
+    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, 0) });
     return single(outer, { kind: 'large', inner: false, columnModel: base.model, edge: !internal, ...geo, d, dH, sections: [extSection(outer, extEq)] });
   }
   const c = input.slab.cover;
   const dropBox = geo.circular ? null : { xMin: geo.extents.xMin + c, xMax: geo.extents.xMax - c, yMin: geo.extents.yMin + c, yMax: geo.extents.yMax - c };
   const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
-  const outer = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
+  const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
   const info = {
     kind: 'large', inner: true, columnModel: base.model, edge: !internal, ...geo, d, dH,
     sections: [{ id: 'int', label: 'Inside the drop', d: dH, offset: 2 * dH, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' }, extSection(outer, extEq)],

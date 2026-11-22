@@ -24,7 +24,7 @@ function normaliseLoads(loads = []) {
 }
 
 function demandFor(ctx, load) {
-  const beta = betaFor(ctx, load);
+  const beta = capBeta(betaFor(ctx, load), ctx.betaCap?.get(load.name));
   if (!Number.isFinite(beta.value)) return { load, beta, unsupported: true };
   const { d, u0, u1, res, model } = ctx;
   const vEd0 = shearDemand({ V: load.V, beta: beta.value, u: u0, d: ctx.faceD });
@@ -34,6 +34,13 @@ function demandFor(ctx, load) {
   const aOut = offsetForLength(model, uOut, (m, r) => m.intervalsAt(r));
   const aswReq = required ? requiredAswPerPerimeter({ vEd: vEd1, vRdc: res.vRdc, u1, sr: ctx.envelopeSr, fywdEf: ctx.fywdEf }) : 0;
   return { load, beta, vEd0, vEd1, required, uOut, aOut, aswReq };
+}
+
+// Slab around a drop: β is not larger than the column connection's β (head.mjs, see Help). With the drop
+// as the loaded area, u1/u1* grows with the drop size although the moment transferred does not.
+function capBeta(beta, cap) {
+  if (!(Number.isFinite(cap) && Number.isFinite(beta.value)) || beta.value <= cap + 1e-9) return beta;
+  return { ...beta, value: cap, method: `β of the column connection (${cap.toFixed(3)}), smaller than ${beta.value.toFixed(3)} by ${beta.method} with the drop as the loaded area (tool rule, see Help)`, uncapped: beta.value };
 }
 
 function loadResult(ctx, item, layout, summary, links, detailing) {
@@ -79,6 +86,7 @@ export function calculate(rawInput, options = {}) {
   const profile = profileFor(input.code?.profile);
   if (issues.length) return { status: worstState(issues.map(item => item.state)), issues, notes: [], profile, loads: [], input };
   const ctx = createContext(input, options);
+  ctx.betaCap = options.betaCap ?? null;
   const blocking = positionIssues(input, ctx.position);
   if (blocking.length) return { status: worstState(blocking.map(item => item.state)), issues: blocking, notes: [], profile, loads: [], input, position: ctx.position };
 

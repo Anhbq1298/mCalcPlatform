@@ -189,3 +189,19 @@ test('tangential spacing s_t sets the link count per layer; Auto arrangement rou
   provided.layout.summary.forEach((layer, i) => assert.ok(layer.physicalLinks >= auto.layout.summary[i].physicalLinks, layer.id));
   assert.equal(provided.status, auto.status);
 });
+
+test('drop at edge and corner columns: β outside the drop is capped at the column β, so the drop never needs more links than no drop', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const steel = r => r.layout.links.reduce((s, l) => s + l.legs.length * Math.PI * l.diameter ** 2 / 4, 0);
+  for (const [position, V, Mx, My] of [['edge', 500, 60, -20], ['corner', 260, -30, -30]]) for (const arrangement of ['grid', 'radial']) {
+    const input = newDefaults();
+    input.column = { ...input.column, cx: 400, cy: 400, position, x: 3800, y: position === 'corner' ? 3800 : 0 };
+    input.reinforcement = { ...input.reinforcement, enabled: true, arrangement };
+    input.loads = [{ name: 'U', V, Mx, My }];
+    const flat = calculateDesign(input);
+    const drop = calculateDesign({ ...input, head: { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 } });
+    assert.equal(drop.status, 'Pass');
+    assert.ok(steel(drop) < steel(flat), `${position} ${arrangement}: drop ${steel(drop)} ≥ flat ${steel(flat)}`);
+  }
+});
