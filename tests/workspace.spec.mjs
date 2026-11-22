@@ -442,6 +442,8 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.getByLabel('Provide punching reinforcement (shear links)').check();
   await expect(status).toContainText('Design status: Pass');
   await expect(page.locator('#layers-anchor')).toBeHidden(); // custom table only in custom mode
+  await expect(page.locator('#auto-schedule')).toContainText('Auto schedule'); // read-only schedule in auto mode
+  await expect(page.locator('#auto-schedule tbody tr')).not.toHaveCount(0);
   await page.getByLabel('Column position').selectOption('edge');
   await expect(status).toContainText('Incomplete input');
   await expect(page.locator('#messages')).toContainText('geometry is an internal column');

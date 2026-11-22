@@ -5,7 +5,7 @@ import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
 import { arcLengthAt, arrangedLayers, faceGaps, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
-import { dropFillPoints } from './grid-thin.mjs';
+import { dropFillPoints, ringGaps } from './grid-thin.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
 import { offsetForLength } from './perimeters.mjs';
 import { profileFor } from './profile.mjs';
@@ -86,11 +86,13 @@ export function calculate(rawInput, options = {}) {
   // Auto s_r: try the radial spacings the arrangement allows and keep the one with the fewest links that
   // passes (else the lowest UR). On the bar grid s_r is a whole multiple of the bar spacing.
   if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && reinforcement.srAuto !== false && !options.srFixed) {
-    const limit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
+    // The entered s_r is the user's upper limit (constraint); the code limit is 0.75d.
+    const limit = Math.min(Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5, reinforcement.sr > 0 ? reinforcement.sr : Infinity);
     const bars = gridOnBars(input, d);
     const candidates = bars.on
       ? Array.from({ length: Math.max(1, Math.floor(limit / bars.spacing + 1e-9)) }, (_, k) => (k + 1) * bars.spacing)
-      : [...new Set([limit, ...Array.from({ length: 8 }, (_, k) => Math.floor((limit - 25 * (k + 1)) / 25) * 25).filter(v => v >= Math.max(50, 0.4 * d))])];
+      : [...new Set([limit, ...Array.from({ length: 8 }, (_, k) => Math.floor((limit - 25 * (k + 1)) / 25) * 25).filter(v => v >= Math.max(50, Math.min(0.4 * d, limit)))])];
+    if (!candidates.length) candidates.push(limit);
     const trials = candidates.map(sr => calculate({ ...input, reinforcement: { ...reinforcement, sr, srAuto: false } }, { ...options, srFixed: true }));
     const score = r => [r.status === STATES.pass ? 0 : 1, r.status === STATES.pass ? (r.layout?.links?.length ?? 0) : (r.governing?.ur ?? Infinity)];
     const best = trials.reduce((a, b) => { const [sa, va] = score(a); const [sb, vb] = score(b); return sb < sa || (sb === sa && vb < va) ? b : a; });
@@ -168,6 +170,8 @@ export function calculate(rawInput, options = {}) {
   }
   layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
   if (layout.arrangement === 'cruciform') summary.forEach(layer => { layer.tangential = faceGaps(model.column, layer.offset, layer.tangential); });
+  // Grid rings (closed, internal column): s_t as straight distances between neighbouring links.
+  if (layout.arrangement === 'grid' && layout.fig622) summary.forEach((layer, i) => { layer.tangential = ringGaps(layout.layers[i].points); });
   if (layout.fig622 && layout.layers.length) layout.outerEf = outerPerimeterEf(layout.layers.at(-1).points, d, P.outerK);
   const geometry = geometryLimits(ctx, Math.max(2 * d, envelope.aOut, ...layout.layers.map(layer => layer.offset)));
   if (Number.isFinite(linkLimit)) layout.layers.forEach((layer, index) => {

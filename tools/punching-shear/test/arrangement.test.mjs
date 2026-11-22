@@ -22,11 +22,13 @@ test('layers at s0 + k·s_r up to u_out,ef − 1.5d, at least two', () => {
   assert.deepEqual(layers.map(layer => layer.offset), [80, 230, 380, 530, 680]); // last ≥ 900 − 300
 });
 
-test('radial rails (Fig. 6.22 A): face rails as cruciform plus the fewest corner rails for s_t ≤ 1.5d in u1', () => {
+test('radial rails (Fig. 6.22 A): face rails plus corner rails that start where the corner gap needs them', () => {
   const wide = { ...column, cx: 300, cy: 900 };
   const mdl = { column: wide, slab: { xMin: -1e5, xMax: 1e5, yMin: -1e5, yMax: 1e5 }, openings: [], shadows: [] };
   const { layers, rails } = arrangedLayers({ model: mdl, d: 200, aOut: 900, type: 'radial', sr: 150, diameter: 10, shape: 'single', first: 80, outerK: 1.5 });
-  assert.equal(layers[0].points.length, 2 * 2 + 2 * 4 + 4 * rails); // faces 300 and 900 at ≤ 1.5d = 300
+  // L1 (80 mm): the corner gap without fan rails, (π/2)·80 = 126 ≤ 1.5d, so the corner rails start further out.
+  assert.equal(layers[0].points.length, 2 * 2 + 2 * 4);
+  assert.ok(layers.some(layer => layer.points.length === 2 * 2 + 2 * 4 + 4 * rails)); // fan rails where needed
   for (const layer of layers) {
     for (const p of layer.points) {
       const q = pointAt(wide, layer.offset, p.s);
@@ -218,4 +220,12 @@ test('auto s_r: the fewest links that pass; on the bar grid s_r is a multiple of
   assert.equal(radial.status, 'Pass');
   assert.ok(radial.layout.links.length <= fixed.layout.links.length);
   assert.ok(radial.notes.some(note => note.startsWith('Auto s_r')));
+});
+
+test('grid lines start at the corners of the first ring and step at exactly s_t', () => {
+  const { layers } = make('grid');
+  const xs = [...new Set(layers[0].points.map(p => Math.round(p.x * 1e6) / 1e6))].sort((a, b) => a - b);
+  assert.equal(xs[0], -(200 + 80));
+  const steps = xs.slice(1).map((x, i) => x - xs[i]);
+  assert.ok(steps.filter(step => Math.abs(step - 150) > 1e-6).length <= 2, String(steps)); // centre closing gap only
 });

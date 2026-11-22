@@ -154,3 +154,21 @@ export function renderSchedule(table, result, selectedLayer) {
     }
   });
 }
+
+// Compact read-only schedule of the auto arrangement, shown in the Punching reinforcement card.
+export function renderAutoSchedule(host, result) {
+  const layers = result?.layout?.summary ?? [];
+  if (!layers.length) {
+    host.innerHTML = `<p class="table-caption">${result?.layout?.reason ?? 'No links.'}</p>`;
+    return;
+  }
+  const edge = (result.layout.links ?? []).filter(link => link.edge).length;
+  const rows = layers.map((layer, i) => {
+    const sr = i && layers[i - 1].zone === layer.zone ? fmt(layer.offset - layers[i - 1].offset, 0) : '—';
+    return `<tr><td>${layer.id}</td><td>${fmt(layer.offset, 0)}</td><td>${sr}</td><td>${layer.physicalLinks}</td><td>Ø${layer.diameter}</td><td>${fmt(layer.tangential.max, 0)}</td><td>${fmt(layer.asw, 0)}</td></tr>`;
+  }).join('');
+  const total = (result.layout.links ?? []).length;
+  host.innerHTML = `<p class="card-subhead">Auto schedule</p>`
+    + `<table class="column-summary-table auto-schedule"><thead><tr><th>Layer</th><th>From face</th><th>s_r</th><th>Links</th><th>Ø</th><th>s_t max</th><th>A_sw</th></tr></thead><tbody>${rows}</tbody></table>`
+    + `<p class="table-caption">${total} links${edge ? `, of which ${edge} fill the drop to its edge (detailing)` : ''}. mm, mm². Full checks per layer: Schedule tab.</p>`;
+}

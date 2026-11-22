@@ -11,7 +11,7 @@ import { htmlSubscripts } from './subscript.mjs';
 import { LINK_DIAMETERS, layersToGroups, newDefaults, restoreInputs } from './inputs.mjs';
 import { planSvg } from './plan-view.mjs';
 import { renderCompact } from './output-view.mjs';
-import { renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
+import { renderAutoSchedule, renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
 import { sectionSvg } from './section-view.mjs';
 import { mountTable } from './table-controls.mjs';
 import { buildWorksheet } from './worksheet.mjs';
@@ -46,6 +46,11 @@ const refreshLoads = mountTable(byId('loads-anchor'), {
   addLabel: '+ Combination', removeLabel: '− Combination', rowLabel: index => String(index + 1),
 });
 const layerAnchor = byId('layers-anchor');
+// Read-only schedule of the auto arrangement, under the custom-layout area in the same card.
+const autoSchedule = document.createElement('div');
+autoSchedule.id = 'auto-schedule';
+autoSchedule.className = 'wide';
+layerAnchor.after(autoSchedule);
 const layerTableHost = document.createElement('div');
 layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons:not(.arrangement-head)'));
 // Link arrangement: one row per layer, radial spacing s from the previous layer (L1 from the column
@@ -177,6 +182,7 @@ function refresh() {
 // The custom layout table (and its link editing buttons) shows only in custom mode.
 function showLayout() {
   byId('layers-anchor').hidden = !(state.reinforcement.enabled && state.reinforcement.mode === 'provided');
+  autoSchedule.hidden = !(state.reinforcement.enabled && state.reinforcement.mode === 'auto');
 }
 
 function schedule() {
@@ -218,13 +224,14 @@ function render() {
   byId('section-view-b').innerHTML = drawable ? sectionSvg(result, { axis: 'y' }) : '';
   const link = result.layout?.links.find(entry => entry.id === selected);
   renderSchedule(byId('layer-schedule'), result, link?.layerId ?? selected);
+  if (!autoSchedule.hidden) renderAutoSchedule(autoSchedule, result);
   byId('selection-info').textContent = link
     ? `${link.id}: layer ${link.layerId}, ${link.shape === 'double' ? 'two-leg' : 'single-leg'} link Ø${link.diameter}, centre (${link.position.x.toFixed(0)}, ${link.position.y.toFixed(0)}) mm, `
       + `${link.legs.filter(leg => leg.effective).length}/${link.legs.length} legs effective${link.legs.some(leg => leg.reason) ? ' (' + link.legs.filter(leg => leg.reason).map(leg => leg.reason).join(', ') + ')' : ''}, ${link.origin === 'auto' ? 'auto-generated' : 'user-defined'}. Anchorage: ${link.anchorage}.`
     : 'Select a link in the plan to inspect it.';
   byId('omit-link').disabled = !(link && state.reinforcement.mode === 'provided');
   byId('restore-links').disabled = !(state.reinforcement.mode === 'provided' && (link || /^L\d+$/.test(selected ?? '')));
-  for (const id of ['column-check-summary', 'design-status', 'messages', 'checks', 'code-basis', 'layer-schedule', 'selection-info', 'example-note', 'example-variants']) htmlSubscripts(byId(id));
+  for (const id of ['column-check-summary', 'design-status', 'messages', 'checks', 'code-basis', 'layer-schedule', 'auto-schedule', 'selection-info', 'example-note', 'example-variants']) htmlSubscripts(byId(id));
 }
 
 form.addEventListener('submit', event => event.preventDefault());

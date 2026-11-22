@@ -142,7 +142,8 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
   if (gov) {
     const points = [];
     const steps = 40;
-    for (let i = 0; i <= steps; i += 1) points.push(toGlobal(gov.column, pointAt(gov.column, gov.layer.offset, gov.gap.s0 + (gov.gap.length * i) / steps)));
+    if (gov.gap.from) points.push(toGlobal(gov.column, gov.gap.from), toGlobal(gov.column, gov.gap.to)); // straight gap (grid ring)
+    else for (let i = 0; i <= steps; i += 1) points.push(toGlobal(gov.column, pointAt(gov.column, gov.layer.offset, gov.gap.s0 + (gov.gap.length * i) / steps)));
     parts.push(polyline(points, view, `fill="none" stroke="${gov.fails ? COLORS.ink : COLORS.governing}" stroke-width="4" stroke-opacity=".75" stroke-linecap="round"${gov.fails ? ' stroke-dasharray="6 3"' : ''} data-governing="${esc(gov.layer.id)}"`));
   }
   const outline = column.shape === 'circular' ? pathPolyline(column, 0) : [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => toGlobal(column, { x: sx * column.cx / 2, y: sy * column.cy / 2 }));
