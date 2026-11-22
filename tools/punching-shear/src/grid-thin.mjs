@@ -48,3 +48,27 @@ export function thinGrid(layers, { column, d, sr, aswReq, legArea, leg, minLeg, 
     return { ...layer, points: best, multiple: m };
   });
 }
+
+// Grid links inside a drop beyond the last ring, out to the drop edge (less cover) on the same grid lines,
+// so the outer zone of the drop is reinforced on every side. Extra detailing links: not part of any
+// perimeter in the checks (Eq. 6.52 and §9.4.3 use the rings only).
+export function dropFillPoints({ column, layers, sr, box }) {
+  if (!box || !layers.length || column.shape === 'circular' || Math.abs(column.rotation || 0) > 1e-9) return [];
+  const a = column.cx / 2;
+  const b = column.cy / 2;
+  const last = layers.at(-1).offset;
+  const lines = (values, lo, hi) => {
+    const set = [...new Set(values.map(v => Math.round(v * 1e6) / 1e6))].sort((p, q) => p - q);
+    for (let v = set.at(-1) + sr; v <= hi + 1e-6; v += sr) set.push(v);
+    for (let v = set[0] - sr; v >= lo - 1e-6; v -= sr) set.unshift(v);
+    return set.filter(v => v >= lo - 1e-6 && v <= hi + 1e-6);
+  };
+  const all = layers.flatMap(layer => layer.points);
+  const xs = lines(all.map(p => p.x), box.xMin, box.xMax);
+  const ys = lines(all.map(p => p.y), box.yMin, box.yMax);
+  const points = [];
+  for (const x of xs) for (const y of ys) {
+    if (Math.abs(x) > a + last + 1e-6 || Math.abs(y) > b + last + 1e-6) points.push({ x, y });
+  }
+  return points;
+}
