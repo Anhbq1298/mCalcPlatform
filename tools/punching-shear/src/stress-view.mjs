@@ -118,7 +118,7 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     panel.s = (panelW * 0.4) / (reach * Math.SQRT2 * Math.cos(Math.PI / 6));
     panel.halfH = reach * Math.SQRT2 * 0.5 * panel.s;
   }
-  const zScale = 70 / vTop;
+  const zScale = 36 / vTop; // low fences, so the column stays visible
   const top = 34;
   const halfH = Math.max(...panels.map(panel => panel.halfH));
   const baseY = top + 96 + halfH;
@@ -133,13 +133,6 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     // isoAt: column-relative point; iso: point in the panel's section frame (shifted to the column).
     const isoAt = (q, z) => [ox + (q.x + q.y) * cos * ps, baseY + (q.x - q.y) * sin * ps - z * zScale];
     const iso = (p, z) => isoAt(panel.local(p), z);
-    // Column footprint and axis.
-    const c = column.shape === 'circular' ? null : [[-column.cx / 2, -column.cy / 2], [column.cx / 2, -column.cy / 2], [column.cx / 2, column.cy / 2], [-column.cx / 2, column.cy / 2]];
-    if (c) parts.push(`<path d="M${c.map(([x, y]) => isoAt({ x, y }, 0).map(n).join(' ')).join('L')}Z" fill="#eceeef" stroke="${COLORS.ink}" stroke-width=".8"/>`);
-    else {
-      const ring = Array.from({ length: 36 }, (_, i) => isoAt({ x: (column.diameter / 2) * Math.cos((i * Math.PI) / 18), y: (column.diameter / 2) * Math.sin((i * Math.PI) / 18) }, 0));
-      parts.push(`<path d="M${ring.map(p => p.map(n).join(' ')).join('L')}Z" fill="#eceeef" stroke="${COLORS.ink}" stroke-width=".8"/>`);
-    }
     if (dropOutline && panel.name !== 'u0') {
       // Drop outline (hidden, below the slab), as on the plan; not on the u0 panel (column scale).
       parts.push(`<path d="M${dropOutline.map(q => isoAt(q, 0).map(n).join(' ')).join('L')}Z" fill="none" stroke="${COLORS.drop}" stroke-width=".9" stroke-dasharray="${DASH.hidden}"/>`);
@@ -160,45 +153,55 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     // every perimeter; a uniform fence takes the colour of its level on the common scale.
     const span = panel.vmax - panel.vmin;
     const tone = v => colour(span > 1e-6 ? (v - panel.vmin) / span : v / vTop);
-    for (const seg of segments) {
-      parts.push(`<path d="M${n(seg.b0[0])} ${n(seg.b0[1])}L${n(seg.b1[0])} ${n(seg.b1[1])}L${n(seg.t1[0])} ${n(seg.t1[1])}L${n(seg.t0[0])} ${n(seg.t0[1])}Z" fill="${tone(seg.v)}" fill-opacity=".82" stroke="${tone(seg.v)}" stroke-width=".4"/>`);
-      if (seg.tick) parts.push(`<line x1="${n(seg.b0[0])}" y1="${n(seg.b0[1])}" x2="${n(seg.t0[0])}" y2="${n(seg.t0[1])}" stroke="${COLORS.ink}" stroke-width=".35" stroke-opacity=".55"/>`);
+    const drawSeg = seg => {
+      parts.push(`<path d="M${n(seg.b0[0])} ${n(seg.b0[1])}L${n(seg.b1[0])} ${n(seg.b1[1])}L${n(seg.t1[0])} ${n(seg.t1[1])}L${n(seg.t0[0])} ${n(seg.t0[1])}Z" fill="${tone(seg.v)}" fill-opacity=".72" stroke="${tone(seg.v)}" stroke-width=".4"/>`);
+      if (seg.tick) parts.push(`<line x1="${n(seg.b0[0])}" y1="${n(seg.b0[1])}" x2="${n(seg.t0[0])}" y2="${n(seg.t0[1])}" stroke="${COLORS.ink}" stroke-width=".35" stroke-opacity=".5"/>`);
       parts.push(`<line x1="${n(seg.t0[0])}" y1="${n(seg.t0[1])}" x2="${n(seg.t1[0])}" y2="${n(seg.t1[1])}" stroke="${COLORS.ink}" stroke-width=".8"/>`);
       parts.push(`<line x1="${n(seg.b0[0])}" y1="${n(seg.b0[1])}" x2="${n(seg.b1[0])}" y2="${n(seg.b1[1])}" stroke="${COLORS.ink}" stroke-width=".5" stroke-dasharray="3 2"/>`);
-    }
-    // V_Ed arrow at the column centre.
-    const [ax, ay] = iso({ x: 0, y: 0 }, 0);
-    parts.push(`<line x1="${n(ax)}" y1="${n(ay - 70)}" x2="${n(ax)}" y2="${n(ay - 8)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(ax - 4)} ${n(ay - 14)}L${n(ax)} ${n(ay - 4)}L${n(ax + 4)} ${n(ay - 14)}Z" fill="${COLORS.ink}"/><text x="${n(ax + 6)}" y="${n(ay - 60)}" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">V_Ed</text>`);
-    // Moment arrows: an arc over the column in the plane of each moment, ending on the side the moment
-    // pushes down (+M_y toward +X, +M_x toward +Y, as on the loading plan), labelled with its value.
+    };
+    // Fences behind the column, the column stub, then the fences in front of it.
+    const centreDepth = isoAt({ x: 0, y: 0 }, 0)[1];
+    for (const seg of segments.filter(item => item.depth < centreDepth)) drawSeg(seg);
+    const H = panel.name === 'u0' ? 0 : 24; // column stub height in px (flat on the u0 panel, where the fence stands on its faces)
+    const lift = ([x, y]) => [x, y - H];
+    const outline = column.shape === 'circular'
+      ? Array.from({ length: 40 }, (_, i) => ({ x: (column.diameter / 2) * Math.cos((i * Math.PI) / 20), y: (column.diameter / 2) * Math.sin((i * Math.PI) / 20) }))
+      : [[-column.cx / 2, -column.cy / 2], [column.cx / 2, -column.cy / 2], [column.cx / 2, column.cy / 2], [-column.cx / 2, column.cy / 2]].map(([x, y]) => ({ x, y }));
+    const base = outline.map(q => isoAt(q, 0));
+    const faces = base.map((b, i) => { const c2 = base[(i + 1) % base.length]; return { depth: (b[1] + c2[1]) / 2, pts: [b, c2, lift(c2), lift(b)] }; }).sort((a, b) => a.depth - b.depth);
+    if (H > 0) for (const face of faces) parts.push(`<path d="M${face.pts.map(p => p.map(n).join(' ')).join('L')}Z" fill="#c4cad0" stroke="${column.shape === 'circular' ? '#c4cad0' : COLORS.ink}" stroke-width=".7"/>`);
+    parts.push(`<path d="M${base.map(p => lift(p).map(n).join(' ')).join('L')}Z" fill="#e8ebee" stroke="${COLORS.ink}" stroke-width=".9"/>`);
+    for (const seg of segments.filter(item => item.depth >= centreDepth)) drawSeg(seg);
+    // Load: V_Ed at the eccentricity e = (M_y/V, M_x/V) on top of the column (+M_y toward +X, +M_x
+    // toward +Y, as on the loading plan); the moment shows as this offset of the load.
     const rot = ((column.rotation || 0) * Math.PI) / 180;
-    const moments = [
-      { value: governing.My, name: 'M_y', ux: Math.cos(-rot), uy: Math.sin(-rot) },
-      { value: governing.Mx, name: 'M_x', ux: -Math.sin(-rot), uy: Math.cos(-rot) },
-    ].filter(m => Math.abs(m.value) > 1e-9);
-    moments.forEach((m, k) => {
-      // Arc in screen space along the moment's plan direction: fixed size, above the V_Ed arrow foot.
-      const [o0, o1] = isoAt({ x: 0, y: 0 }, 0);
-      const [d0, d1] = isoAt({ x: m.ux * 1000, y: m.uy * 1000 }, 0);
-      const len = Math.hypot(d0 - o0, d1 - o1) || 1;
-      const sgn = Math.sign(m.value);
-      const dx = (sgn * (d0 - o0)) / len;
-      const dy = (sgn * (d1 - o1)) / len;
-      const R = 30 + 10 * k;
-      const lift = 46 + 8 * k;
-      const pts = Array.from({ length: 25 }, (_, q) => {
-        const th = Math.PI * (1 - q / 24); // − side, over the top, to the + side
-        return [o0 + R * Math.cos(th) * dx, o1 + R * Math.cos(th) * dy - lift - 16 * Math.sin(th)];
-      });
-      const [ex, ey] = pts.at(-1);
-      const [px, py] = pts.at(-2);
-      const ang = Math.atan2(ey - py, ex - px);
-      const tip = [[ex, ey], [ex - 7 * Math.cos(ang - 0.45), ey - 7 * Math.sin(ang - 0.45)], [ex - 7 * Math.cos(ang + 0.45), ey - 7 * Math.sin(ang + 0.45)]];
-      const label = `${m.name} = ${Math.abs(m.value).toFixed(0)} kN·m`;
-      parts.push(`<path d="M${pts.map(p => p.map(n).join(' ')).join('L')}" fill="none" stroke="#5b2a86" stroke-width="1.5"/>`
-        + `<path d="M${tip.map(p => p.map(n).join(' ')).join('L')}Z" fill="#5b2a86"/>`
-        + `<text class="small" x="${n(ex + (dx >= 0 ? 6 : -6))}" y="${n(ey + 10)}" text-anchor="${dx >= 0 ? 'start' : 'end'}" fill="#5b2a86" style="fill:#5b2a86" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">${label}</text>`);
-    });
+    const exG = governing.V > 0 ? (governing.My / governing.V) * 1000 : 0;
+    const eyG = governing.V > 0 ? (governing.Mx / governing.V) * 1000 : 0;
+    const toLocalVec = (x, y) => ({ x: x * Math.cos(rot) + y * Math.sin(rot), y: -x * Math.sin(rot) + y * Math.cos(rot) });
+    const eL = toLocalVec(exG, eyG);
+    const c0 = lift(isoAt({ x: 0, y: 0 }, 0));
+    const cE = lift(isoAt(eL, 0));
+    const halo = 'paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round"';
+    if (Math.hypot(exG, eyG) > 1e-6) {
+      const cX = lift(isoAt(toLocalVec(exG, 0), 0));
+      parts.push(`<path d="M${n(c0[0])} ${n(c0[1])}L${n(cX[0])} ${n(cX[1])}L${n(cE[0])} ${n(cE[1])}" fill="none" stroke="#5b2a86" stroke-width="1" stroke-dasharray="3 2"/><circle cx="${n(c0[0])}" cy="${n(c0[1])}" r="1.8" fill="${COLORS.ink}"/>`);
+    }
+    parts.push(`<line x1="${n(cE[0])}" y1="${n(cE[1] - 46)}" x2="${n(cE[0])}" y2="${n(cE[1] - 4)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(cE[0] - 4)} ${n(cE[1] - 10)}L${n(cE[0])} ${n(cE[1])}L${n(cE[0] + 4)} ${n(cE[1] - 10)}Z" fill="${COLORS.ink}"/>`
+      + (cE[0] + 96 > panelW * (index + 1)
+        ? `<text class="small" x="${n(cE[0] - 6)}" y="${n(cE[1] - 38)}" text-anchor="end" ${halo}>V_Ed = ${governing.V.toFixed(0)} kN</text>`
+        : `<text class="small" x="${n(cE[0] + 6)}" y="${n(cE[1] - 38)}" ${halo}>V_Ed = ${governing.V.toFixed(0)} kN</text>`));
+    // Global axes (X, Y in plan, Z up) at the lower right of the panel.
+    {
+      const ax0 = panelW * (index + 1) - 34;
+      const ay0 = baseY + halfH - 4;
+      const dir = (x, y) => { const q = toLocalVec(x, y); const v = [(q.x + q.y) * cos, (q.x - q.y) * sin]; const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l]; };
+      const axes = [['X', dir(1, 0)], ['Y', dir(0, 1)], ['Z', [0, -1]]];
+      for (const [name, [vx, vy]] of axes) {
+        const x2 = ax0 + 20 * vx;
+        const y2 = ay0 + 20 * vy;
+        parts.push(`<line x1="${n(ax0)}" y1="${n(ay0)}" x2="${n(x2)}" y2="${n(y2)}" stroke="${COLORS.ink}" stroke-width="1.1"/><circle cx="${n(x2)}" cy="${n(y2)}" r="1.4" fill="${COLORS.ink}"/><text class="small" x="${n(x2 + 6 * vx - 3)}" y="${n(y2 + 6 * vy + 4)}">${name}</text>`);
+      }
+    }
     // Labels.
     const tx = panelW * index + 10;
     const ty = baseY + halfH + 22;
@@ -212,7 +215,7 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
       lines.push(`• v_max = v_V + Σv_M = ${panel.vmax.toFixed(3)} MPa`);
       lines.push(`• v_min = v_V − Σv_M = ${panel.vmin.toFixed(3)} MPa`);
       lines.push(`• Check: β·v_V = ${(beta * panel.mean).toFixed(3)} MPa (β = ${beta.toFixed(3)})`);
-    } else lines.push(`• β·v_V = ${panel.vmax.toFixed(3)} MPa (uniform${internal ? '' : ', edge/corner β'})`);
+    } else lines.push(`• β·v_V = ${panel.vmax.toFixed(3)} MPa (uniform)`);
     if (panel.limit) lines.push(`• ${panel.limitName} = ${panel.limit.toFixed(3)} MPa`);
     parts.push(`<text x="${n(tx)}" y="${top - 12}" style="font-weight:500">${esc(panel.name)} = ${panel.u.toFixed(0)} mm · d = ${panel.d.toFixed(0)}</text>`
       + lines.map((line, k) => `<text class="small" x="${n(tx + (line.startsWith('    ') ? 14 : 0))}" y="${n(ty + 14 * k)}">${esc(line.trim())}</text>`).join(''));
@@ -229,10 +232,11 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   // Separators between panels.
   for (let i = 1; i < cols; i += 1) parts.push(`<line x1="${n(panelW * i)}" y1="8" x2="${n(panelW * i)}" y2="${n(height - 46)}" stroke="${COLORS.rule}" stroke-width="1"/>`);
   // Shared gradient (each panel draws its own bar with its limits) and the caption.
+  const moment = governing.V > 0 && (Math.abs(governing.Mx) > 1e-9 || Math.abs(governing.My) > 1e-9);
   const ly = height - 34;
   const stops = Array.from({ length: 11 }, (_, i) => `<stop offset="${i * 10}%" stop-color="${colour(i / 10)}"/>`).join('');
   parts.push(`<defs><linearGradient id="v-ramp">${stops}</linearGradient></defs>`
-    + `<text class="small" x="14" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · plastic distribution, Fig. 6.19: v_Ed = v_V ± v_M · colour per panel from v_min to v_max' : ' · uniform β envelope'}</text>`
-    + `<text class="small" x="14" y="${ly + 22}">Fence height: one scale for all panels. Panels not to the same plan scale. Moments: +M_y loads the +X side, +M_x the +Y side.</text>`);
+    + `<text class="small" x="14" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · plastic distribution (Fig. 6.19): v_Ed = v_V ± v_M · colour per panel, v_min to v_max' : ' · uniform β envelope'}</text>`
+    + `<text class="small" x="14" y="${ly + 22}">${moment ? `Moment shown as the offset of V_Ed: e_x = M_y/V_Ed = ${(governing.My / governing.V * 1000).toFixed(0)} mm, e_y = M_x/V_Ed = ${(governing.Mx / governing.V * 1000).toFixed(0)} mm. ` : ''}Heights on one scale.</text>`);
   return svgDocument(width, height, 'Shear stress along the control perimeters', parts.join(''));
 }
