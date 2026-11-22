@@ -436,6 +436,10 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   // Defaults: Singapore NA, β from moments, d from h, cover and bars; a result straight away.
   await expect(page.getByLabel('Parameter set')).toHaveValue('sg');
   await page.getByLabel('1 V_Ed', { exact: true }).fill('800');
+  // No links by default: links are needed at V = 800 kN, so Fail until the tick.
+  await expect(page.getByLabel('Links', { exact: true })).toBeHidden();
+  await expect(status).toContainText('Design status: Fail');
+  await page.getByLabel('Provide punching reinforcement (shear links)').check();
   await expect(status).toContainText('Design status: Pass');
   await expect(page.locator('#layers-anchor')).toBeHidden(); // custom table only in custom mode
   await page.getByLabel('Column position').selectOption('edge');

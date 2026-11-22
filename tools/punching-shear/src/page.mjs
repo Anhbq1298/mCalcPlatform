@@ -132,7 +132,7 @@ byId('combination').addEventListener('input', render);
 // Switching to the custom layout with an empty table starts from the current auto arrangement, one row
 // per layer, so the engineer edits a layout that already works.
 function prefillCustom() {
-  if (state.reinforcement.mode !== 'provided' || state.reinforcement.groups?.length) return false;
+  if (!state.reinforcement.enabled || state.reinforcement.mode !== 'provided' || state.reinforcement.groups?.length) return false;
   const auto = calculate({ ...state, reinforcement: { ...state.reinforcement, mode: 'auto' } });
   const layers = auto.layout?.layers ?? [];
   if (!layers.length) return false;
@@ -176,7 +176,7 @@ function refresh() {
 
 // The custom layout table (and its link editing buttons) shows only in custom mode.
 function showLayout() {
-  byId('layers-anchor').hidden = state.reinforcement.mode !== 'provided';
+  byId('layers-anchor').hidden = !(state.reinforcement.enabled && state.reinforcement.mode === 'provided');
 }
 
 function schedule() {

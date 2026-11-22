@@ -109,6 +109,7 @@ export function calculate(rawInput, options = {}) {
 
   let layout;
   if (options.noLinks) layout = { mode: 'auto', layers: [], reason: options.noLinks };
+  else if (reinforcement.enabled === false) layout = { mode: 'none', layers: [], reason: 'No punching reinforcement: tick "Provide punching reinforcement" to add shear links.' };
   else if (reinforcement.mode === 'auto') {
     const type = reinforcement.arrangement ?? 'grid';
     const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
@@ -118,7 +119,7 @@ export function calculate(rawInput, options = {}) {
     const uReq = fig622 && needing.length ? Math.max(...needing.map(item => model.intervalsAt(item.aOut).total)) : null;
     const generated = !needing.length
       ? { layers: [], reason: 'No punching reinforcement required.' }
-      : arrangedLayers({ model, d, aOut: layoutOut, type, sr: ctx.envelopeSr, st: reinforcement.st, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq });
+      : arrangedLayers({ model, d, aOut: layoutOut, type, sr: ctx.envelopeSr, st: reinforcement.st, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
     layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
     if (generated.note) limitNotes.push(generated.note);
     if (srNote && needing.length) limitNotes.push(srNote);
@@ -138,7 +139,7 @@ export function calculate(rawInput, options = {}) {
   ctx.layoutOut = layoutOut;
   const results = demands.map(item => loadResult(ctx, item, layout, summary, links, detailing));
 
-  const notes = [...geometry.notes, ...limitNotes];
+  const notes = [...geometry.notes, ...limitNotes, ...new Set(results.map(entry => entry.beta?.note).filter(Boolean))];
   const capped = results.filter(entry => entry.rows.some(item => (item.id === 'max' || item.id === 'kmax') && item.status === STATES.fail));
   if (capped.length) notes.unshift(`${capped.map(entry => entry.name).join(', ')}: v_Ed exceeds v_Rd,max or the upper limit with links. Adding links cannot resolve this; increase the slab depth, column size or concrete strength.`);
   const governing = results.reduce((best, entry) => (entry.ur > best.ur ? entry : best), results[0]);

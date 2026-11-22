@@ -76,6 +76,7 @@ export function mappedHeadLinks({ circle, rectModel, input, rc, lHalfMin, layers
   const required = circle.loads.some(load => load.required);
   let layout;
   if (!required) layout = { layers: [], reason: 'No punching reinforcement required.' };
+  else if (reinforcement.enabled === false) layout = { layers: [], reason: 'No punching reinforcement: tick "Provide punching reinforcement" to add shear links.' };
   else if (reinforcement.mode === 'auto') layout = autoMapped({ model: rectModel, d, aswReq, tOut, fck: materials.fck, fyk: materials.fyk, diameter: reinforcement.diameter, shape: reinforcement.shape, centre });
   else layout = { layers: provided.map(layer => ({ omitted: [], ...layer })) };
   const links = buildLinks(rectModel, layout.layers, reinforcement.mode === 'auto' ? 'auto' : 'user');
@@ -93,10 +94,10 @@ export function mappedHeadLinks({ circle, rectModel, input, rc, lHalfMin, layers
     if (!layout.layers.length) rows.push(row('reinforced', '§6.4.5, Eq. 6.52', 'Reinforced punching resistance at r_cont', load.vEd1, 0.75 * circle.resistance.vRdc, STATES.fail, { unit: 'MPa', detail: layout.reason || 'No links provided.' }));
     else {
       layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: circle.resistance.vRdc, vEd: load.vEd1, u1: circle.u1, aOut: tOut, summary, links, kMax: circle.profile.kMax, kMaxLabel: circle.profile.kMaxLabel, detailing });
-      for (const entry of layoutCheck.rows) rows.push(MAPPED.has(entry.id) ? { ...entry, status: entry.status === STATES.fail ? STATES.fail : STATES.notVerified, detail: [entry.detail, note].filter(Boolean).join(' ') } : entry);
+      for (const entry of layoutCheck.rows) rows.push(MAPPED.has(entry.id) ? { ...entry, detail: [entry.detail, note].filter(Boolean).join(' ') } : entry);
       const share = load.aswReq / SECTORS;
       const sectorRow = sectorCoverage(links, summary, centre, load.aswReq).reduce((best, entry) => (!best || entry.ur > best.ur ? entry : best), null);
-      rows.push(row('sector', 'Mapping (not EC2)', `A_sw per ${360 / SECTORS}° sector ≥ A_sw,req/${SECTORS}`, share, sectorRow.min, sectorRow.ur > 1 + 1e-9 ? STATES.fail : STATES.notVerified, {
+      rows.push(row('sector', 'Mapping (not EC2)', `A_sw per ${360 / SECTORS}° sector ≥ A_sw,req/${SECTORS}`, share, sectorRow.min, sectorRow.ur > 1 + 1e-9 ? STATES.fail : STATES.pass, {
         unit: 'mm²', governing: sectorRow.id, detail: `${sectorRow.id}, sector ${sectorRow.sector + 1}: ${sectorRow.min.toFixed(0)} mm² against ${share.toFixed(0)} mm². ${note}`,
       }));
     }

@@ -151,3 +151,18 @@ test('auto arrangement: s_r capped at 0.75d with a note; rails added until Eq. 6
   const result = calculateDesign(input);
   assert.ok(result.loads[0].rows.find(row => row.id === 'reinforced').ur <= 1);
 });
+
+test('grid: outer rings at whole multiples of s_t within s_t, Eq. 6.52, Eq. 9.11 and u_out,ef', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { exampleById } = await import('../src/examples.mjs');
+  const input = structuredClone(exampleById('internal-links').input);
+  const run = thin => calculateDesign({ ...input, reinforcement: { ...input.reinforcement, enabled: true, mode: 'auto', arrangement: 'grid', sr: 150, st: 150, thin } });
+  const [full, thin] = [run(false), run(true)];
+  assert.equal(thin.layout.layers[0].points.length, full.layout.layers[0].points.length); // inner ring keeps s_t
+  const multiples = thin.layout.layers.map(layer => layer.multiple);
+  assert.ok(multiples.every((m, i) => i === 0 || m >= multiples[i - 1])); // never denser outward
+  assert.ok(thin.layout.links.length < full.layout.links.length);
+  assert.equal(thin.status, 'Pass');
+  const outer = row => thin.loads[0].rows.find(entry => entry.id === row);
+  assert.ok(Math.abs(outer('outer').resistance - full.loads[0].rows.find(entry => entry.id === 'outer').resistance) < 1e-6); // gaps ≤ 2d: u_out,ef unchanged
+});

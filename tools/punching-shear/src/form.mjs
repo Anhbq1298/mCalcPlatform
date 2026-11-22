@@ -2,6 +2,8 @@
 // label > span + control). Values are read from and written to a nested state object by path.
 // Labels are plain text with $…$ LaTeX spans rendered as MathML.
 import { ARRANGEMENTS } from './arrangement.mjs';
+
+const on = s => s.reinforcement.enabled === true; // links provided
 import { LINK_DIAMETERS } from './inputs.mjs';
 import { SUMMARY } from './form-summary.mjs';
 import { htmlSubscripts } from './subscript.mjs';
@@ -75,18 +77,20 @@ export const GROUPS = [
     ['beta.userValue', '$\\beta$ (user value)', 'number', null, s => s.beta.method === 'user'],
   ]],
   ['Punching reinforcement', [
-    ['reinforcement.mode', 'Links', 'select', [option('auto', 'Auto arrangement'), option('provided', 'Custom layout (table)')]],
-    ['reinforcement.diameter', 'Bar Ø (mm)', 'select', LINK_DIAMETERS.map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
-    ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg'), option('double', 'Two-leg')], s => s.reinforcement.mode === 'auto'],
-    ['reinforcement.arrangement', 'Arrangement', 'select', Object.entries(ARRANGEMENTS).map(([value, label]) => option(value, label)), s => s.reinforcement.mode === 'auto'],
-    ['reinforcement.sr', 'Radial spacing $s_r$ (mm)', 'number', null, s => s.reinforcement.mode === 'auto'],
-    ['reinforcement.st', 'Grid spacing $s_t$ (mm)', 'number', null, s => s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
+    ['reinforcement.enabled', 'Provide punching reinforcement (shear links)', 'checkbox'],
+    ['reinforcement.mode', 'Links', 'select', [option('auto', 'Auto arrangement'), option('provided', 'Custom layout (table)')], on],
+    ['reinforcement.diameter', 'Bar Ø (mm)', 'select', LINK_DIAMETERS.map(value => option(value, String(value))), s => on(s) && s.reinforcement.mode === 'auto'],
+    ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg'), option('double', 'Two-leg')], s => on(s) && s.reinforcement.mode === 'auto'],
+    ['reinforcement.arrangement', 'Arrangement', 'select', Object.entries(ARRANGEMENTS).map(([value, label]) => option(value, label)), s => on(s) && s.reinforcement.mode === 'auto'],
+    ['reinforcement.sr', 'Radial spacing $s_r$ (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto'],
+    ['reinforcement.st', 'Grid spacing $s_t$ (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
+    ['reinforcement.thin', 'Wider spacing on outer rings (2s_t, 3s_t …)', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
     ['@layers', '', 'anchor'],
-    ['', 'Link detailing', 'heading'],
-    ['reinforcement.anchorage.type', 'Anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')]],
-    ['reinforcement.anchorage.mandrelFactor', 'Mandrel Ø / bar Ø', 'number'],
-    ['reinforcement.anchorage.extension', 'Straight extension (mm)', 'number'],
-    ['reinforcement.legGap', 'Two-leg link width (mm)', 'number', null, s => (s.reinforcement.mode === 'auto' ? s.reinforcement.shape === 'double' : (s.reinforcement.groups || []).some(group => group.shape === 'double'))],  ]],
+    ['', 'Link detailing', 'heading', null, on],
+    ['reinforcement.anchorage.type', 'Anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')], on],
+    ['reinforcement.anchorage.mandrelFactor', 'Mandrel Ø / bar Ø', 'number', null, on],
+    ['reinforcement.anchorage.extension', 'Straight extension (mm)', 'number', null, on],
+    ['reinforcement.legGap', 'Two-leg link width (mm)', 'number', null, s => on(s) && (s.reinforcement.mode === 'auto' ? s.reinforcement.shape === 'double' : (s.reinforcement.groups || []).some(group => group.shape === 'double'))],  ]],
 ];
 
 export function buildForm(form, anchors, getState, onChange) {
@@ -118,6 +122,7 @@ export function buildForm(form, anchors, getState, onChange) {
         head.className = 'card-subhead wide';
         head.textContent = label;
         body.append(head);
+        rows.push({ row: head, control: null, path: '', type, options, visible });
         continue;
       }
       const row = document.createElement('label');
@@ -165,6 +170,7 @@ export function buildForm(form, anchors, getState, onChange) {
     }
     for (const entry of rows) {
       entry.row.hidden = !entry.visible(state);
+      if (entry.type === 'heading') continue;
       const value = get(state, entry.path);
       if (entry.type === 'checkbox') entry.control.checked = Boolean(value);
       else if (document.activeElement !== entry.control) entry.control.value = value ?? '';

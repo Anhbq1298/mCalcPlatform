@@ -1,0 +1,50 @@
+// Orthogonal grid: wider tangential spacing on the outer rings, in whole multiples of the inner grid
+// spacing (s_t, 2s_t, 3s_t …) so every kept link stays on the inner grid lines. Ring by ring from the
+// column outward, the largest multiple m (never smaller than on the ring inside it) is kept for which
+//   - the largest gap along the control path at the ring is ≤ 1.5d inside u1 and ≤ 2d outside (§9.4.3(1)),
+//     so u_out,ef keeps its full length (no gap > 2d, Fig. 6.22 A);
+//   - the ring still carries the A_sw of Eq. 6.52;
+//   - one leg still meets Eq. 9.11 with that gap as s_t.
+// The innermost ring keeps the entered s_t; ring corners are always kept. Applied where Fig. 6.22 applies (internal column, no openings or drop).
+const near = (a, b) => Math.abs(a - b) < 1e-6;
+
+function thinRing(layer, column, m) {
+  if (m <= 1) return layer.points;
+  const a = column.shape === 'circular' ? column.diameter / 2 : column.cx / 2;
+  const b = column.shape === 'circular' ? column.diameter / 2 : column.cy / 2;
+  const ex = a + layer.offset;
+  const ey = b + layer.offset;
+  // Positions along each side, indexed from the middle of the side outward.
+  const along = values => {
+    const sorted = [...new Set(values.map(v => Math.round(v * 1e6) / 1e6))].sort((p, q) => p - q);
+    const mid = sorted.reduce((best, v, i) => (Math.abs(v) < Math.abs(sorted[best]) ? i : best), 0);
+    return v => (sorted.findIndex(w => near(w, v)) - mid) % m === 0;
+  };
+  const onX = layer.points.filter(p => near(Math.abs(p.y), ey)).map(p => p.x);
+  const onY = layer.points.filter(p => near(Math.abs(p.x), ex)).map(p => p.y);
+  const keepX = along(onX);
+  const keepY = along(onY);
+  return layer.points.filter(p => {
+    const corner = near(Math.abs(p.x), ex) && near(Math.abs(p.y), ey);
+    if (corner) return true;
+    return near(Math.abs(p.y), ey) ? keepX(p.x) : keepY(p.y);
+  });
+}
+
+export function thinGrid(layers, { column, d, sr, aswReq, legArea, leg, minLeg, gap, maxMultiple = 6 }) {
+  let m = 1;
+  return layers.map((layer, index) => {
+    if (index === 0) return { ...layer, multiple: 1 }; // the innermost ring keeps the entered s_t
+    const limit = (layer.offset <= 2 * d ? 1.5 : 2) * d;
+    let best = layer.points;
+    for (let k = m; k <= maxMultiple; k += 1) {
+      const points = thinRing(layer, column, k);
+      const g = gap({ ...layer, points });
+      const ok = g <= limit + 1e-9 && points.length * legArea >= aswReq - 1e-6 && leg >= minLeg(sr, g) - 1e-9;
+      if (!ok) break;
+      best = points;
+      m = k;
+    }
+    return { ...layer, points: best, multiple: m };
+  });
+}

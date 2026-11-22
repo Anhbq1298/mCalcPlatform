@@ -24,6 +24,7 @@ export function cenDefaults() {
   input.code = { ...input.code, profile: 'cen' };
   input.slab = { ...input.slab, depthMode: 'explicit', dx: 218, dy: 218 };
   input.beta = { method: 'simplified', confirmed: false, userValue: 1.15 };
+  input.reinforcement = { ...input.reinforcement, enabled: true };
   return input;
 }
 
@@ -41,7 +42,7 @@ export function newDefaults() {
     loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
     beta: { method: 'moment', confirmed: false, userValue: 1.15 },
     reinforcement: {
-      mode: 'auto', arrangement: 'grid', sr: 150, st: 150, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
+      enabled: false, mode: 'auto', arrangement: 'grid', sr: 150, st: 150, thin: true, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
       anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: false },
     },
   };
@@ -73,6 +74,8 @@ function migrate(saved) {
     r.omitted = Object.fromEntries(r.layers.map((layer, i) => ['L' + (i + 1), layer.omitted || []]).filter(([, list]) => list.length));
     delete r.layers;
   }
+  // Designs saved before the links tick always considered links.
+  if (record(r) && r.enabled === undefined) r.enabled = true;
   // Auto links saved before the arrangement choice (perimeter layers) are redesigned on the default grid.
   if (record(r) && !['grid', 'radial', 'cruciform'].includes(r.arrangement)) r.arrangement = 'grid';
   // Flexural steel is entered as bars and spacing; an area per metre becomes the equivalent spacing

@@ -29,7 +29,7 @@ test('Fig. 6.14: when l1 > l2 the tangential width is replaced by √(l1·l2)', 
   assert.ok(result.shadows[0].replaced);
 });
 
-test('openings beyond 6d do not reduce u1; moment β with a reduced perimeter is outside EC2 and reported Fail', () => {
+test('openings beyond 6d do not reduce u1; moment β with a reduced perimeter uses the unreduced W1, stated in a note', () => {
   const far = calculate(square(input => { input.openings = [{ x: 2500, y: 0, w: 200, h: 200 }]; }));
   close(far.u1, fullU1);
   const moment = calculate(square(input => {
@@ -37,7 +37,8 @@ test('openings beyond 6d do not reduce u1; moment β with a reduced perimeter is
     input.beta = { method: 'moment' };
     input.loads = [{ name: 'A', V: 300, Mx: 0, My: 30 }];
   }));
-  assert.equal(moment.status, 'Fail');
+  assert.equal(moment.status, 'Pass');
+  assert.ok(moment.notes.some(note => note.includes('unreduced W1')));
 });
 
 test('links in an opening shadow are not placed; layers carry legs only on effective parts', () => {
