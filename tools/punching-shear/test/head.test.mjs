@@ -73,14 +73,16 @@ test('unsupported drop configurations are reported, not computed', () => {
   assert.equal(calculateDesign(base({ lx: 2400, ly: 1000, depth: 200 })).status, STATES.unsupportedGeometry); // straddles 2h_H
   const edge = base({ lx: 1000, ly: 1000, depth: 200 }, { slab: { h: 250, depthMode: 'explicit', dx: 215, dy: 205, cover: 25, xMin: -6000, xMax: 200, yMin: -6000, yMax: 6000 } });
   edge.column.position = 'edge';
-  assert.equal(calculateDesign(edge).status, STATES.unsupportedGeometry);
+  const edgeResult = calculateDesign(edge); // links beyond the drop are now designed, not refused
+  assert.notEqual(edgeResult.status, STATES.unsupportedGeometry);
+  assert.ok(edgeResult.layout.layers.length && edgeResult.layout.layers.every(layer => layer.zone === 'slab'));
   assert.equal(calculateDesign(base({ shape: 'circular', diameter: 1200, depth: 200 })).status, STATES.unsupportedGeometry); // circular head on rectangular column
   assert.equal(calculateDesign(base({ lx: 300, ly: 1000, depth: 200 })).status, STATES.incomplete); // head smaller than column
 });
 
 test('the six example cards and all their variants give their intended status', () => {
   assert.equal(EXAMPLE_CARDS.length, 6);
-  assert.equal(EXAMPLES.length, 14);
+  assert.equal(EXAMPLES.length, 15);
   for (const example of EXAMPLES) assert.equal(calculateDesign(example.input).status, example.expect, example.id);
 });
 
@@ -113,4 +115,31 @@ test('drops at edge and corner columns: clipped drop, Fig. 6.15/6.20 perimeters 
   setBack.slab.xMax = 600;
   setBack.column.position = 'internal';
   assert.equal(calculateDesign(setBack).status, STATES.unsupportedGeometry);
+});
+
+test('spacing groups expand to layers from the column face; old saves migrate', async () => {
+  const { groupLayers, layersToGroups, restoreInputs } = await import('../src/inputs.mjs');
+  const layers = groupLayers({ groups: [{ count: 1, spacing: 100, diameter: 10, shape: 'single', links: 12 }, { count: 3, spacing: 150, diameter: 10, shape: 'single', links: 16 }], omitted: { L3: [2] } });
+  assert.deepEqual(layers.map(layer => layer.offset), [100, 250, 400, 550]);
+  assert.deepEqual(layers[2].omitted, [2]);
+  assert.deepEqual(layersToGroups(layers).map(g => [g.count, g.spacing, g.links]), [[1, 100, 12], [3, 150, 16]]);
+  const old = restoreInputs({ slab: { h: 260 }, head: { enabled: true, depth: 140 }, reinforcement: { mode: 'provided', layers: [{ offset: 80, diameter: 8, shape: 'single', links: 8, omitted: [1] }, { offset: 235, diameter: 8, shape: 'single', links: 8 }] } });
+  assert.equal(old.head.thickness, 400);
+  assert.deepEqual(old.reinforcement.groups.map(g => g.spacing), [80, 155]);
+  assert.deepEqual(old.reinforcement.omitted, { L1: [1] });
+});
+
+test('large drop: provided links inside and beyond the drop are split by zone', () => {
+  const groups = [{ count: 1, spacing: 100, diameter: 10, shape: 'single', links: 16 }, { count: 4, spacing: 150, diameter: 10, shape: 'single', links: 16 },
+    { count: 1, spacing: 300, diameter: 10, shape: 'single', links: 40 }, { count: 2, spacing: 150, diameter: 10, shape: 'single', links: 40 }];
+  const input = base({ lx: 2400, ly: 2400, thickness: 400 }, { column: { shape: 'rectangular', position: 'internal', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, loads: [{ name: 'ULS 1', V: 1250, Mx: 0, My: 0 }] });
+  input.reinforcement = { anchorage: { engaged: true }, mode: 'provided', groups };
+  const result = calculateDesign(input);
+  // l_H = 950, cover 25: s = 100…700 inside the drop, s = 1000, 1150, 1300 beyond it (t = 50, 200, 350).
+  assert.deepEqual(result.layout.layers.map(layer => layer.zone), ['drop', 'drop', 'drop', 'drop', 'drop', 'slab', 'slab', 'slab']);
+  assert.deepEqual(result.layout.layers.filter(l => l.zone === 'slab').map(l => l.pathOffset), [50, 200, 350]);
+  assert.deepEqual(result.layout.layers.map(l => l.id), ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8']);
+  const step = structuredClone(input);
+  step.reinforcement.groups = [{ count: 1, spacing: 940, diameter: 10, shape: 'single', links: 16 }, { count: 1, spacing: 150, diameter: 10, shape: 'single', links: 16 }];
+  assert.ok(calculateDesign(step).issues.some(issue => /drop edge step/.test(issue.message)));
 });

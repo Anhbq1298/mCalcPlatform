@@ -320,9 +320,9 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   const schedule = page.locator('#layer-schedule tbody tr');
   await expect(schedule).toHaveCount(4);
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
-  await page.getByRole('button', { name: 'Edit auto layout' }).click();
+  await page.getByRole('button', { name: 'Auto arrangement' }).click();
   await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
-  await page.getByRole('button', { name: 'Link layers: add row' }).click();
+  await page.getByRole('button', { name: 'Link arrangement: add row' }).click();
   await expect(schedule).toHaveCount(5);
   await page.locator('#plan-view [data-link="L2-3"]').click();
   await expect(page.locator('#selection-info')).toContainText('L2-3');
@@ -366,7 +366,7 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await expect(status).toContainText('Pass');
   await expect(page.locator('#plan-view')).toContainText('u1,ext');
   await page.getByRole('tab', { name: 'Section A–A' }).click();
-  await expect(page.locator('#section-view')).toContainText('hH');
+  await expect(page.locator('#section-view')).toContainText('htot');
   await expect(page.locator('#section-view')).toContainText('u1,ext');
   await page.locator('summary', { hasText: 'Drop panel' }).click();
   await expect(page.getByLabel('Include a drop panel (concentric)')).toBeChecked();

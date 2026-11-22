@@ -4,7 +4,7 @@
 const confirmed = { beta: { method: 'simplified', confirmed: true, userValue: 1.15 } };
 const engaged = { reinforcement: { mode: 'auto', diameter: 10, shape: 'single', legGap: 100, layers: [], anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true } } };
 const slab = (h, d, extra = {}) => ({ slab: { h, depthMode: 'explicit', dx: d + 5, dy: d - 5, cover: 25, xMin: -6000, xMax: 6000, yMin: -6000, yMax: 6000, ...extra } });
-const head = values => ({ head: { enabled: true, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, depth: 150, ...values } });
+const head = values => ({ head: { enabled: true, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400, ...values } });
 
 const CASES = [
   {
@@ -45,17 +45,22 @@ const CASES = [
   {
     id: 'drop-small', title: '8 · Drop with l_H ≤ 2h_H (Fig. 6.17)', expect: 'Pass',
     note: 'Single section in the slab at r_cont = min(Eq. 6.34, Eq. 6.35).',
-    input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, depth: 200 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 700, Mx: 0, My: 0 }] },
+    input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 700, Mx: 0, My: 0 }] },
   },
   {
     id: 'drop-large', title: '9 · Drop with l_H > 2h_H, links inside the drop', expect: 'Pass',
     note: 'Sections inside the drop (d_H, 2d_H from the column) and in the slab (2d from the drop edge).',
-    input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 2400, ly: 2400, depth: 150 }), column: { shape: 'rectangular', position: 'internal', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 1250, Mx: 0, My: 0 }] },
+    input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 2400, ly: 2400, thickness: 400 }), column: { shape: 'rectangular', position: 'internal', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 1250, Mx: 0, My: 0 }] },
+  },
+  {
+    id: 'drop-through', title: '9b · Links inside and beyond the drop', expect: 'Pass',
+    note: 'Links in the drop (d_H, around the column) continue beyond the drop edge (d, around the drop): both sections need them.',
+    input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 2000, ly: 2000, thickness: 400 }), column: { shape: 'rectangular', position: 'internal', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 1400, Mx: 0, My: 0 }] },
   },
   {
     id: 'drop-circular', title: '10 · Circular column and head (Eq. 6.36/6.37)', expect: 'Pass',
     note: 'The circular case is stated in §6.4.2(11); no interpretation flag.',
-    input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ shape: 'circular', diameter: 2200, depth: 150 }), column: { shape: 'circular', position: 'internal', diameter: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 900, Mx: 0, My: 0 }] },
+    input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ shape: 'circular', diameter: 2200, thickness: 400 }), column: { shape: 'circular', position: 'internal', diameter: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 900, Mx: 0, My: 0 }] },
   },
   {
     id: 'prestressed-sg', title: '11 · Post-tensioned slab, Singapore NA', expect: 'Pass',
@@ -68,18 +73,18 @@ const CASES = [
     input: {
       ...confirmed, ...slab(250, 210), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 },
       flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 800, Mx: 0, My: 0 }],
-      reinforcement: { mode: 'provided', diameter: 10, shape: 'single', legGap: 100, anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true }, layers: [{ offset: 80, diameter: 8, shape: 'single', links: 8, start: 0, omitted: [] }, { offset: 235, diameter: 8, shape: 'single', links: 8, start: 0, omitted: [] }] },
+      reinforcement: { mode: 'provided', diameter: 10, shape: 'single', legGap: 100, anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true }, groups: [{ count: 1, spacing: 80, diameter: 8, shape: 'single', links: 8 }, { count: 1, spacing: 155, diameter: 8, shape: 'single', links: 8 }], omitted: {} },
     },
   },
   {
     id: 'edge-drop', title: 'Edge column with drop', expect: 'Pass',
     note: 'Drop clipped at the slab edge. Inside: edge column with d_H (Fig. 6.15); outside: the clipped drop as an edge loaded area at 2d. Geometric extension, see Help.',
-    input: { ...confirmed, ...engaged, ...slab(250, 210, { xMax: 250 }), ...head({ lx: 2400, ly: 2400, depth: 150 }), beta: { method: 'simplified', confirmed: true, userValue: 1.4 }, column: { shape: 'rectangular', position: 'edge', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 600, Mx: 0, My: 0 }] },
+    input: { ...confirmed, ...engaged, ...slab(250, 210, { xMax: 250 }), ...head({ lx: 2400, ly: 2400, thickness: 400 }), beta: { method: 'simplified', confirmed: true, userValue: 1.4 }, column: { shape: 'rectangular', position: 'edge', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 600, Mx: 0, My: 0 }] },
   },
   {
     id: 'corner-drop', title: 'Corner column with drop', expect: 'Pass',
     note: 'Drop clipped at both slab edges. Inside: corner column with d_H (Fig. 6.20); outside: the clipped drop as a corner loaded area at 2d.',
-    input: { ...confirmed, ...engaged, ...slab(250, 210, { xMax: 250, yMax: 250 }), ...head({ lx: 2400, ly: 2400, depth: 150 }), beta: { method: 'simplified', confirmed: true, userValue: 1.5 }, column: { shape: 'rectangular', position: 'corner', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 300, Mx: 0, My: 0 }] },
+    input: { ...confirmed, ...engaged, ...slab(250, 210, { xMax: 250, yMax: 250 }), ...head({ lx: 2400, ly: 2400, thickness: 400 }), beta: { method: 'simplified', confirmed: true, userValue: 1.5 }, column: { shape: 'rectangular', position: 'corner', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 300, Mx: 0, My: 0 }] },
   },
 ];
 
@@ -97,7 +102,7 @@ export const EXAMPLE_CARDS = [
   { id: 'edge', title: 'Edge', position: 'edge', drop: false, variants: [variant('edge', 'β from moments')] },
   { id: 'corner', title: 'Corner', position: 'corner', drop: false, variants: [variant('corner', 'Simplified β = 1.5')] },
   { id: 'interior-drop', title: 'Interior + drop', position: 'internal', drop: true, variants: [
-    variant('drop-large', 'l_H > 2h_H, links in the drop'), variant('drop-small', 'l_H ≤ 2h_H (Fig. 6.17)'), variant('drop-circular', 'Circular column and head'),
+    variant('drop-large', 'l_H > 2h_H, links in the drop'), variant('drop-through', 'Links beyond the drop'), variant('drop-small', 'l_H ≤ 2h_H (Fig. 6.17)'), variant('drop-circular', 'Circular column and head'),
   ] },
   { id: 'edge-drop', title: 'Edge + drop', position: 'edge', drop: true, variants: [variant('edge-drop', 'Drop clipped at the edge')] },
   { id: 'corner-drop', title: 'Corner + drop', position: 'corner', drop: true, variants: [variant('corner-drop', 'Drop clipped at both edges')] },

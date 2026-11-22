@@ -14,13 +14,17 @@ function firstEffective(model, r, fraction = 0) {
   return item.closed ? fraction * geometry.u : (item.s0 + item.s1) / 2;
 }
 
-function governingGap(result) {
-  const check = result.loads?.find(load => load.name === result.governing?.load)?.layoutCheck;
-  if (!check) return null;
-  const worst = check.layerRows.reduce((best, entry) => (!best || (entry.tangential.ur ?? 0) > (best.tangential.ur ?? 0) ? entry : best), null);
+// Worst tangential gap of the governing combination, in the section (column or drop) that owns it.
+function governingGap(result, extColumn) {
+  const load = result.loads?.find(entry => entry.name === result.governing?.load);
+  const rows = [
+    ...(load?.layoutCheck?.layerRows ?? []).map(entry => ({ ...entry, column: result.model?.column })),
+    ...(load?.ext?.layoutCheck?.layerRows ?? []).map(entry => ({ ...entry, column: extColumn })),
+  ].filter(entry => entry.column);
+  const worst = rows.reduce((best, entry) => (!best || (entry.tangential.ur ?? 0) > (best.tangential.ur ?? 0) ? entry : best), null);
   if (!worst) return null;
   const gap = worst.layer.tangential.gaps.reduce((a, b) => (b.length > a.length ? b : a));
-  return { layer: worst.layer, gap, fails: worst.tangential.status === 'Fail' };
+  return { layer: worst.layer, gap, column: worst.column, fails: worst.tangential.status === 'Fail' };
 }
 
 export function planSvg(result, { width = 640, height = 600, selected = null } = {}) {
@@ -34,7 +38,10 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
   const aOut = result.envelope?.uOut ? result.envelope.aOut : 0;
   const ext = head?.kind === 'large' && head.inner ? head.sections.find(item => item.id === 'ext') : null;
   const outerOnly = (head?.kind === 'large' && !head.inner) || (head?.kind === 'small' && !head.rcont);
-  const headReach = head ? Math.max(...head.lH) + 2 * head.d : 0;
+  const extSection = head?.sections?.find(item => item.id === 'ext');
+  const extModel = extSection?.model ?? null; // the drop as the loaded area
+  const extOut = ext && extSection.aOut > 0 ? extSection.aOut : 0; // u_out,ef of the slab section
+  const headReach = head ? Math.max(...head.lH) + Math.max(2 * head.d, extOut) : 0;
   const reach = Math.max(u1Offset, aOut, headReach, ...layers.map(layer => layer.offset), 0);
   const legendHeight = 40;
   const extent = pathExtent(column, reach);
@@ -64,10 +71,11 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
   };
   const model = result.model;
   // Ineffective portions (outside the slab, in openings or opening shadows) are drawn faint.
-  const perimeter = (r, color, dash, width = 1.4) => {
-    const out = [polyline(pathPolyline(pathColumn, r), view, `fill="none" stroke="${COLORS.rule}" stroke-width=".8" stroke-dasharray="1 3"`)];
-    const intervals = model ? model.intervalsAt(r).intervals : [{ s0: 0, s1: 0, closed: true }];
-    const lines = model ? intervalPolylines(model, r, intervals) : [pathPolyline(pathColumn, r)];
+  const perimeter = (r, color, dash, width = 1.4, m = model) => {
+    const pc = m?.column ?? pathColumn;
+    const out = [polyline(pathPolyline(pc, r), view, `fill="none" stroke="${COLORS.rule}" stroke-width=".8" stroke-dasharray="1 3"`)];
+    const intervals = m ? m.intervalsAt(r).intervals : [{ s0: 0, s1: 0, closed: true }];
+    const lines = m ? intervalPolylines(m, r, intervals) : [pathPolyline(pc, r)];
     for (const line of lines) out.push(polyline(line, view, `fill="none" stroke="${color}" stroke-width="${width}" stroke-dasharray="${dash}"`));
     return out.join('');
   };
@@ -82,11 +90,16 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     parts.push(perimeter(aOut, COLORS.uout, DASH.uout, 1));
     parts.push(labelAt(aOut, 'u_out,ef', COLORS.uout, firstEffective(model, aOut, 0.16)));
   }
-  if (head) parts.push(headOutline(input, view));
+  if (head) parts.push(headOutline(input, view, Math.max(26, (reach - Math.min(...head.lH)) * view.scale * 0.75)));
   if (ext) {
     parts.push(polyline(pathPolyline(ext.model.column, 2 * head.d), view, `fill="none" stroke="${COLORS.ink}" stroke-width="1.1" stroke-dasharray="${DASH.ext}"`, true));
     const p = toGlobal(ext.model.column, pointAt(ext.model.column, 2 * head.d, 0.09 * ext.u1));
     parts.push(`<text class="label" x="${n(view.x(p.x) + 4)}" y="${n(view.y(p.y) - 4)}">u1,ext (2d from drop)</text>`);
+    if (extOut > 0) {
+      parts.push(perimeter(extOut, COLORS.uout, DASH.uout, 1, extModel));
+      const q = toGlobal(extModel.column, pointAt(extModel.column, extOut, firstEffective(extModel, extOut, 0.2)));
+      parts.push(`<text class="label" x="${n(view.x(q.x) + 4)}" y="${n(view.y(q.y) - 4)}">u_out,ef,ext</text>`);
+    }
   }
   if (d > 0) {
     parts.push(perimeter(u1Offset, COLORS.u1, DASH.u1, 1.3));
@@ -94,16 +107,21 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     const name = outerOnly || (head?.kind === 'small' && !head.rcont) ? 'u1,ext (2d from drop)' : head?.kind === 'large' ? 'u1,int (d_H)' : head?.kind === 'small' ? `u1 at r_cont (${head.rcont.eq})` : 'u1 (2d)';
     parts.push(`<text class="label" x="${n(view.x(u1Label.x) + 4)}" y="${n(view.y(u1Label.y) - 5)}">${esc(name)}</text>`);
   }
+  // Layers beyond the drop follow the drop outline (pathOffset from the drop edge).
   for (const [index, layer] of layers.entries()) {
-    parts.push(perimeter(layer.offset, COLORS.muted, DASH.layer, 0.6));
-    const p = toGlobal(pathColumn, pointAt(pathColumn, layer.offset, firstEffective(model, layer.offset, 0.42)));
-    if (index === 0 || index === layers.length - 1) parts.push(`<text class="small" x="${n(view.x(p.x) - 6)}" y="${n(view.y(p.y) - 6)}" text-anchor="end">L${index + 1}</text>`);
+    const m = layer.zone === 'slab' && extModel ? extModel : model;
+    const r = layer.pathOffset ?? layer.offset;
+    const pc = m?.column ?? pathColumn;
+    parts.push(perimeter(r, COLORS.muted, DASH.layer, 0.6, m));
+    const p = toGlobal(pc, pointAt(pc, r, firstEffective(m, r, 0.42)));
+    const zoneEnd = layers[index + 1]?.zone !== layer.zone || layers[index - 1]?.zone !== layer.zone;
+    if (index === 0 || index === layers.length - 1 || zoneEnd) parts.push(`<text class="small" x="${n(view.x(p.x) - 6)}" y="${n(view.y(p.y) - 6)}" text-anchor="end">${esc(layer.id ?? 'L' + (index + 1))}</text>`);
   }
-  const gov = governingGap(result);
+  const gov = governingGap(result, extModel?.column);
   if (gov) {
     const points = [];
     const steps = 40;
-    for (let i = 0; i <= steps; i += 1) points.push(toGlobal(pathColumn, pointAt(pathColumn, gov.layer.offset, gov.gap.s0 + (gov.gap.length * i) / steps)));
+    for (let i = 0; i <= steps; i += 1) points.push(toGlobal(gov.column, pointAt(gov.column, gov.layer.offset, gov.gap.s0 + (gov.gap.length * i) / steps)));
     parts.push(polyline(points, view, `fill="none" stroke="${gov.fails ? COLORS.ink : COLORS.governing}" stroke-width="4" stroke-opacity=".75" stroke-linecap="round"${gov.fails ? ' stroke-dasharray="6 3"' : ''} data-governing="${esc(gov.layer.id)}"`));
   }
   const outline = column.shape === 'circular' ? pathPolyline(column, 0) : [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => toGlobal(column, { x: sx * column.cx / 2, y: sy * column.cy / 2 }));
@@ -132,7 +150,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
   }
   parts.push(planDimensions(column, view));
   parts.push(axes(height - legendHeight, column));
-  parts.push(legend(width, height, legendHeight, { ineffective: (result.layout?.links ?? []).some(link => link.legs.some(leg => !leg.effective)), ext: Boolean(ext), out: aOut > 0, head: Boolean(head), gap: layers.length > 0 }, keyValues({ d, u1Offset, aOut, layers, head, column })));
+  parts.push(legend(width, height, legendHeight, { ineffective: (result.layout?.links ?? []).some(link => link.legs.some(leg => !leg.effective)), ext: Boolean(ext), out: aOut > 0 || extOut > 0, head: Boolean(head), gap: layers.length > 0 }, keyValues({ d, u1Offset, aOut, layers, head, column, input })));
   return svgDocument(width, height, 'Punching shear plan', parts.join(''));
 }
 
@@ -178,19 +196,20 @@ function axes(bottom, column) {
 }
 
 // Key dimensions as one text line in the legend (the plan carries no radial dimension lines).
-function keyValues({ d, u1Offset, aOut, layers, head }) {
+function keyValues({ d, u1Offset, aOut, layers, head, input }) {
   const out = [];
   if (layers.length) {
     out.push(`a1 = ${layers[0].offset.toFixed(0)}`);
-    const radial = [...new Set(layers.slice(1).map((layer, i) => (layer.offset - layers[i].offset).toFixed(0)))];
+    const radial = [...new Set(layers.slice(1).filter((layer, i) => layer.zone === layers[i].zone).map(layer => (layer.offset - layers[layers.indexOf(layer) - 1].offset).toFixed(0)))];
     if (radial.length) out.push(`s_r = ${radial.join(' / ')}`);
   }
   if (head?.kind === 'small' && head.rcont) out.push(`r_cont = ${head.rcont.r.toFixed(0)}`);
   else if (head?.kind === 'small') out.push(`2d = ${(2 * head.d).toFixed(0)} from drop`);
   else if (d > 0 && !(head?.kind === 'large' && !head.inner)) out.push(`${head?.kind === 'large' ? '2d_H' : '2d'} = ${u1Offset.toFixed(0)}`);
-  if (head) out.push(`l_H = ${head.lH.map(v => v.toFixed(0)).join(' / ')}`);
+  if (head) out.push(`h_tot = ${input.head.thickness}`, `l_H = ${head.lH.map(v => v.toFixed(0)).join(' / ')}`);
   if (head?.kind === 'large') out.push(`l_H + 2d = ${(head.lMin + 2 * head.d).toFixed(0)}`);
-  if (aOut > 0) out.push(`a_out = ${aOut.toFixed(0)}`);
+  const fromDrop = head && !(head.kind === 'large' && head.inner);
+  if (aOut > 0) out.push(`a_out = ${aOut.toFixed(0)}${fromDrop ? ' from the drop' : ''}`);
   return out.join(' · ') + (out.length ? ' (mm from the column face)' : '');
 }
 

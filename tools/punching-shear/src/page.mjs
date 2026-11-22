@@ -8,8 +8,7 @@ import { signSvg } from './sign-view.mjs';
 import { stressSvg } from './stress-view.mjs';
 import { buildForm } from './form.mjs';
 import { htmlSubscripts } from './subscript.mjs';
-import { LINK_DIAMETERS, newDefaults, restoreInputs } from './inputs.mjs';
-import { newLayer } from './layout.mjs';
+import { LINK_DIAMETERS, layersToGroups, newDefaults, restoreInputs } from './inputs.mjs';
 import { planSvg } from './plan-view.mjs';
 import { renderCompact } from './output-view.mjs';
 import { renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
@@ -48,18 +47,19 @@ const refreshLoads = mountTable(byId('loads-anchor'), {
 });
 const layerAnchor = byId('layers-anchor');
 const layerTableHost = document.createElement('div');
-layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons'));
+layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons:not(.arrangement-head)'));
+// Link arrangement: rows of n layers at spacing s; row 1 is measured from the column face.
 const refreshLayers = mountTable(layerTableHost, {
-  caption: 'Link layers',
-  columns: [['offset', 'Offset', number], ['diameter', '$\\phi$', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
-    ['shape', 'Shape', 'select', [{ value: 'single', label: '1-leg' }, { value: 'double', label: '2-leg' }]], ['links', 'Links', number], ['start', 'Start', number]],
-  getRows: () => state.reinforcement.layers,
+  caption: 'Link arrangement',
+  columns: [['count', '$n$', number], ['spacing', '$s$ (mm)', number], ['diameter', '$\\phi$', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
+    ['shape', 'Shape', 'select', [{ value: 'single', label: '1-leg' }, { value: 'double', label: '2-leg' }]], ['links', 'Links/layer', number]],
+  getRows: () => state.reinforcement.groups,
   newRow: (index, previous) => {
-    const layer = newLayer(index, previous);
-    if (previous) layer.offset = previous.offset + Math.floor((0.75 * (result?.section?.d ?? 200)) / 5) * 5;
-    return layer;
+    const d = result?.section?.d ?? 200;
+    const step = Math.floor((previous ? 0.75 * d : 0.4 * d) / 5) * 5;
+    return { count: 1, spacing: step, diameter: previous?.diameter ?? 10, shape: previous?.shape ?? 'single', links: previous?.links ?? 16 };
   },
-  onChange: () => schedule(), addLabel: '+ Layer', removeLabel: '− Layer', rowLabel: index => 'L' + (index + 1),
+  onChange: () => schedule(), addLabel: '+ Row', removeLabel: '− Row', rowLabel: index => String(index + 1),
 });
 
 // Calculation case: worked cases appear as cards only when "Worked case" is chosen.
@@ -111,9 +111,13 @@ for (const tab of tabs) tab.addEventListener('click', () => {
 });
 byId('load-type').addEventListener('input', event => { state.loadType = event.target.value; schedule(); });
 byId('combination').addEventListener('input', render);
+// Auto arrangement: run the automatic design and write it into the arrangement table as rows.
 byId('copy-layout').addEventListener('click', () => {
-  if (!result?.layout?.layers?.length) return;
-  state.reinforcement.layers = structuredClone(result.layout.layers);
+  const auto = calculate({ ...state, reinforcement: { ...state.reinforcement, mode: 'auto' } });
+  const layers = auto.layout?.layers ?? [];
+  if (!layers.length) { status.textContent = auto.layout?.reason ?? 'Auto arrangement: no links required.'; return; }
+  state.reinforcement.groups = layersToGroups(layers);
+  state.reinforcement.omitted = {};
   state.reinforcement.mode = 'provided';
   refresh();
   schedule();
@@ -121,16 +125,15 @@ byId('copy-layout').addEventListener('click', () => {
 byId('omit-link').addEventListener('click', () => {
   const link = result?.layout?.links.find(entry => entry.id === selected);
   if (!link || state.reinforcement.mode !== 'provided') return;
-  const layer = state.reinforcement.layers[link.layerIndex];
-  layer.omitted = [...new Set([...(layer.omitted || []), link.index])].sort((a, b) => a - b);
+  const omitted = state.reinforcement.omitted ??= {};
+  omitted[link.layerId] = [...new Set([...(omitted[link.layerId] || []), link.index])].sort((a, b) => a - b);
   selected = null;
   schedule();
 });
 byId('restore-links').addEventListener('click', () => {
   const link = result?.layout?.links.find(entry => entry.id === selected);
-  const index = link ? link.layerIndex : Number(selected?.slice(1)) - 1;
-  const layer = state.reinforcement.layers[index];
-  if (layer) layer.omitted = [];
+  const id = link ? link.layerId : selected;
+  if (id && state.reinforcement.omitted) delete state.reinforcement.omitted[id];
   schedule();
 });
 byId('plan-view').addEventListener('click', event => {
@@ -150,8 +153,8 @@ function refresh() {
   refreshLayers();
   byId('load-type').value = state.loadType;
   const provided = state.reinforcement.mode === 'provided';
-  layerTableHost.hidden = !provided;
-  byId('copy-layout').hidden = provided;
+  layerTableHost.hidden = byId('arrangement-caption').hidden = !provided;
+
   byId('omit-link').hidden = byId('restore-links').hidden = !provided;
 }
 

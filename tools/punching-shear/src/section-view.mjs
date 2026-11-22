@@ -34,7 +34,12 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const u1Offset = slabOnly ? null : head?.kind === 'small' ? head.rcont.r - face : result.u1Offset ?? 2 * d;
   const extOffset = head && (head.kind === 'large' || !head.rcont) ? lH + 2 * head.d : null;
   const extOffsetNeg = extOffset !== null ? lHneg + 2 * head.d : null;
-  const reach = Math.max(u1Offset ?? 0, aOut, extOffset ?? 0, extOffsetNeg ?? 0, lH, lHneg, ...layers.map(layer => layer.offset), 0);
+  // Offsets measured from the loaded area of the solved section, converted to the column face: the
+  // drop for slab-only sections, the equivalent circle for r_cont, the column otherwise.
+  const loaded = sideLH => (!head ? 0 : head.kind === 'small' && head.rcont ? head.rcont.r - 2 * head.d - face : slabOnly ? sideLH : 0);
+  const extAOut = head?.inner ? head.sections.find(item => item.id === 'ext')?.aOut ?? 0 : 0;
+  const linkAt = (layer, sign) => sign * (layer.zone === 'slab' ? (sign > 0 ? posEnd : negEnd) + layer.pathOffset : face + layer.offset);
+  const reach = Math.max(u1Offset ?? 0, aOut ? loaded(Math.max(lH, lHneg)) + aOut : 0, extAOut ? Math.max(lH, lHneg) + extAOut : 0, extOffset ?? 0, extOffsetNeg ?? 0, lH, lHneg, ...layers.flatMap(layer => [linkAt(layer, 1), -linkAt(layer, -1)].map(t => t - face)), 0);
 
   // Distance from the column centre to the slab boundary along the local section axis.
   const theta = ((column.rotation || 0) * Math.PI) / 180 + (alongY ? Math.PI / 2 : 0);
@@ -60,9 +65,11 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   if (layers.length) rows.push(['chain']);
   if (head?.kind === 'small' && head.rcont) rows.push(['r', u1Offset, `r_cont = ${head.rcont.r.toFixed(0)}`, -face]);
   else if (d > 0 && u1Offset !== null) rows.push(['r', u1Offset, `${head?.kind === 'large' ? '2d_H' : '2d'} = ${u1Offset.toFixed(0)}`, 0]);
-  if (head) rows.push(['r', lH, `l_H = ${lH.toFixed(0)}`, 0]);
-  if (extOffset !== null) rows.push(['r', extOffset, `l_H + 2d = ${extOffset.toFixed(0)}`, 0]);
-  if (aOut > 0) rows.push(['r', aOut, `a_out = ${aOut.toFixed(0)}`, 0]);
+  const lHshow = lH > 1 ? lH : lHneg; // the side where the drop projects (edge columns are flush on one side)
+  if (head) rows.push(['r', lHshow, `l_H = ${lHshow.toFixed(0)}`, 0]);
+  if (extOffset !== null) rows.push(['r', lHshow + 2 * head.d, `l_H + 2d = ${(lHshow + 2 * head.d).toFixed(0)}`, 0]);
+  if (aOut > 0) rows.push(['r', aOut, `a_out = ${aOut.toFixed(0)}${head && !head.inner ? ' (from the loaded area)' : ''}`, 0]);
+  if (extAOut > 0) rows.push(['r', extAOut, `a_out,ext = ${extAOut.toFixed(0)} (from the drop)`, 0]);
   rows.sort((r1, r2) => (r1[0] === 'chain' ? -1 : r2[0] === 'chain' ? 1 : r1[1] - r2[1]));
   const padL = 54;
   const padR = 64;
@@ -72,7 +79,7 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const zBot = -hH - stub;
   const topPad = 96;
   const bodyHeight = (zTop - zBot) * scale;
-  const dimsHeight = 58; // room for the callouts below the column stub
+  const dimsHeight = 84; // room for three callout landings below the column stub
   const legendHeight = 74; // up to two lines of values plus two notes
   const height = Math.round(topPad + bodyHeight + dimsHeight + legendHeight);
   const drawHeight = height - legendHeight;
@@ -149,7 +156,7 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   // Link legs with 135° hooks around the top and bottom bars (bends dashed: anchorage to confirm).
   const legTop = Math.max(zTopBar, zTopDots) + 6;
   layers.forEach((layer, index) => [1, -1].forEach(sign => {
-    const t = sign * (face + layer.offset);
+    const t = linkAt(layer, sign);
     if (t > right || t < left) return;
     const x = X(t);
     const yTop = Z(legTop);
@@ -157,17 +164,18 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
     const w = Math.max(2, layer.diameter * scale);
     const hook = 5;
     const red = COLORS.link;
-    parts.push(`<g data-layer="L${index + 1}"><line x1="${n(x)}" y1="${n(yTop)}" x2="${n(x)}" y2="${n(yBot)}" stroke="${red}" stroke-width="${n(w)}"/>`
+    parts.push(`<g data-layer="${esc(layer.id ?? 'L' + (index + 1))}"><line x1="${n(x)}" y1="${n(yTop)}" x2="${n(x)}" y2="${n(yBot)}" stroke="${red}" stroke-width="${n(w)}"/>`
       + `<path d="M${n(x)} ${n(yTop)}a${hook} ${hook} 0 0 ${sign > 0 ? 1 : 0} ${sign * 2 * hook} 0l${sign * 4} 6" fill="none" stroke="${red}" stroke-width="1.5" stroke-linejoin="round"/>`
       + `<path d="M${n(x)} ${n(yBot)}a${hook} ${hook} 0 0 ${sign > 0 ? 0 : 1} ${sign * 2 * hook} 0l${sign * 4} -6" fill="none" stroke="${red}" stroke-width="1.5" stroke-linejoin="round"/>`
-      + `<text class="small" x="${n(x + 4 * sign)}" y="${n((yTop + yBot) / 2 + 3)}" text-anchor="${sign > 0 ? 'start' : 'end'}" fill="${red}">L${index + 1}</text></g>`);
+      + `<text class="small" x="${n(x + 4 * sign)}" y="${n((yTop + yBot) / 2 + 3)}" text-anchor="${sign > 0 ? 'start' : 'end'}" fill="${red}">${esc(layer.id ?? 'L' + (index + 1))}</text></g>`);
   }));
 
   // Control sections: vertical markers with labels staggered over two rows.
   const markers = [];
   if (d > 0 && u1Offset !== null) markers.push([u1Offset, head?.kind === 'large' ? 'u1,int' : 'u1', DASH.u1]);
   if (extOffset !== null) markers.push([extOffset, 'u1,ext', DASH.ext, extOffsetNeg]);
-  if (aOut > 0) markers.push([aOut, 'u_out,ef', DASH.uout]);
+  if (aOut > 0) markers.push([loaded(lH) + aOut, 'u_out,ef', DASH.uout, loaded(lHneg) + aOut]);
+  if (extAOut > 0) markers.push([lH + extAOut, 'u_out,ef,ext', DASH.uout, lHneg + extAOut]);
   markers.sort((m1, m2) => m1[0] - m2[0]);
   let lastEnd = -Infinity;
   let row = 1;
@@ -196,31 +204,25 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   };
   if (!head || dropEnd < right) parts.push(vdim(right, 0, h, 18, `h = ${h}`));
   else if (dropEndL < -left) parts.push(vdim(left, 0, h, -18, `h = ${h}`));
-  else parts.push(vdim(right, -hH, h, 18, `h + h_H = ${h + hH}`));
+  else parts.push(vdim(right, -hH, h, 18, `h_tot = ${h + hH}`));
   if (head) {
+    // Total drop thickness at one visible drop edge (the slab end carries h).
     const sides = [[dropEnd, dropEnd < right, 1], [-dropEndL, dropEndL < -left, -1]].filter(([, visible]) => visible);
-    if (sides.length === 2) {
-      parts.push(vdim(sides[0][0], -hH, 0, 16, `h_H = ${hH}`));
-      parts.push(vdim(sides[1][0], -hH, h, -16, `h + h_H = ${h + hH}`, true));
-    } else if (sides.length === 1) {
-      const [t, , sign] = sides[0];
-      parts.push(vdim(t, -hH, 0, 16 * sign, `h_H = ${hH}`));
-      parts.push(vdim(t, -hH, h, 34 * sign, `h + h_H = ${h + hH}`, true));
-    }
+    if (sides.length) parts.push(vdim(sides[0][0], -hH, h, 16 * sides[0][2], `h_tot = ${h + hH}`, true));
   }
 
   // Key dimensions as text (no dimension lines): layer offsets, control sections, depths.
   const values = [];
   if (layers.length) {
     values.push(`a1 = ${layers[0].offset.toFixed(0)}`);
-    const radial = [...new Set(layers.slice(1).map((layer, i) => (layer.offset - layers[i].offset).toFixed(0)))];
+    const radial = [...new Set(layers.slice(1).filter((layer, i) => layer.zone === layers[i].zone).map(layer => (layer.offset - layers[layers.indexOf(layer) - 1].offset).toFixed(0)))];
     if (radial.length) values.push(`s_r = ${radial.join(' / ')}`);
   }
   for (const item of rows) if (item[0] === 'r') values.push(item[2].includes('=') ? item[2] : `${item[2]} = ${item[1].toFixed(0)}`);
   values.push(`h = ${h}`);
-  if (head) values.push(`h_H = ${hH}`);
+  if (head) values.push(`h_tot = ${h + hH}`);
   if (section) values.push(`d = (d_x + d_y)/2 = ${((section.dx + section.dy) / 2).toFixed(0)}`);
-  if (head?.kind === 'large' && head.inner) values.push(`d_H = d + h_H = ${head.dH.toFixed(0)}`);
+  if (head?.kind === 'large' && head.inner) values.push(`d_H = d + (h_tot − h) = ${head.dH.toFixed(0)}`);
   // Callouts (45° leaders, QLEADER style). A callout flips to the left when its text would leave
   // the drawing. Landings: links highest, top bars below them, bars under the soffit below the slab.
   // Values wrap to the drawing width (about 6.3 px per character at 11 px).
@@ -244,11 +246,12 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
     else if (dx < 0 && x - run - textWidth < 4) dx = 1;
     return callout(x, y, dx, dy, run, lines, color);
   };
-  const lastLink = layers.length ? face + layers.at(-1).offset : face;
-  if (layers.length && face + layers[0].offset <= far) {
-    const ids = layers.length > 1 ? `L1–L${layers.length}` : 'L1';
+  const lastLink = layers.length ? cs * linkAt(layers.at(-1), cs) : face;
+  const firstLink = layers.length ? cs * linkAt(layers[0], cs) : face;
+  if (layers.length && firstLink <= far) {
+    const ids = layers.length > 1 ? `${layers[0].id ?? 'L1'}–${layers.at(-1).id ?? 'L' + layers.length}` : layers[0].id ?? 'L1';
     const phis = [...new Set(layers.map(layer => layer.diameter))].map(phi => 'Ø' + phi).join('/');
-    parts.push(place(XC(face + layers[0].offset) + 2 * cs, Z(legTop) + 2, -1, Z(h) - 66, [`SHEAR LINKS ${ids}, ${phis}`, `${layers[0].shape === 'double' ? 'TWO-LEG' : 'SINGLE-LEG'}, SEE SCHEDULE`], COLORS.link));
+    parts.push(place(XC(firstLink) + 2 * cs, Z(legTop) + 2, -1, Z(h) - 66, [`SHEAR LINKS ${ids}, ${phis}`, `${layers[0].shape === 'double' ? 'TWO-LEG' : 'SINGLE-LEG'}, SEE SCHEDULE`], COLORS.link));
   }
   // Top bars: from the far end on the callout side, leader back toward the column.
   parts.push(callout(XC(far) - 14 * cs, Z(zTopBar), -cs, -1, Math.max(14, Z(zTopBar) - (Z(h) - 40)), ['TOP BARS (FLEXURE INPUT)']));
@@ -259,6 +262,20 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   } else {
     const tb = lastLink + 0.5 * Math.max(0, far - lastLink);
     parts.push(place(XC(tb), Z(bottomBar(cs * tb)), 1, Z(zBot) + 22, [head ? 'DROP / BOTTOM BARS (SCHEMATIC)' : 'BOTTOM BARS (SCHEMATIC)']));
+  }
+  // Drop panel callout from its soffit: on the side opposite the bar callouts when the drop shows
+  // there (landing below theirs), else toward the column.
+  const dropEndOpp = cs > 0 ? dropEndL : dropEnd;
+  if (head && Math.max(dropEndC, dropEndOpp) > face + 1) {
+    const size = input.head.shape === 'circular' ? 'Ø' + input.head.diameter : input.head.lx + ' × ' + input.head.ly;
+    const lines = [`DROP PANEL ${size}, h_tot = ${h + hH}`];
+    const run = Math.max(14, Z(zBot) + 74 - Z(-hH));
+    const textWidth = lines[0].length * 6.2 + 10;
+    const opposite = dropEndOpp > face + 1;
+    const x0 = opposite ? XC(-(face + 0.45 * (dropEndOpp - face))) : XC(face + 0.35 * (dropEndC - face));
+    const fits = dx => (dx > 0 ? x0 + run + textWidth < width - 4 : x0 - run - textWidth > 4);
+    const dx = fits(-cs) ? -cs : cs;
+    parts.push(callout(x0, Z(-hH), dx, 1, run, lines, COLORS.drop));
   }
   parts.push(`<line x1="0" y1="${n(drawHeight)}" x2="${width}" y2="${n(drawHeight)}" stroke="${COLORS.rule}"/>`
     + valueLines.map((line, i) => `<text class="small" x="14" y="${n(drawHeight + 16 + 15 * i)}">${esc(line)}</text>`).join('')

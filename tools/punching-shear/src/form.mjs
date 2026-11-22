@@ -49,7 +49,7 @@ export const GROUPS = [
     ['head.lx', 'Drop $l_x$ (mm)', 'number', null, s => s.head.enabled && s.head.shape === 'rectangular'],
     ['head.ly', 'Drop $l_y$ (mm)', 'number', null, s => s.head.enabled && s.head.shape === 'rectangular'],
     ['head.diameter', 'Drop diameter $D_H$ (mm)', 'number', null, s => s.head.enabled && s.head.shape === 'circular'],
-    ['head.depth', 'Depth below slab $h_H$ (mm)', 'number', null, s => s.head.enabled],
+    ['head.thickness', 'Total thickness $h_{tot}$ (mm)', 'number', null, s => s.head.enabled],
   ]],
   ['Openings', []],
   ['Materials', [

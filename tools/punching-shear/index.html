@@ -33,9 +33,11 @@
         <p class="table-caption">Concurrent combinations: V in kN, M in kN·m. The punching force resultant lies at e_x = M_y/V, e_y = M_x/V from the column centroid; enter signs so that e points toward the resultant.</p>
       </div>
       <div id="layers-anchor">
-        <p class="table-caption">Provided layers: offset from the column face and start position along the layer, in mm.</p>
+        <div class="layer-buttons arrangement-head">
+          <button type="button" id="copy-layout" class="primary-action">Auto arrangement</button>
+        </div>
+        <p class="table-caption" id="arrangement-caption">Link arrangement: n layers at spacing s per row, row 1 measured from the column face (mm). With a drop, layers beyond the drop edge follow the drop outline.</p>
         <div class="layer-buttons">
-          <button type="button" id="copy-layout">Edit auto layout</button>
           <button type="button" id="omit-link" disabled>Omit selected link</button>
           <button type="button" id="restore-links" disabled>Restore layer</button>
         </div>
@@ -70,7 +72,7 @@
       <div class="tab-panel" data-panel="schedule" hidden>
         <div class="schedule-wrap">
           <table id="layer-schedule" class="column-summary-table">
-            <thead><tr><th scope="col">Layer</th><th scope="col">Offset</th><th scope="col">Ø</th><th scope="col">Shape</th><th scope="col">Links</th><th scope="col">Eff. legs</th><th scope="col">A_sw (mm²)</th><th scope="col">s_r</th><th scope="col">s_t max ≤ limit</th><th scope="col">Reinforcement</th><th scope="col">Detailing</th></tr></thead>
+            <thead><tr><th scope="col">Layer</th><th scope="col">s from face</th><th scope="col">Ø</th><th scope="col">Shape</th><th scope="col">Links</th><th scope="col">Eff. legs</th><th scope="col">A_sw (mm²)</th><th scope="col">s_r</th><th scope="col">s_t max ≤ limit</th><th scope="col">Reinforcement</th><th scope="col">Detailing</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>

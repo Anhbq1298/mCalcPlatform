@@ -68,7 +68,8 @@ export function buildWorksheet(full, { pageHeight, pageGap, designName = 'Punchi
   doc.math(esc(result.profile.kMaxLabel), define(R`k_{max}`, num(result.profile.kMax)), { mode: 'auto' });
 
   const layout = result.layout;
-  const layers = layout.summary;
+  // The worked calculation is the primary section: inside the drop when it is checked, else the slab.
+  const layers = result.head?.inner ? layout.summary.filter(layer => layer.zone !== 'slab') : layout.summary;
   if (layers.length) layoutSection(doc, layers);
   result.loads.forEach((load, index) => combination(doc, result, load, index + 1, rect, layers.length > 1));
   if (layers.length) detailing(doc, result, layers);
@@ -147,7 +148,8 @@ function layoutSection(doc, layers) {
   doc.text('Effective legs are inside the slab and outside openings. A_sw per layer = effective legs × leg area.', 12);
   layers.forEach((layer, i) => {
     const j = i + 1;
-    doc.math(`${layer.id} offset from column face`, define(`a_{L${j}}`, num(layer.offset) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 0 });
+    const slab = layer.zone === 'slab';
+    doc.math(`${layer.id} offset from the ${slab ? 'drop edge' : 'column face'}`, define(`a_{L${j}}`, num(slab ? layer.pathOffset : layer.offset) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 0 });
     doc.math(`${layer.id} effective legs, Ø`, define(`n_{L${j}}`, String(layer.effectiveLegs)), { mode: 'auto' });
     doc.math('', define(R`\phi_{L${j}}`, num(layer.diameter) + unit.mm), { displayUnit: 'mm', mode: 'auto' });
     doc.math(`${layer.id} A_sw`, define(`A_{sw.L${j}}`, R`n_{L${j}}\cdot0.25\pi\phi_{L${j}}^2`), { displayUnit: 'mm^2', precision: 0 });
@@ -221,7 +223,7 @@ function detailing(doc, result, layers) {
     const j = i + 1;
     const entry = check?.layerRows[i];
     doc.math(`${layer.id} largest tangential gap`, define(`s_{t.L${j}}`, num(layer.tangential.max, 1) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 0 });
-    doc.math('', R`s_{t.L${j}}\le${layer.offset <= 2 * result.section.d ? '1.5' : '2'}d`, { displayUnit: 'mm', mode: 'auto' });
+    doc.math('', R`s_{t.L${j}}\le${(layer.pathOffset ?? layer.offset) <= 2 * result.section.d ? '1.5' : '2'}d`, { displayUnit: 'mm', mode: 'auto' });
     if (entry) {
       doc.math(`${layer.id} radial spacing used in Eq. 9.11`, define(`s_{r.L${j}}`, num(entry.sr, 1) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 0 });
       doc.math('', R`0.25\pi\phi_{L${j}}^2\ge\frac{0.08\sqrt{\frac{f_{ck}}{\mathrm{MPa}}}}{\frac{f_{yk}}{\mathrm{MPa}}}\cdot\frac{s_{r.L${j}}s_{t.L${j}}}{1.5}`, { displayUnit: 'mm^2', mode: 'auto' });
@@ -247,7 +249,7 @@ function detailing(doc, result, layers) {
 function headSection(doc, full) {
   const head = full.head;
   const lH = head.lH.map(value => value.toFixed(0)).join(' / ');
-  doc.text(`Drop panel ${full.input.head.shape === 'circular' ? 'Ø' + full.input.head.diameter : full.input.head.lx + ' × ' + full.input.head.ly} mm${head.edge ? ' (clipped to the slab edge)' : ''}, h_H = ${head.hH} mm below the slab, l_H = ${lH} mm.`, 12);
+  doc.text(`Drop panel ${full.input.head.shape === 'circular' ? 'Ø' + full.input.head.diameter : full.input.head.lx + ' × ' + full.input.head.ly} mm${head.edge ? ' (clipped to the slab edge)' : ''}, total thickness h_tot = ${full.input.head.thickness} mm (h_H = h_tot − h = ${head.hH} mm), l_H = ${lH} mm.`, 12);
   if (head.kind === 'small' && !head.rcont) {
     doc.text(`l_H ≤ 2h_H at an edge or corner column: only the slab section is checked, at 2d from the drop outline clipped to the slab (d = ${head.d.toFixed(1)} mm). EN 1992-1-1 gives Eq. 6.33–6.35 for internal columns only; this geometric extension is described in Help.`, 12);
     return;
@@ -266,6 +268,8 @@ function headSection(doc, full) {
   if (!head.circular) doc.text('Basis: Eq. 6.36/6.37 are stated for circular columns (§6.4.2(11)); for this rectangular drop both control perimeters are constructed geometrically (software interpretation, see Help).', 12);
   full.loads.forEach(load => {
     const ext = load.rows.filter(entry => entry.id.startsWith('ext-'));
-    for (const entry of ext) doc.text(`${esc(load.name)} · ${esc(entry.label)}: ${entry.demand?.toFixed?.(3) ?? '—'} ≤ ${entry.resistance?.toFixed?.(3) ?? '—'} MPa · ${esc(entry.status)} (tool value, u1,ext = ${extSection.u1.toFixed(0)} mm).`, 12);
+    for (const entry of ext) doc.text(`${esc(load.name)} · ${esc(entry.label)}: ${entry.demand?.toFixed?.(3) ?? '—'} ≤ ${entry.resistance?.toFixed?.(3) ?? '—'} ${esc(entry.unit ?? 'MPa')} · ${esc(entry.status)} (tool value, u1,ext = ${extSection.u1.toFixed(0)} mm).`, 12);
   });
+  const outside = full.layout.summary.filter(layer => layer.zone === 'slab');
+  if (outside.length) doc.text(`Links beyond the drop: ${outside.map(layer => `${layer.id} at ${layer.pathOffset.toFixed(0)} mm from the drop edge (${layer.effectiveLegs} legs Ø${layer.diameter})`).join(', ')}. They are checked in the slab section with the drop as the loaded area (Eq. 6.52, §9.4.3); results above.`, 12);
 }

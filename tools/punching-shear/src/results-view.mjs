@@ -140,9 +140,9 @@ export function renderSchedule(table, result, selectedLayer) {
     const row = body.insertRow();
     row.dataset.layer = layer.id;
     if (layer.id === selectedLayer) row.className = 'column-summary-governing';
-    const radial = index ? layer.offset - layers[index - 1].offset : null;
+    const radial = index && layers[index - 1].zone === layer.zone ? layer.offset - layers[index - 1].offset : null;
     const cells = [
-      layer.id, fmt(layer.offset, 0), 'Ø' + layer.diameter, LINK_SHAPES[layer.shape]?.label ?? layer.shape,
+      layer.id, layer.zone === 'slab' ? `${fmt(layer.offset, 0)} (drop + ${fmt(layer.pathOffset, 0)})` : fmt(layer.offset, 0), 'Ø' + layer.diameter, LINK_SHAPES[layer.shape]?.label ?? layer.shape,
       String(layer.physicalLinks), `${layer.effectiveLegs} / ${layer.legs}`, fmt(layer.asw, 0),
       radial === null ? '—' : fmt(radial, 0), `${fmt(layer.tangential.max, 0)} ≤ ${fmt(layer.tangentialLimit, 0)}`,
     ];

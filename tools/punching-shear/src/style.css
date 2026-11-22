@@ -144,3 +144,7 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 #calculation-status[data-tone="pass"] { background: #dcefe3; color: #1b5733; }
 #calculation-status[data-tone="fail"] { background: #f6dcdb; color: #8c1f1b; }
 #calculation-status[data-tone="warn"] { background: #fbecd2; color: #7a4508; }
+.input-card .layer-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.input-card .layer-table th:first-child { width: 1.6rem; }
+.input-card .layer-table input, .input-card .layer-table select { width: 100%; min-width: 0; box-sizing: border-box; padding: .15rem .2rem; font-size: .8rem; }
+.arrangement-head { margin: .2rem 0 .1rem; }

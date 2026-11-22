@@ -24,13 +24,13 @@ export function newDefaults() {
     materials: { fck: 30, fyk: 500 },
     prestress: { sigmaX: 0, sigmaY: 0 },
     flexure: { phiX: 16, sX: 150, phiY: 16, sY: 150, outer: 'x', asx: 1090, asy: 1090, areaMode: 'explicit' },
-    head: { enabled: false, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, depth: 150 },
+    head: { enabled: false, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400 },
     openings: [],
     loadType: 'net',
     loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
     beta: { method: 'simplified', confirmed: false, userValue: 1.15 },
     reinforcement: {
-      mode: 'auto', diameter: 10, shape: 'single', legGap: 100, layers: [],
+      mode: 'auto', diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
       anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: false },
     },
   };
@@ -49,8 +49,54 @@ function merge(base, saved) {
   return out;
 }
 
+// Older saves: drop depth below the slab (head.depth) and explicit link layers (reinforcement.layers).
+function migrate(saved) {
+  const head = saved.head;
+  if (record(head) && head.depth !== undefined && head.thickness === undefined) {
+    head.thickness = (saved.slab?.h ?? newDefaults().slab.h) + head.depth;
+    delete head.depth;
+  }
+  const r = saved.reinforcement;
+  if (record(r) && Array.isArray(r.layers) && r.groups === undefined) {
+    r.groups = r.layers.map((layer, i) => ({ count: 1, spacing: layer.offset - (i ? r.layers[i - 1].offset : 0), diameter: layer.diameter, shape: layer.shape, links: layer.links }));
+    r.omitted = Object.fromEntries(r.layers.map((layer, i) => ['L' + (i + 1), layer.omitted || []]).filter(([, list]) => list.length));
+    delete r.layers;
+  }
+  return saved;
+}
+
 export function restoreInputs(saved) {
-  return merge(newDefaults(), structuredClone(saved ?? {}));
+  return merge(newDefaults(), migrate(structuredClone(saved ?? {})));
+}
+
+// Link layers from the spacing groups: row 1 spacing is measured from the column face, each row adds
+// `count` layers at its spacing. Offsets are distances from the column face (mm).
+export function groupLayers(reinforcement = {}) {
+  const layers = [];
+  let offset = 0;
+  for (const group of reinforcement.groups || []) {
+    for (let k = 0; k < group.count; k += 1) {
+      offset += group.spacing;
+      const id = 'L' + (layers.length + 1);
+      layers.push({ id, offset, diameter: group.diameter, shape: group.shape, links: group.links, start: 0, omitted: reinforcement.omitted?.[id] ?? [] });
+    }
+  }
+  return layers;
+}
+
+// Spacing groups from explicit layers: consecutive layers with the same spacing, bar and shape merge;
+// the merged link count is the largest of the group (never fewer links than designed).
+export function layersToGroups(layers) {
+  const groups = [];
+  layers.forEach((layer, i) => {
+    const spacing = Math.round(layer.offset - (i ? layers[i - 1].offset : 0));
+    const last = groups.at(-1);
+    if (i > 0 && last && last.spacing === spacing && last.diameter === layer.diameter && last.shape === layer.shape && last.zone === layer.zone) {
+      last.count += 1;
+      last.links = Math.max(last.links, layer.links);
+    } else groups.push({ count: 1, spacing, diameter: layer.diameter, shape: layer.shape, links: layer.links, zone: layer.zone });
+  });
+  return groups.map(({ zone, ...group }) => group);
 }
 
 const barArea = diameter => (Math.PI * diameter * diameter) / 4;
@@ -144,9 +190,11 @@ export function validateReinforcement(reinforcement = {}) {
   if (reinforcement.mode === 'auto') {
     if (!LINK_DIAMETERS.includes(reinforcement.diameter)) issues.push({ state: STATES.incomplete, message: 'Select a link diameter.' });
   } else if (reinforcement.mode === 'provided') {
-    for (const [index, layer] of (reinforcement.layers || []).entries()) {
-      if (!positive(layer.offset) || !positive(layer.diameter) || !Number.isInteger(layer.links) || layer.links < 1 || !finite(layer.start)) {
-        issues.push({ state: STATES.incomplete, message: `Layer L${index + 1}: enter offset, diameter, a whole number of links and a start position.` });
+    const groups = reinforcement.groups || [];
+    if (!groups.length) issues.push({ state: STATES.incomplete, message: 'Add at least one row to the link arrangement, or use Auto arrangement.' });
+    for (const [index, group] of groups.entries()) {
+      if (!Number.isInteger(group.count) || group.count < 1 || !positive(group.spacing) || !positive(group.diameter) || !Number.isInteger(group.links) || group.links < 1) {
+        issues.push({ state: STATES.incomplete, message: `Arrangement row ${index + 1}: enter a whole number of layers, a spacing, a diameter and a whole number of links per layer.` });
       }
     }
   } else issues.push({ state: STATES.incomplete, message: 'Select a reinforcement mode.' });
@@ -154,7 +202,7 @@ export function validateReinforcement(reinforcement = {}) {
   if (!['hook', 'bend'].includes(anchorage.type) || !positive(anchorage.mandrelFactor) || !finite(anchorage.extension) || anchorage.extension < 0) {
     issues.push({ state: STATES.incomplete, message: 'Enter the link anchorage type, mandrel diameter factor and extension.' });
   }
-  const usesDouble = reinforcement.mode === 'auto' ? reinforcement.shape === 'double' : (reinforcement.layers || []).some(layer => layer.shape === 'double');
+  const usesDouble = reinforcement.mode === 'auto' ? reinforcement.shape === 'double' : (reinforcement.groups || []).some(group => group.shape === 'double');
   if (usesDouble && !positive(reinforcement.legGap)) issues.push({ state: STATES.incomplete, message: 'Enter the two-leg link width.' });
   return issues;
 }

@@ -114,7 +114,8 @@
     <tr><td>Inner section checked only when 2d_H ≤ l_H</td><td>Tekla Structural Designer</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Face check: column perimeter with d_H (l_H &gt; 2h_H) or with the slab d (l_H ≤ 2h_H, conservative)</td><td>§6.4.5(3), §6.4.2(10)</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Drop at an edge or corner column: the drop is clipped to the slab (flush with the free edges the column is flush with). Inside: the edge or corner column with d_H (Fig. 6.15 / 6.20 perimeters). Outside: the clipped drop as an edge or corner loaded area at 2d. For l_H ≤ 2h_H only the outer section is checked.</td><td>Extension of Figs. 6.15, 6.17, 6.18 and 6.20; EN 1992-1-1 shows heads at internal columns only</td><td><span class="tag interp">Interpretation</span></td></tr>
-    <tr><td>Links kept inside the drop; the slab beyond the drop must pass without links</td><td>Tool scope</td><td><span class="tag interp">Limitation</span></td></tr>
+    <tr><td>Links beyond the drop: the slab section takes the drop as the loaded area and is designed like an ordinary column (Eq. 6.52, 6.54, §9.4.3) with d. A layer at s from the column face lies beyond the drop when s &gt; l<sub>H,min</sub> and follows the drop outline at t = s − l<sub>H,min</sub>; inside the drop a layer needs s ≤ l<sub>H,min</sub> − c. Layers on the step in between are rejected.</td><td>Extension of §6.4.2(9) with §6.4.5; Tekla Structural Designer treats the head as the loaded area for the outer section</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Rectangular head with l<sub>H</sub> ≤ 2h<sub>H</sub>: no links beyond the head (Eq. 6.34/6.35 replace it by an equivalent circle). Circular heads take links around the head.</td><td>Tool scope</td><td><span class="tag interp">Limitation</span></td></tr>
   </table>
   <p>The calculation report states the basis in one line for rectangular drops. The status is not held at “Requires confirmation”.</p>
 
@@ -122,10 +123,14 @@
   <ul>
     <li>Drops combined with openings, drops offset from the column, circular or rotated columns with a drop at a slab edge, and a drop that reaches an edge the column is set back from.</li>
     <li>A drop that is under Fig. 6.17 in one direction and Fig. 6.18 in the other (l_H straddles 2h_H).</li>
-    <li>Links in the slab outside the drop.</li>
+    <li>Links around a rectangular column head with l<sub>H</sub> ≤ 2h<sub>H</sub>.</li>
   </ul>
 
-  <h2>6 Shear stress figure</h2>
+  <h2>6 Input: total drop thickness and link arrangement</h2>
+  <p>The drop is entered by its total thickness h<sub>tot</sub> (slab plus drop); the projection below the slab is h<sub>H</sub> = h<sub>tot</sub> − h and d<sub>H</sub> = d + h<sub>H</sub>. Designs saved with the older depth input open with h<sub>tot</sub> = h + h<sub>H</sub>.</p>
+  <p>Provided links are entered as rows of n layers at spacing s: row 1 is measured from the column face, each later row adds n layers at its spacing. Every layer of a row has the same bar, shape and number of links. Auto arrangement runs the automatic design and writes it into the rows; consecutive layers with the same spacing merge into one row with the largest link count of those layers, so the arrangement never has fewer links than the design. With a drop, the arrangement runs straight across the drop edge: layers inside the drop belong to the section with d<sub>H</sub>, layers beyond it to the section around the drop with d.</p>
+
+  <h2>7 Shear stress figure</h2>
   <p>The stress figure shows v<sub>Ed</sub> along u<sub>0</sub>, u<sub>1</sub> and u<sub>out,ef</sub> (or u<sub>1,ext</sub> for a drop). The mean value is V<sub>Ed</sub>/(u·d). When β comes from moments at an internal column (Eq. 6.39, 6.42 or 6.43) the shape is the plastic distribution behind Eq. 6.39 (Fig. 6.19): a constant part plus k·M/W<sub>1</sub> with the sign of the side, scaled so that the peak equals β times the mean. With the simplified or a user β, and at edge and corner columns, the figure shows the uniform envelope β·V<sub>Ed</sub>/(u·d). The check itself always uses β·V<sub>Ed</sub>/(u·d).</p>
 
   <h2>Sources</h2>

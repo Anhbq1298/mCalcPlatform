@@ -1,6 +1,7 @@
 // Drop panels and enlarged column heads, EN 1992-1-1 §6.4.2(8)–(11), Figs. 6.17 and 6.18.
-// Each control section is solved as an ordinary internal-column check by calculate() with a modified
-// loaded area or depth; the results are merged so that the worst section governs.
+// Each control section is solved as an ordinary check by calculate() with a modified loaded area or
+// depth; the results are merged so that the worst section governs. Links may sit inside the drop (d_H,
+// around the column) and beyond it (d, around the drop as the loaded area).
 //   l_H < 2h_H: one section in the slab at r_cont (Eq. 6.33 circular, Eq. 6.34/6.35 rectangular).
 //   l_H > 2h_H: a section in the slab at 2d from the head edge (the head is the loaded area) and,
 //               when it fits inside the head (2d_H ≤ l_H), a section at 2d_H from the column face with
@@ -13,7 +14,7 @@
 // shows heads only at internal columns, so this is a geometric interpretation (see help.html).
 import { calculate, worstState } from './calculate.mjs';
 import { perimeterAtOffset } from './geometry.mjs';
-import { STATES, derivedSection, restoreInputs } from './inputs.mjs';
+import { STATES, derivedSection, groupLayers, restoreInputs } from './inputs.mjs';
 
 const positive = value => typeof value === 'number' && Number.isFinite(value) && value > 0;
 
@@ -42,7 +43,7 @@ export function headExtents(input) {
 export function headGeometry(input) {
   const { column, head } = input;
   const circular = column.shape === 'circular';
-  const hH = head.depth;
+  const hH = head.thickness - input.slab.h;
   const extents = headExtents(input);
   const half = circular ? { x: column.diameter / 2, y: column.diameter / 2 } : { x: column.cx / 2, y: column.cy / 2 };
   const sides = {};
@@ -71,7 +72,8 @@ function validateHead(input, base) {
   const shapeOk = (column.shape === 'circular') === (head.shape === 'circular');
   if (!shapeOk) issues.push({ state: STATES.unsupportedGeometry, message: 'Use a circular head with a circular column and a rectangular head with a rectangular column (Figs. 6.17 and 6.18).' });
   const sizes = head.shape === 'circular' ? [head.diameter] : [head.lx, head.ly];
-  if (![...sizes, head.depth].every(positive)) issues.push({ state: STATES.incomplete, message: 'Enter the drop size and its depth below the slab.' });
+  if (!sizes.every(positive) || !positive(head.thickness)) issues.push({ state: STATES.incomplete, message: 'Enter the drop size and its total thickness h_tot.' });
+  else if (head.thickness <= input.slab.h) issues.push({ state: STATES.incomplete, message: 'The drop thickness h_tot must exceed the slab thickness h.' });
   if (issues.length) return issues;
   const geo = headGeometry(input);
   if (geo.lH.some(value => value <= 0)) issues.push({ state: STATES.incomplete, message: 'The drop must be larger than the column on every side that faces the slab.' });
@@ -91,9 +93,46 @@ const deeper = (input, hH) => {
   const { dx, dy } = derivedSection(input);
   return { ...input, slab: { ...input.slab, h: input.slab.h + hH, depthMode: 'explicit', dx: dx + hH, dy: dy + hH } };
 };
-const asColumn = (input, size) => ({ ...input, column: { ...input.column, ...size }, openings: [], reinforcement: { ...input.reinforcement, mode: 'auto', layers: [] } });
+const asColumn = (input, size) => ({ ...input, column: { ...input.column, ...size }, openings: [] });
 
-function merge(primary, extra, headIssues, headInfo, input) {
+// Provided layers by zone, s = distance from the column face. Inside the drop (s ≤ l_H,min − c) they
+// belong to the section with d_H around the column; beyond the drop edge (s > l_H,min) they follow the
+// drop outline at t = s − l_H,min and belong to the slab section around the drop. Layers on the step
+// between the two are rejected. Method note in help.html.
+function splitLayers(input, geo, dropChecked) {
+  const cover = input.slab.cover;
+  const out = { drop: [], slab: [], issues: [], notes: [] };
+  for (const layer of groupLayers(input.reinforcement)) {
+    const s = layer.offset.toFixed(0);
+    if (layer.offset <= geo.lMin - cover + 1e-9) {
+      if (dropChecked) out.drop.push(layer);
+      else out.notes.push(`${layer.id} (s = ${s} mm) lies inside the drop, where no control section is checked; it is not counted.`);
+    } else if (layer.offset <= geo.lMin + 1e-9) {
+      out.issues.push({ state: STATES.fail, message: `${layer.id} (s = ${s} mm) lies on the drop edge step: keep links within l_H,min − c = ${(geo.lMin - cover).toFixed(0)} mm or beyond l_H,min = ${geo.lMin.toFixed(0)} mm.` });
+    } else out.slab.push({ ...layer, offset: layer.offset - geo.lMin });
+  }
+  return out;
+}
+
+const EMPTY = { layers: [], links: [], summary: [], reason: null };
+
+// One layout for drawings and the schedule. Offsets are from the column face; slab layers keep their
+// offset from the drop edge as pathOffset.
+function combinedLayout(inner, outer, lMin) {
+  const a = inner?.layout ?? EMPTY;
+  const b = outer?.layout ?? EMPTY;
+  const drop = item => ({ ...item, zone: 'drop', pathOffset: item.offset });
+  const slab = item => ({ ...item, zone: 'slab', pathOffset: item.offset, offset: item.offset + lMin });
+  return {
+    mode: a.mode ?? b.mode,
+    reason: a.layers.length || b.layers.length ? null : b.reason ?? a.reason,
+    layers: [...a.layers.map(drop), ...b.layers.map(slab)],
+    links: [...a.links.map(link => ({ ...link, zone: 'drop' })), ...b.links.map(link => ({ ...link, zone: 'slab' }))],
+    summary: [...a.summary.map(drop), ...b.summary.map(slab)],
+  };
+}
+
+function merge(primary, extra, headIssues, headInfo, input, layout, headNotes = []) {
   const loads = primary.loads.map((load, index) => {
     const other = extra?.loads[index];
     if (!other) return load;
@@ -103,12 +142,12 @@ function merge(primary, extra, headIssues, headInfo, input) {
   const governing = loads.reduce((best, entry) => (entry.ur > best.ur ? entry : best), loads[0]);
   const all = [...(primary.issues || []), ...(extra?.issues || []), ...headIssues];
   const issues = all.filter((item, index) => all.findIndex(other => other.message === item.message) === index);
-  const notes = [...(primary.notes || []), ...(extra?.notes || []).filter(note => !(primary.notes || []).includes(note))];
+  const notes = [...(primary.notes || []), ...(extra?.notes || []).filter(note => !(primary.notes || []).includes(note)), ...headNotes];
   const informational = [STATES.notRequired, STATES.linksRequired];
   const rowsOf = governing?.rows.filter(entry => entry.ur !== null && Number.isFinite(entry.ur) && !informational.includes(entry.status)) ?? [];
   const governingRow = rowsOf.reduce((best, entry) => (!best || entry.ur > best.ur ? entry : best), null);
   return {
-    ...primary, loads, issues, notes, input, checkInput: primary.input, head: headInfo,
+    ...primary, loads, issues, notes, input, checkInput: primary.input, head: headInfo, layout,
     status: worstState([...loads.map(entry => entry.status), ...issues.map(entry => entry.state)]),
     governing: governing ? { load: governing.name, check: governingRow?.label ?? null, ur: governing.ur } : primary.governing,
   };
@@ -134,43 +173,47 @@ export function calculateDesign(raw) {
   const e = geo.extents;
   const dropAsColumn = geo.circular ? { diameter: input.head.diameter }
     : { cx: e.xMax - e.xMin, cy: e.yMax - e.yMin, x: input.column.x + (e.xMax + e.xMin) / 2, y: input.column.y + (e.yMax + e.yMin) / 2 };
+  const dH = d + geo.hH;
+  const inside = geo.kind === 'large' && 2 * dH <= geo.lMin + 1e-9; // the inner control perimeter fits inside the head
+  const provided = input.reinforcement.mode === 'provided';
+  const split = provided ? splitLayers(input, geo, inside) : { drop: [], slab: [], issues: [], notes: [] };
+  const zone = (layers, layerBase) => (provided ? { layers } : { layerBase });
+  const issuesOf = [...momentBeta, ...split.issues];
+  const extSection = (outer, eq, offset = 2 * d) => ({ id: 'ext', label: 'Slab outside the drop', d, offset, model: outer.model, u1: outer.u1, eq, aOut: outer.envelope?.uOut ? outer.envelope.aOut : 0 });
+  const single = (outer, info) => {
+    if (!outer.loads?.length) return { ...outer, input, head: info };
+    return merge(outer, null, issuesOf, info, input, combinedLayout(null, outer, geo.lMin), split.notes);
+  };
+
   if (geo.kind === 'small' && !internal) {
     // Edge/corner: slab section around the clipped drop at 2d (Eq. 6.34/6.35 are for internal columns).
     const face = { u0: base.u0, d, label: 'Maximum punching stress at u0 (slab d, conservative)' };
-    const result = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at 2d', noLinks: 'v_Ed > v_Rd,c outside the drop. Links outside the drop are not implemented; enlarge the drop or the slab depth.' });
-    const info = { kind: 'small', edge: true, ...geo, d, rcont: null, sections: [{ id: 'ext', label: 'Slab outside the drop', d, offset: 2 * d, model: result.model, u1: result.u1, eq: 'Fig. 6.15 (interpretation)' }] };
-    if (!result.loads?.length) return { ...result, input, head: info };
-    return merge(result, null, momentBeta, info, input);
+    const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
+    return single(outer, { kind: 'small', edge: true, ...geo, d, rcont: null, sections: [extSection(outer, 'Fig. 6.15 (interpretation)')] });
   }
   if (geo.kind === 'small') {
     const rc = rcontSmall(input, d);
     const sub = asColumn(input, { shape: 'circular', diameter: 2 * (rc.r - 2 * d), rotation: 0 });
     const face = { u0: perimeterAtOffset(input.column, 0), d, label: 'Maximum punching stress at the column face (slab d, conservative)', detail: 'u0 = column perimeter; d of the slab ignores the head depth.' };
-    const result = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, noLinks: 'v_Ed > v_Rd,c outside the head. Links outside a column head with l_H ≤ 2h_H are not implemented; enlarge the head or the slab depth.' });
-    const info = { kind: 'small', ...geo, d, rcont: rc, sections: [{ id: 'ext', label: 'Slab outside the head', d, offset: 2 * d, model: result.model, u1: result.u1, eq: rc.eq }] };
-    if (!result.loads?.length) return { ...result, input, head: info };
-    return merge(result, null, momentBeta, info, input);
+    // Circular heads: the equivalent circle is the head itself, so links follow the head outline.
+    const noLinks = geo.circular ? null : 'v_Ed > v_Rd,c at r_cont. Links around a rectangular head with l_H ≤ 2h_H are not covered: Eq. 6.34/6.35 replace the head by an equivalent circle. Enlarge the head or the slab depth.';
+    const outer = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, ...(noLinks ? { noLinks } : zone(split.slab, 0)) });
+    return single(outer, { kind: 'small', ...geo, d, rcont: rc, sections: [extSection(outer, rc.eq)] });
   }
-  const dH = d + geo.hH;
-  const inside = 2 * dH <= geo.lMin + 1e-9; // the inner control perimeter fits inside the head
-  const size = dropAsColumn;
-  const noLinksOutside = 'v_Ed > v_Rd,c in the slab outside the drop. Links outside the drop are not implemented; enlarge the drop or the slab depth.';
-  const extSection = outer => ({ id: 'ext', label: 'Slab outside the drop', d, offset: 2 * d, model: outer.model, u1: outer.u1, eq: geo.circular ? 'Eq. 6.36' : internal ? '§6.4.2(9)' : 'Fig. 6.15 (interpretation)' });
+  const extEq = geo.circular ? 'Eq. 6.36' : internal ? '§6.4.2(9)' : 'Fig. 6.15 (interpretation)';
   if (!inside) {
     // Only the slab section; the face check uses the column perimeter with d_H (§6.4.2(10)).
     const face = { u0: base.u0, d: dH, label: 'Maximum punching stress at u0 (d_H)' };
-    const outer = calculate(asColumn(input, size), { face, label: 'Slab outside the drop at u1,ext', noLinks: noLinksOutside });
-    const info = { kind: 'large', inner: false, edge: !internal, ...geo, d, dH, sections: [extSection(outer)] };
-    if (!outer.loads?.length) return { ...outer, input, head: info };
-    return merge(outer, null, momentBeta, info, input);
+    const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, 0) });
+    return single(outer, { kind: 'large', inner: false, edge: !internal, ...geo, d, dH, sections: [extSection(outer, extEq)] });
   }
-  const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - input.slab.cover, label: 'Inside the drop (d_H)' });
-  const outer = calculate(asColumn(input, size), { face: { skip: true }, label: 'Slab outside the drop at u1,ext', noLinks: noLinksOutside });
+  const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - input.slab.cover, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
+  const outer = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
   const info = {
     kind: 'large', inner: true, edge: !internal, ...geo, d, dH,
-    sections: [{ id: 'int', label: 'Inside the drop', d: dH, offset: 2 * dH, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' }, extSection(outer)],
+    sections: [{ id: 'int', label: 'Inside the drop', d: dH, offset: 2 * dH, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' }, extSection(outer, extEq)],
   };
   if (!inner.loads?.length) return { ...inner, input, head: info };
   if (!outer.loads?.length) return { ...outer, input, head: info, status: worstState([outer.status, inner.status]) };
-  return merge(inner, outer, momentBeta, info, input);
+  return merge(inner, outer, issuesOf, info, input, combinedLayout(inner, outer, geo.lMin), split.notes);
 }

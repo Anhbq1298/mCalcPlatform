@@ -76,20 +76,20 @@ test('different diameters per layer: Eq. 6.52 uses the smallest layer A_sw', () 
   assert.ok(Math.abs(reinforced.aswMin - 24 * Math.PI * 16) < 1e-9);
 });
 
-test('layer offsets out of order are rejected rather than reordered', () => {
-  const result = provided([
-    { offset: 230, diameter: 10, shape: 'single', links: 20, start: 0, omitted: [] },
-    { offset: 80, diameter: 10, shape: 'single', links: 20, start: 0, omitted: [] },
-  ]);
-  assert.notEqual(result.status, 'Pass');
-  assert.equal(result.loads[0].rows.find(entry => entry.id === 'radial').status, 'Fail');
+test('arrangement rows need positive spacing and whole layer counts', () => {
+  const input = newDefaults();
+  input.beta.confirmed = true;
+  input.reinforcement = { ...input.reinforcement, mode: 'provided', groups: [{ count: 1, spacing: 230, diameter: 10, shape: 'single', links: 20 }, { count: 1, spacing: -150, diameter: 10, shape: 'single', links: 20 }] };
+  assert.equal(calculate(input).status, 'Incomplete input');
+  input.reinforcement.groups[1] = { count: 1.5, spacing: 150, diameter: 10, shape: 'single', links: 20 };
+  assert.equal(calculate(input).status, 'Incomplete input');
 });
 
 test('auto layout reports a reason when two-leg links cannot fit the layer', () => {
   const input = newDefaults();
   input.beta.confirmed = true;
   input.loads = [{ name: 'A', V: 800, Mx: 0, My: 0 }];
-  input.reinforcement = { mode: 'auto', diameter: 10, shape: 'double', legGap: 2000, layers: [] };
+  input.reinforcement = { mode: 'auto', diameter: 10, shape: 'double', legGap: 2000, groups: [] };
   const result = calculate(input);
   assert.match(result.layout.reason, /No valid link count/);
   assert.equal(result.status, 'Fail');

@@ -12,10 +12,6 @@ export const LINK_SHAPES = {
   double: { label: 'Two-leg link (tangential)', legs: 2 },
 };
 
-export function newLayer(index, previous = {}) {
-  return { offset: previous.offset ?? 100, diameter: previous.diameter ?? 10, shape: previous.shape ?? 'single', links: previous.links ?? 16, start: 0, omitted: [] };
-}
-
 // Centre positions (arc length) of the links of one layer.
 export function linkCentres(geometry, links, start = 0) {
   const { intervals, u, total } = geometry;
@@ -29,10 +25,10 @@ export function linkCentres(geometry, links, start = 0) {
   return intervals.flatMap((item, i) => Array.from({ length: counts[i] }, (_, k) => item.s0 + ((k + 0.5) * (item.s1 - item.s0)) / counts[i]));
 }
 
-export function buildLinks(model, layers, origin) {
+export function buildLinks(model, layers, origin, base = 0) {
   const { column, legGap = 100 } = model;
   return layers.flatMap((layer, layerIndex) => {
-    const layerId = 'L' + (layerIndex + 1);
+    const layerId = layer.id ?? 'L' + (base + layerIndex + 1);
     const geometry = model.intervalsAt(layer.offset);
     const omitted = new Set(layer.omitted || []);
     return linkCentres(geometry, layer.links, layer.start || 0).map((centre, index) => ({ centre, index }))
@@ -78,14 +74,14 @@ export function tangentialGaps(links, geometry) {
   return { max: Math.max(...gaps.map(gap => gap.length)), gaps };
 }
 
-export function layerSummary(model, layers, links) {
+export function layerSummary(model, layers, links, base = 0) {
   return layers.map((layer, layerIndex) => {
     const own = links.filter(link => link.layerIndex === layerIndex);
     const geometry = model.intervalsAt(layer.offset);
     const legs = own.flatMap(link => link.legs);
     const effectiveLegs = legs.filter(leg => leg.effective).length;
     return {
-      id: 'L' + (layerIndex + 1), offset: layer.offset, diameter: layer.diameter, shape: layer.shape,
+      id: layer.id ?? 'L' + (base + layerIndex + 1), offset: layer.offset, diameter: layer.diameter, shape: layer.shape,
       physicalLinks: own.length, legs: legs.length, effectiveLegs, u: geometry.total, uFull: geometry.u,
       asw: effectiveLegs * barArea(layer.diameter), aswTotal: legs.length * barArea(layer.diameter),
       tangential: tangentialGaps(own, geometry),

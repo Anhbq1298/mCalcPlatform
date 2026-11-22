@@ -7,7 +7,7 @@ export const SUMMARY = {
   'Design basis': s => `${PROFILE[s.code.profile] ?? s.code.profile} · ${POSITION[s.column.position] ?? s.column.position}`,
   Column: s => (s.column.shape === 'circular' ? `Ø${n0(s.column.diameter)}` : `${n0(s.column.cx)} × ${n0(s.column.cy)}${s.column.rotation ? ` · ${s.column.rotation}°` : ''}`),
   Slab: s => `h ${n0(s.slab.h)} · ${s.slab.depthMode === 'explicit' ? `d ${n0((s.slab.dx + s.slab.dy) / 2)}` : 'd from bars'}`,
-  'Drop panel / column head': s => (s.head?.enabled ? (s.head.shape === 'circular' ? `Ø${n0(s.head.diameter)}` : `${n0(s.head.lx)} × ${n0(s.head.ly)}`) + ` × ${n0(s.head.depth)}` : 'none'),
+  'Drop panel / column head': s => (s.head?.enabled ? (s.head.shape === 'circular' ? `Ø${n0(s.head.diameter)}` : `${n0(s.head.lx)} × ${n0(s.head.ly)}`) + ` · h_tot ${n0(s.head.thickness)}` : 'none'),
   Openings: s => (s.openings?.length ? `${s.openings.length} opening${s.openings.length > 1 ? 's' : ''}` : 'none'),
   Materials: s => `f_ck ${n0(s.materials.fck)} · f_yk ${n0(s.materials.fyk)}`,
   'In-plane normal stress': s => (s.prestress?.sigmaX || s.prestress?.sigmaY ? `σ ${s.prestress.sigmaX ?? 0} / ${s.prestress.sigmaY ?? 0} MPa` : 'none'),

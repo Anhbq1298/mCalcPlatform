@@ -60,3 +60,19 @@ test('report for blocked input lists the issues and stops', () => {
   assert.ok(doc.shapes.some(shape => (shape.props.html ?? '').includes('Add at least one load combination')));
   assert.equal(doc.shapes.filter(shape => shape.type === 'math').length, 0);
 });
+
+test('drop with links beyond the drop: worksheet and drawings build, slab layers drawn on the drop outline', async () => {
+  const { exampleById } = await import('../src/examples.mjs');
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { planSvg } = await import('../src/plan-view.mjs');
+  const { sectionSvg } = await import('../src/section-view.mjs');
+  const result = calculateDesign(exampleById('drop-through').input);
+  assert.equal(result.status, 'Pass');
+  assert.ok(result.layout.layers.some(layer => layer.zone === 'slab') && result.layout.layers.some(layer => layer.zone === 'drop'));
+  const doc = buildWorksheet(result, { pageHeight: 1123, pageGap: 48, designName: 'drop' });
+  assert.ok(doc.shapes.length > 10);
+  assert.match(planSvg(result), /u_out,ef,ext|uout,ef,ext|DROP PANEL/);
+  const section = sectionSvg(result);
+  assert.match(section, /DROP PANEL 2000 × 2000/);
+  assert.match(section, /data-layer="L6"/);
+});

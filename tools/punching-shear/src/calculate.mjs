@@ -3,7 +3,7 @@
 import { shearDemand } from './demand.mjs';
 import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
-import { STATES, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
+import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
 import { autoLayout, buildLinks, layerSummary } from './layout.mjs';
 import { offsetForLength } from './perimeters.mjs';
 import { profileFor } from './profile.mjs';
@@ -96,7 +96,7 @@ export function calculate(rawInput, options = {}) {
     const lastNeeded = first + Math.max(0, Math.ceil((envelope.aOut - P.outerK * d - first) / sr - 1e-9)) * sr;
     if (lastNeeded > linkLimit + 1e-9) {
       layoutOut = first + Math.max(0, Math.floor((linkLimit - first) / sr + 1e-9)) * sr + P.outerK * d;
-      limitNotes.push(`u_out,ef with d_H lies ${envelope.aOut.toFixed(0)} mm from the column face, beyond the drop. Links are kept inside the drop (outermost layer ≤ ${linkLimit.toFixed(0)} mm); the slab beyond the drop edge is covered by the check at u1,ext (see Help).`);
+      limitNotes.push(`u_out,ef with d_H lies ${envelope.aOut.toFixed(0)} mm from the column face, beyond the drop. Links inside the drop stop at ${linkLimit.toFixed(0)} mm; the slab beyond the drop edge is checked, and given links where needed, in the section around the drop (u1,ext, see Help).`);
     }
   }
 
@@ -107,14 +107,16 @@ export function calculate(rawInput, options = {}) {
       ? autoLayout({ model, d, asw: envelope.aswReq, aOut: layoutOut, fck: materials.fck, fyk: materials.fyk, diameter: reinforcement.diameter, shape: reinforcement.shape, limits: P })
       : { layers: [], reason: 'No punching reinforcement required.' };
     layout = { mode: 'auto', layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
-  } else layout = { mode: 'provided', layers: reinforcement.layers.map(layer => ({ omitted: [], ...layer })), reason: null };
+  } else layout = { mode: 'provided', layers: (options.layers ?? groupLayers(reinforcement)).map(layer => ({ omitted: [], ...layer })), reason: null };
   const detailing = layout.layers.length ? detailingChecks({ slab: input.slab, anchorage: reinforcement.anchorage, diameters: layout.layers.map(layer => layer.diameter) }) : null;
   model.anchorageState = detailing?.status;
-  const links = buildLinks(model, layout.layers, layout.mode === 'auto' ? 'auto' : 'user');
-  const summary = layerSummary(model, layout.layers, links);
+  const base = options.layerBase ?? 0;
+  const links = buildLinks(model, layout.layers, layout.mode === 'auto' ? 'auto' : 'user', base);
+  const summary = layerSummary(model, layout.layers, links, base);
+  layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
   const geometry = geometryLimits(ctx, Math.max(2 * d, envelope.aOut, ...layout.layers.map(layer => layer.offset)));
   if (Number.isFinite(linkLimit)) layout.layers.forEach((layer, index) => {
-    if (layer.offset > linkLimit + 1e-9) limitIssues.push({ state: STATES.fail, message: `Layer L${index + 1} at ${layer.offset} mm lies outside the drop (links must stay within ${linkLimit.toFixed(0)} mm of the column face).` });
+    if (layer.offset > linkLimit + 1e-9) limitIssues.push({ state: STATES.fail, message: `Layer ${layer.id ?? 'L' + (base + index + 1)} at ${layer.offset} mm lies outside the drop (links must stay within ${linkLimit.toFixed(0)} mm of the column face).` });
   });
   ctx.layoutOut = layoutOut;
   const results = demands.map(item => loadResult(ctx, item, layout, summary, links, detailing));

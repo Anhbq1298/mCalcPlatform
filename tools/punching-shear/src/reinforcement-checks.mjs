@@ -47,13 +47,13 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
   rows.push(row('perimeters', '§9.4.3(1)', 'At least two perimeters of link legs', 2, summary.length, summary.length >= 2 ? STATES.pass : STATES.fail, { unit: 'layers' }));
 
   const first = offsets[0];
-  rows.push(row('first', '§9.4.3(4)', 'First layer ≤ 0.5d from the loaded area', first, P.firstLayerMax * d, null, { unit: 'mm', governing: 'L1' }));
+  rows.push(row('first', '§9.4.3(4)', 'First layer ≤ 0.5d from the loaded area', first, P.firstLayerMax * d, null, { unit: 'mm', governing: summary[0].id }));
   if (first < P.firstLayerMin * d) {
     rows.push(row('first-min', 'The Concrete Centre guidance', 'First layer ≥ 0.3d (guidance, not a code limit)', P.firstLayerMin * d, first, STATES.confirm, { unit: 'mm' }));
   }
   const radialLimit = P.radialSpacing * d;
   rows.push(row('radial', '§9.4.3(1)', 'Radial spacing s_r ≤ 0.75d', srMax ?? 0, radialLimit, srMax === null ? STATES.incomplete : ordered ? null : STATES.fail, {
-    unit: 'mm', governing: srMax === null ? null : 'L' + (spacings.indexOf(srMax) + 2),
+    unit: 'mm', governing: srMax === null ? null : summary[spacings.indexOf(srMax) + 1].id,
   }));
 
   let worstTangential = null;
