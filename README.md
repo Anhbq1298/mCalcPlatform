@@ -1,6 +1,6 @@
 # mCalc Platform
 
-A local-first structural calculation workspace for mCalcCanvas, mSteelBeamColumn, mCompositeBeamDesign, and MBColumn Lite.
+A local-first structural calculation workspace for mCalcCanvas, mSteelBeamColumn, mCompositeBeamDesign, MBColumn Lite, and mConcBreakout.
 
 ## Development
 

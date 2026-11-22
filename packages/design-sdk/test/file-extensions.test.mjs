@@ -11,6 +11,7 @@ const manifests = readdirSync(toolsDir)
 // Agreed file extensions per tool (all lowercase). Master project stays .mcalc.
 const expected = {
   calccanvas: 'mccv',
+  'conc-breakout': 'mcbo',
   'composite-beam': 'mcb',
   'mbcolumn-lite': 'mrcol',
   'punching-shear': 'mpsh',

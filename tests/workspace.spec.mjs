@@ -11,7 +11,7 @@ const cases = [
 test('opens, saves and reopens each integrated tool under a Pages project path', async ({ page }) => {
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Engineering Design Tools' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(6);
+  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(7);
   const beamIcon = module => page.locator('.thumbnail[data-module="' + module + '"] i:nth-child(2)');
   const profileStyle = element => {
     const { width, height, clipPath, backgroundColor } = getComputedStyle(element);
@@ -529,4 +529,41 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await page.getByRole('tab', { name: 'Stress' }).click();
   await expect(page.locator('#stress-view svg')).toBeVisible();
   await expect(page.locator('#sign-view')).toContainText('ULS 1');
+});
+
+test('checks an embedded plate connection, saves, reopens and reports', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('a[href*="t/conc-breakout/"]').filter({ hasText: 'New design' }).first().click();
+  await expect(page.getByRole('heading', { name: /mConcBreakout/ })).toBeVisible();
+  const status = page.locator('#design-status');
+  const field = path => page.locator(`#breakout-inputs [data-path="${path}"]`);
+  await expect(status).toContainText('Design status: Incomplete');
+  await expect(page.locator('#column-check-summary')).toContainText('Transfer into the receiving member');
+  await field('options.loadPathConfirmed').check();
+  await expect(status).toContainText('Design status: Pass with warnings');
+  await field('actions.V').fill('260');
+  await expect(status).toContainText('Design status: Fail');
+  await field('actions.V').fill('136.17');
+  await field('studs.tension').selectOption('shared');
+  await expect(page.locator('#column-check-summary')).toContainText('Concrete cone (tensioned studs)');
+  await page.getByRole('button', { name: '+ Row' }).click();
+  await expect(page.locator('#bar-rows tbody tr')).toHaveCount(2);
+  await page.getByRole('tab', { name: 'Section' }).click();
+  await expect(page.locator('#section-view svg')).toBeVisible();
+  await page.getByRole('tab', { name: 'Element forces' }).click();
+  await expect(page.locator('#force-table tbody tr')).toHaveCount(8);
+  await page.getByRole('tab', { name: 'Plan' }).click();
+  const shell = page.getByRole('navigation', { name: 'Design workspace' });
+  await shell.getByLabel('Design name').fill('EP-01 balcony plate');
+  await shell.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(shell.getByText('Design saved.')).toBeVisible();
+  const before = await status.textContent();
+  await page.reload();
+  await expect(shell.getByLabel('Design name')).toHaveValue('EP-01 balcony plate', { timeout: 45000 });
+  await expect(field('studs.tension')).toHaveValue('shared');
+  await expect(page.locator('#bar-rows tbody tr')).toHaveCount(2);
+  await expect(status).toHaveText(before);
+  await shell.getByRole('button', { name: 'Report', exact: true }).click();
+  await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
+  await expect(page.getByText('EMBEDDED PLATE CONNECTION').first()).toBeVisible({ timeout: 65000 });
 });
