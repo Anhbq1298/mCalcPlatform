@@ -14,5 +14,6 @@ export const SUMMARY = {
   'Top flexural reinforcement': s => (s.flexure.areaMode === 'explicit' ? `A_s ${n0(s.flexure.asx)} / ${n0(s.flexure.asy)} mm²/m` : `Ø${s.flexure.phiX}@${s.flexure.sX} / Ø${s.flexure.phiY}@${s.flexure.sY}`),
   'Design actions': s => `${s.loads.length} comb. · V_Ed ≤ ${n0(Math.max(0, ...s.loads.map(load => load.V || 0)))} kN`,
   'Load increment factor $\\beta$': s => (s.beta.method === 'simplified' ? 'simplified' : s.beta.method === 'user' ? `user ${s.beta.userValue}` : 'from moments'),
-  'Punching reinforcement': s => `${s.reinforcement.mode === 'auto' ? 'auto' : 'provided'} · Ø${s.reinforcement.diameter} ${s.reinforcement.shape === 'double' ? 'two-leg' : 'single-leg'}`,
+  'Punching reinforcement': s => (s.reinforcement.enabled !== true ? 'none'
+    : s.reinforcement.mode === 'auto' ? `auto · ${s.reinforcement.arrangement ?? 'grid'} · Ø${s.reinforcement.diameter}` : 'custom layout'),
 };

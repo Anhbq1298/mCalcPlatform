@@ -177,7 +177,7 @@ export function calculateDesign(raw) {
     : { cx: e.xMax - e.xMin, cy: e.yMax - e.yMin, x: input.column.x + (e.xMax + e.xMin) / 2, y: input.column.y + (e.yMax + e.yMin) / 2 };
   const dH = d + geo.hH;
   const inside = geo.kind === 'large' && 2 * dH <= geo.lMin + 1e-9; // the inner control perimeter fits inside the head
-  const provided = input.reinforcement.mode === 'provided';
+  const provided = input.reinforcement.enabled !== false && input.reinforcement.mode === 'provided';
   const split = provided ? splitLayers(input, geo, inside) : { drop: [], slab: [], issues: [], notes: [] };
   if (input.beta.method === 'moment') split.notes.push('β from moments with a drop uses the column (inside) or the drop (outside) as the loaded area (Eq. 6.39/6.42), see Help.');
   const zone = (layers, layerBase) => (provided ? { layers } : { layerBase });

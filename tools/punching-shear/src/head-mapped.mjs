@@ -76,6 +76,7 @@ export function mappedHeadLinks({ circle, rectModel, input, rc, lHalfMin, layers
   const required = circle.loads.some(load => load.required);
   let layout;
   if (!required) layout = { layers: [], reason: 'No punching reinforcement required.' };
+  else if (reinforcement.enabled === false) layout = { layers: [], reason: 'No punching reinforcement: tick "Provide punching reinforcement" to add shear links.' };
   else if (reinforcement.mode === 'auto') layout = autoMapped({ model: rectModel, d, aswReq, tOut, fck: materials.fck, fyk: materials.fyk, diameter: reinforcement.diameter, shape: reinforcement.shape, centre });
   else layout = { layers: provided.map(layer => ({ omitted: [], ...layer })) };
   const links = buildLinks(rectModel, layout.layers, reinforcement.mode === 'auto' ? 'auto' : 'user');

@@ -109,6 +109,7 @@ export function calculate(rawInput, options = {}) {
 
   let layout;
   if (options.noLinks) layout = { mode: 'auto', layers: [], reason: options.noLinks };
+  else if (reinforcement.enabled === false) layout = { mode: 'none', layers: [], reason: 'No punching reinforcement: tick "Provide punching reinforcement" to add shear links.' };
   else if (reinforcement.mode === 'auto') {
     const type = reinforcement.arrangement ?? 'grid';
     const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
