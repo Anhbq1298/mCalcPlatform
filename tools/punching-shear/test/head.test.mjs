@@ -123,7 +123,7 @@ test('spacing groups expand to layers from the column face; old saves migrate', 
   const layers = groupLayers({ groups: [{ count: 1, spacing: 100, diameter: 10, shape: 'single', links: 12 }, { count: 3, spacing: 150, diameter: 10, shape: 'single', links: 16 }], omitted: { L3: [2] } });
   assert.deepEqual(layers.map(layer => layer.offset), [100, 250, 400, 550]);
   assert.deepEqual(layers[2].omitted, [2]);
-  assert.deepEqual(layersToGroups(layers).map(g => [g.count, g.spacing, g.links]), [[1, 100, 12], [3, 150, 16]]);
+  assert.deepEqual(layersToGroups(layers).map(g => [g.count, g.spacing, g.links]), [[1, 100, 12], [3, 150, 16]]); // no summary: link counts kept
   const old = restoreInputs({ slab: { h: 260 }, head: { enabled: true, depth: 140 }, reinforcement: { mode: 'provided', layers: [{ offset: 80, diameter: 8, shape: 'single', links: 8, omitted: [1] }, { offset: 235, diameter: 8, shape: 'single', links: 8 }] } });
   assert.equal(old.head.thickness, 400);
   assert.deepEqual(old.reinforcement.groups.map(g => g.spacing), [80, 155]);
@@ -161,4 +161,24 @@ test('rectangular head l_H ≤ 2h_H with links: equivalent-circle check, links o
   const ok = sectorCoverage(legs, [{ id: 'L1' }], { x: 0, y: 0 }, 16 * 78.54)[0];
   assert.ok(Math.abs(ok.ur - 1) < 1e-3);
   assert.equal(sectorCoverage(legs.slice(1), [{ id: 'L1' }], { x: 0, y: 0 }, 100)[0].ur, Infinity);
+});
+
+test('tangential spacing s_t sets the link count per layer; Auto arrangement round-trips to s_t rows', async () => {
+  const { newDefaults, layersToGroups } = await import('../src/inputs.mjs');
+  const { calculate } = await import('../src/calculate.mjs');
+  const { linkCentres } = await import('../src/layout.mjs');
+  // Closed path u = 3000, s_t = 280 → ceil(10.71) = 11 links; open interval 1000 → ceil(3.57) = 4 links.
+  assert.equal(linkCentres({ intervals: [{ s0: 0, s1: 3000, closed: true }], u: 3000, total: 3000 }, 0, 0, 280).length, 11);
+  assert.deepEqual(linkCentres({ intervals: [{ s0: 0, s1: 1000 }], u: 4000, total: 1000 }, 0, 0, 280), [125, 375, 625, 875]);
+  const input = newDefaults();
+  input.beta.confirmed = true;
+  input.reinforcement.anchorage.engaged = true;
+  input.loads = [{ name: 'ULS 1', V: 800, Mx: 0, My: 0 }];
+  const auto = calculate(input);
+  const groups = layersToGroups(auto.layout.layers, auto.layout.summary);
+  assert.ok(groups.every(group => group.st > 0 && group.links === undefined));
+  const provided = calculate({ ...input, reinforcement: { ...input.reinforcement, mode: 'provided', groups, omitted: {} } });
+  // Every rebuilt layer has at least the designed links, every gap within s_t.
+  provided.layout.summary.forEach((layer, i) => assert.ok(layer.physicalLinks >= auto.layout.summary[i].physicalLinks, layer.id));
+  assert.equal(provided.status, auto.status);
 });

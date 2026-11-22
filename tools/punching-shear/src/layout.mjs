@@ -12,10 +12,23 @@ export const LINK_SHAPES = {
   double: { label: 'Two-leg link (tangential)', legs: 2 },
 };
 
-// Centre positions (arc length) of the links of one layer.
-export function linkCentres(geometry, links, start = 0) {
+// Centre positions (arc length) of the links of one layer. With a tangential spacing st (link centre
+// to centre), each effective interval gets ceil(length / st) links, so no gap exceeds st; otherwise
+// `links` is shared between the intervals.
+export function linkCentres(geometry, links, start = 0, st = 0) {
   const { intervals, u, total } = geometry;
-  if (!intervals.length || links < 1) return [];
+  if (!intervals.length) return [];
+  if (st > 0) {
+    if (intervals.length === 1 && intervals[0].closed) {
+      const n = Math.ceil(u / st - 1e-9);
+      return Array.from({ length: n }, (_, i) => start + (i * u) / n);
+    }
+    return intervals.flatMap(item => {
+      const n = Math.max(1, Math.ceil((item.s1 - item.s0) / st - 1e-9));
+      return Array.from({ length: n }, (_, k) => item.s0 + ((k + 0.5) * (item.s1 - item.s0)) / n);
+    });
+  }
+  if (links < 1) return [];
   if (intervals.length === 1 && intervals[0].closed) return Array.from({ length: links }, (_, i) => start + (i * u) / links);
   const shares = intervals.map(item => (links * (item.s1 - item.s0)) / total);
   const counts = shares.map(Math.floor);
@@ -31,7 +44,7 @@ export function buildLinks(model, layers, origin, base = 0) {
     const layerId = layer.id ?? 'L' + (base + layerIndex + 1);
     const geometry = model.intervalsAt(layer.offset);
     const omitted = new Set(layer.omitted || []);
-    return linkCentres(geometry, layer.links, layer.start || 0).map((centre, index) => ({ centre, index }))
+    return linkCentres(geometry, layer.links, layer.start || 0, layer.st).map((centre, index) => ({ centre, index }))
       .filter(({ index }) => !omitted.has(index))
       .map(({ centre, index }) => {
         const at = pointAt(column, layer.offset, centre);

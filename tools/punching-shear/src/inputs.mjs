@@ -78,23 +78,26 @@ export function groupLayers(reinforcement = {}) {
     for (let k = 0; k < group.count; k += 1) {
       offset += group.spacing;
       const id = 'L' + (layers.length + 1);
-      layers.push({ id, offset, diameter: group.diameter, shape: group.shape, links: group.links, start: 0, omitted: reinforcement.omitted?.[id] ?? [] });
+      layers.push({ id, offset, diameter: group.diameter, shape: group.shape, ...(group.st > 0 ? { st: group.st } : { links: group.links }), start: 0, omitted: reinforcement.omitted?.[id] ?? [] });
     }
   }
   return layers;
 }
 
-// Spacing groups from explicit layers: consecutive layers with the same spacing, bar and shape merge;
-// the merged link count is the largest of the group (never fewer links than designed).
-export function layersToGroups(layers) {
+// Spacing groups from designed layers: the tangential spacing of a layer is its largest link gap
+// rounded down to 5 mm (so the rebuilt layer has at least as many links). Consecutive layers with the
+// same radial spacing, bar, shape and zone merge; the merged s_t is the smallest of the group.
+export function layersToGroups(layers, summary = []) {
   const groups = [];
   layers.forEach((layer, i) => {
     const spacing = Math.round(layer.offset - (i ? layers[i - 1].offset : 0));
+    const gap = summary[i]?.tangential?.max;
+    const st = Number.isFinite(gap) && gap > 0 ? Math.max(5, Math.floor(gap / 5 + 1e-9) * 5) : null;
     const last = groups.at(-1);
     if (i > 0 && last && last.spacing === spacing && last.diameter === layer.diameter && last.shape === layer.shape && last.zone === layer.zone) {
       last.count += 1;
-      last.links = Math.max(last.links, layer.links);
-    } else groups.push({ count: 1, spacing, diameter: layer.diameter, shape: layer.shape, links: layer.links, zone: layer.zone });
+      if (st !== null) last.st = Math.min(last.st ?? st, st); else last.links = Math.max(last.links ?? 0, layer.links);
+    } else groups.push({ count: 1, spacing, diameter: layer.diameter, shape: layer.shape, ...(st !== null ? { st } : { links: layer.links }), zone: layer.zone });
   });
   return groups.map(({ zone, ...group }) => group);
 }
@@ -193,8 +196,9 @@ export function validateReinforcement(reinforcement = {}) {
     const groups = reinforcement.groups || [];
     if (!groups.length) issues.push({ state: STATES.incomplete, message: 'Add at least one row to the link arrangement, or use Auto arrangement.' });
     for (const [index, group] of groups.entries()) {
-      if (!Number.isInteger(group.count) || group.count < 1 || !positive(group.spacing) || !positive(group.diameter) || !Number.isInteger(group.links) || group.links < 1) {
-        issues.push({ state: STATES.incomplete, message: `Arrangement row ${index + 1}: enter a whole number of layers, a spacing, a diameter and a whole number of links per layer.` });
+      const tangential = positive(group.st) || (Number.isInteger(group.links) && group.links >= 1);
+      if (!Number.isInteger(group.count) || group.count < 1 || !positive(group.spacing) || !positive(group.diameter) || !tangential) {
+        issues.push({ state: STATES.incomplete, message: `Arrangement row ${index + 1}: enter a whole number of layers, the radial spacing s, a diameter and the tangential spacing s_t.` });
       }
     }
   } else issues.push({ state: STATES.incomplete, message: 'Select a reinforcement mode.' });

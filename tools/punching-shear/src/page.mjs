@@ -48,16 +48,17 @@ const refreshLoads = mountTable(byId('loads-anchor'), {
 const layerAnchor = byId('layers-anchor');
 const layerTableHost = document.createElement('div');
 layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons:not(.arrangement-head)'));
-// Link arrangement: rows of n layers at spacing s; row 1 is measured from the column face.
+// Link arrangement: rows of n layers at radial spacing s (row 1 from the column face) with links at
+// tangential spacing s_t along each layer.
 const refreshLayers = mountTable(layerTableHost, {
   caption: 'Link arrangement',
   columns: [['count', '$n$', number], ['spacing', '$s$ (mm)', number], ['diameter', '$\\phi$', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
-    ['shape', 'Shape', 'select', [{ value: 'single', label: '1-leg' }, { value: 'double', label: '2-leg' }]], ['links', 'Links/layer', number]],
+    ['shape', 'Shape', 'select', [{ value: 'single', label: '1-leg' }, { value: 'double', label: '2-leg' }]], ['st', '$s_t$ (mm)', number]],
   getRows: () => state.reinforcement.groups,
   newRow: (index, previous) => {
     const d = result?.section?.d ?? 200;
     const step = Math.floor((previous ? 0.75 * d : 0.4 * d) / 5) * 5;
-    return { count: 1, spacing: step, diameter: previous?.diameter ?? 10, shape: previous?.shape ?? 'single', links: previous?.links ?? 16 };
+    return { count: 1, spacing: step, diameter: previous?.diameter ?? 10, shape: previous?.shape ?? 'single', st: previous?.st ?? Math.floor((1.5 * d) / 5) * 5 };
   },
   onChange: () => schedule(), addLabel: '+ Row', removeLabel: '− Row', rowLabel: index => String(index + 1),
 });
@@ -116,7 +117,7 @@ byId('copy-layout').addEventListener('click', () => {
   const auto = calculate({ ...state, reinforcement: { ...state.reinforcement, mode: 'auto' } });
   const layers = auto.layout?.layers ?? [];
   if (!layers.length) { status.textContent = auto.layout?.reason ?? 'Auto arrangement: no links required.'; return; }
-  state.reinforcement.groups = layersToGroups(layers);
+  state.reinforcement.groups = layersToGroups(layers, auto.layout.summary);
   state.reinforcement.omitted = {};
   state.reinforcement.mode = 'provided';
   refresh();
