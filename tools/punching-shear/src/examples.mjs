@@ -48,6 +48,11 @@ const CASES = [
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 700, Mx: 0, My: 0 }] },
   },
   {
+    id: 'drop-small-links', title: '8b · Rectangular head l_H ≤ 2h_H with links (mapped)', expect: 'Not verified',
+    note: 'Check on the EC2 equivalent circle, links on the head outline, mapped by 22.5° sectors. Proposed method: reinforced checks report Not verified.',
+    input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 900, Mx: 0, My: 0 }] },
+  },
+  {
     id: 'drop-large', title: '9 · Drop with l_H > 2h_H, links inside the drop', expect: 'Pass',
     note: 'Sections inside the drop (d_H, 2d_H from the column) and in the slab (2d from the drop edge).',
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 2400, ly: 2400, thickness: 400 }), column: { shape: 'rectangular', position: 'internal', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 1250, Mx: 0, My: 0 }] },
@@ -102,7 +107,7 @@ export const EXAMPLE_CARDS = [
   { id: 'edge', title: 'Edge', position: 'edge', drop: false, variants: [variant('edge', 'β from moments')] },
   { id: 'corner', title: 'Corner', position: 'corner', drop: false, variants: [variant('corner', 'Simplified β = 1.5')] },
   { id: 'interior-drop', title: 'Interior + drop', position: 'internal', drop: true, variants: [
-    variant('drop-large', 'l_H > 2h_H, links in the drop'), variant('drop-through', 'Links beyond the drop'), variant('drop-small', 'l_H ≤ 2h_H (Fig. 6.17)'), variant('drop-circular', 'Circular column and head'),
+    variant('drop-large', 'l_H > 2h_H, links in the drop'), variant('drop-through', 'Links beyond the drop'), variant('drop-small', 'l_H ≤ 2h_H (Fig. 6.17)'), variant('drop-small-links', 'l_H ≤ 2h_H with links (mapped)'), variant('drop-circular', 'Circular column and head'),
   ] },
   { id: 'edge-drop', title: 'Edge + drop', position: 'edge', drop: true, variants: [variant('edge-drop', 'Drop clipped at the edge')] },
   { id: 'corner-drop', title: 'Corner + drop', position: 'corner', drop: true, variants: [variant('corner-drop', 'Drop clipped at both edges')] },

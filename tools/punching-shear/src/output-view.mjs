@@ -9,6 +9,7 @@ const SHORT = {
   outer: 'Outer coverage, a_out', perimeters: 'Number of perimeters', first: 'First layer ≤ 0.5d', 'first-min': 'First layer ≥ 0.3d',
   radial: 's_r ≤ 0.75d', tangential: 'Tangential spacing s_t', minimum: 'Minimum leg area', anchorage: 'Anchorage and detailing',
   'ext-concrete': 'Slab outside the drop, u_1,ext', 'ext-max': 'Face (slab section)',
+  sector: 'Sector mapping (not EC2)',
 };
 const INFO = [STATES.notRequired, STATES.linksRequired];
 const f = (value, digits = 3) => (Number.isFinite(value) ? value.toFixed(digits) : '—');

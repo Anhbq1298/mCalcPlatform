@@ -214,7 +214,7 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   // Key dimensions as text (no dimension lines): layer offsets, control sections, depths.
   const values = [];
   if (layers.length) {
-    values.push(`a1 = ${layers[0].offset.toFixed(0)}`);
+    values.push(layers[0].zone === 'slab' ? `a1 = ${layers[0].pathOffset.toFixed(0)} from the drop` : `a1 = ${layers[0].offset.toFixed(0)}`);
     const radial = [...new Set(layers.slice(1).filter((layer, i) => layer.zone === layers[i].zone).map(layer => (layer.offset - layers[layers.indexOf(layer) - 1].offset).toFixed(0)))];
     if (radial.length) values.push(`s_r = ${radial.join(' / ')}`);
   }

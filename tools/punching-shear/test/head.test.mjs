@@ -82,7 +82,7 @@ test('unsupported drop configurations are reported, not computed', () => {
 
 test('the six example cards and all their variants give their intended status', () => {
   assert.equal(EXAMPLE_CARDS.length, 6);
-  assert.equal(EXAMPLES.length, 15);
+  assert.equal(EXAMPLES.length, 16);
   for (const example of EXAMPLES) assert.equal(calculateDesign(example.input).status, example.expect, example.id);
 });
 
@@ -142,4 +142,22 @@ test('large drop: provided links inside and beyond the drop are split by zone', 
   const step = structuredClone(input);
   step.reinforcement.groups = [{ count: 1, spacing: 940, diameter: 10, shape: 'single', links: 16 }, { count: 1, spacing: 150, diameter: 10, shape: 'single', links: 16 }];
   assert.ok(calculateDesign(step).issues.some(issue => /drop edge step/.test(issue.message)));
+});
+
+test('rectangular head l_H ≤ 2h_H with links: equivalent-circle check, links on the head outline, Not verified', async () => {
+  const { sectorCoverage } = await import('../src/head-mapped.mjs');
+  const { exampleById } = await import('../src/examples.mjs');
+  const result = calculateDesign(exampleById('drop-small-links').input);
+  assert.equal(result.status, STATES.notVerified);
+  const rows = result.loads[0].rows;
+  for (const id of ['reinforced', 'outer', 'sector']) assert.equal(rows.find(entry => entry.id === id).status, STATES.notVerified, id);
+  assert.equal(rows.find(entry => entry.id === 'radial').status, STATES.pass); // detailing on the real geometry stays a normal check
+  assert.ok(result.layout.layers.every(layer => layer.zone === 'slab' && layer.pathOffset < layer.offset));
+  // r_cont = min(2d + 0.56·√(l1·l2), 2d + 0.69·l1) = 2·210 + 560 = 980 mm (Eq. 6.34)
+  assert.equal(result.head.rcont.r, 980);
+  // Sector mapping: 16 legs evenly round a circle give one leg per sector; one missing leg → empty sector.
+  const legs = Array.from({ length: 16 }, (_, i) => ({ layerId: 'L1', diameter: 10, legs: [{ effective: true, x: Math.cos((i + 0.5) * Math.PI / 8), y: Math.sin((i + 0.5) * Math.PI / 8) }] }));
+  const ok = sectorCoverage(legs, [{ id: 'L1' }], { x: 0, y: 0 }, 16 * 78.54)[0];
+  assert.ok(Math.abs(ok.ur - 1) < 1e-3);
+  assert.equal(sectorCoverage(legs.slice(1), [{ id: 'L1' }], { x: 0, y: 0 }, 100)[0].ur, Infinity);
 });

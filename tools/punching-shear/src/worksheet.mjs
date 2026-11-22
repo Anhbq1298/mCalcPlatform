@@ -218,7 +218,7 @@ function detailing(doc, result, layers) {
   doc.math('First layer', R`a_{L1}\le0.5d`, { displayUnit: 'mm', mode: 'auto' });
   if (layers.length > 1) doc.math('Radial spacing', R`s_{r}\le0.75d`, { displayUnit: 'mm', mode: 'auto' });
   doc.text(`Tangential spacing is measured along each layer between consecutive effective legs: ≤ 1.5d inside u1, ≤ 2d outside. Minimum leg area from Eq. 9.11 with α = 90°.`, 12);
-  const check = result.loads.find(load => load.layoutCheck)?.layoutCheck;
+  const check = result.loads.find(load => load.layoutCheck)?.layoutCheck ?? result.loads.find(load => load.ext?.layoutCheck)?.ext.layoutCheck;
   layers.forEach((layer, i) => {
     const j = i + 1;
     const entry = check?.layerRows[i];
@@ -256,6 +256,7 @@ function headSection(doc, full) {
   }
   if (head.kind === 'small') {
     doc.text(`l_H ≤ 2h_H (Fig. 6.17): only the section in the slab is checked (§6.4.2(8)), at r_cont = ${head.rcont.r.toFixed(1)} mm from the column centroid (${head.rcont.eq}${head.rcont.l1 ? `, l1 = ${head.rcont.l1}, l2 = ${head.rcont.l2}` : ''}). It is solved as a circular loaded area of diameter 2(r_cont − 2d); the face check uses the column perimeter with the slab d.`, 12);
+    if (head.mapped && full.layout.layers.length) doc.text(`Links: placed on rounded rectangles at t from the head outline and mapped to the equivalent circle by ${360 / 16}° sectors from the column centroid (each sector needs A_sw,req/16, a leg counts in one sector only); coverage of u_out,ef uses the nearest point of the outermost layer. This mapping is a proposed method, not an EN 1992-1-1 rule: the reinforced resistance, outer coverage and sector checks report Not verified until benchmarked (see Help). Detailing rules of §9.4.3 are checked on the actual link positions.`, 12);
     return;
   }
   const extSection = head.sections.find(item => item.id === 'ext');

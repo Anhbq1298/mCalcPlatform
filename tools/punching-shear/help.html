@@ -115,7 +115,7 @@
     <tr><td>Face check: column perimeter with d_H (l_H &gt; 2h_H) or with the slab d (l_H ≤ 2h_H, conservative)</td><td>§6.4.5(3), §6.4.2(10)</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Drop at an edge or corner column: the drop is clipped to the slab (flush with the free edges the column is flush with). Inside: the edge or corner column with d_H (Fig. 6.15 / 6.20 perimeters). Outside: the clipped drop as an edge or corner loaded area at 2d. For l_H ≤ 2h_H only the outer section is checked.</td><td>Extension of Figs. 6.15, 6.17, 6.18 and 6.20; EN 1992-1-1 shows heads at internal columns only</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Links beyond the drop: the slab section takes the drop as the loaded area and is designed like an ordinary column (Eq. 6.52, 6.54, §9.4.3) with d. A layer at s from the column face lies beyond the drop when s &gt; l<sub>H,min</sub> and follows the drop outline at t = s − l<sub>H,min</sub>; inside the drop a layer needs s ≤ l<sub>H,min</sub> − c. Layers on the step in between are rejected.</td><td>Extension of §6.4.2(9) with §6.4.5; Tekla Structural Designer treats the head as the loaded area for the outer section</td><td><span class="tag interp">Interpretation</span></td></tr>
-    <tr><td>Rectangular head with l<sub>H</sub> ≤ 2h<sub>H</sub>: no links beyond the head (Eq. 6.34/6.35 replace it by an equivalent circle). Circular heads take links around the head.</td><td>Tool scope</td><td><span class="tag interp">Limitation</span></td></tr>
+    <tr><td>Rectangular head with l<sub>H</sub> ≤ 2h<sub>H</sub> and links: the check stays on the EC2 equivalent circle (r<sub>cont</sub>, Eq. 6.34/6.35); the links are placed on rounded rectangles at t from the actual head outline and mapped to the circle by 16 sectors of 22.5° from the column centroid. Each sector needs A<sub>sw,req</sub>/16 per layer and a leg counts only in its own sector. Coverage of u<sub>out,ef</sub> uses the nearest point of the outermost layer. Eq. 6.52, outer coverage and the sector check report <b>Not verified</b> (Fail stays Fail); §9.4.3 detailing is checked on the real link positions. Circular heads need no mapping: links follow the head.</td><td>Proposed method, not EN 1992-1-1; to be benchmarked against a worked example or an accepted method</td><td><span class="tag interp">Interpretation</span></td></tr>
   </table>
   <p>The calculation report states the basis in one line for rectangular drops. The status is not held at “Requires confirmation”.</p>
 
@@ -123,7 +123,7 @@
   <ul>
     <li>Drops combined with openings, drops offset from the column, circular or rotated columns with a drop at a slab edge, and a drop that reaches an edge the column is set back from.</li>
     <li>A drop that is under Fig. 6.17 in one direction and Fig. 6.18 in the other (l_H straddles 2h_H).</li>
-    <li>Links around a rectangular column head with l<sub>H</sub> ≤ 2h<sub>H</sub>.</li>
+    <li>A verified link design around a rectangular column head with l<sub>H</sub> ≤ 2h<sub>H</sub>: the tool places and maps the links, but the result stays Not verified (see table above).</li>
   </ul>
 
   <h2>6 Input: total drop thickness and link arrangement</h2>

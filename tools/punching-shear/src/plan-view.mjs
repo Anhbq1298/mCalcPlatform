@@ -199,7 +199,7 @@ function axes(bottom, column) {
 function keyValues({ d, u1Offset, aOut, layers, head, input }) {
   const out = [];
   if (layers.length) {
-    out.push(`a1 = ${layers[0].offset.toFixed(0)}`);
+    out.push(layers[0].zone === 'slab' ? `a1 = ${layers[0].pathOffset.toFixed(0)} from the drop` : `a1 = ${layers[0].offset.toFixed(0)}`);
     const radial = [...new Set(layers.slice(1).filter((layer, i) => layer.zone === layers[i].zone).map(layer => (layer.offset - layers[layers.indexOf(layer) - 1].offset).toFixed(0)))];
     if (radial.length) out.push(`s_r = ${radial.join(' / ')}`);
   }
@@ -209,7 +209,7 @@ function keyValues({ d, u1Offset, aOut, layers, head, input }) {
   if (head) out.push(`h_tot = ${input.head.thickness}`, `l_H = ${head.lH.map(v => v.toFixed(0)).join(' / ')}`);
   if (head?.kind === 'large') out.push(`l_H + 2d = ${(head.lMin + 2 * head.d).toFixed(0)}`);
   const fromDrop = head && !(head.kind === 'large' && head.inner);
-  if (aOut > 0) out.push(`a_out = ${aOut.toFixed(0)}${fromDrop ? ' from the drop' : ''}`);
+  if (aOut > 0) out.push(`a_out = ${aOut.toFixed(0)}${head?.rcont ? ' from the equivalent circle' : fromDrop ? ' from the drop' : ''}`);
   return out.join(' · ') + (out.length ? ' (mm from the column face)' : '');
 }
 

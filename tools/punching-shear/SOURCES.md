@@ -47,7 +47,7 @@ Scope: internal rectangular (any rotation) and circular columns; rectangular edg
 ### Drop panels: decisions that go beyond the text
 
 - Face check for l_H < 2h_H uses the column perimeter with the slab d (conservative; EC2 is silent).
-- Links beyond the drop: the slab section is designed with the drop as the loaded area (Eq. 6.52, 6.54, §9.4.3, d of the slab). Arrangement offsets s are from the column face; s > l_H,min puts a layer on the drop outline at t = s − l_H,min, s ≤ l_H,min − c keeps it in the drop (d_H section); layers on the step are rejected. Interpretation, explained in `help.html`. Not for rectangular heads with l_H ≤ 2h_H (equivalent circle).
+- Links beyond the drop: the slab section is designed with the drop as the loaded area (Eq. 6.52, 6.54, §9.4.3, d of the slab). Arrangement offsets s are from the column face; s > l_H,min puts a layer on the drop outline at t = s − l_H,min, s ≤ l_H,min − c keeps it in the drop (d_H section); layers on the step are rejected. Interpretation, explained in `help.html`. Rectangular heads with l_H ≤ 2h_H: check on the equivalent circle, links on the head outline, mapped by 16 angular sectors (`head-mapped.mjs`); proposed method, reinforced rows report Not verified until benchmarked.
 - Drop input is the total thickness h_tot; h_H = h_tot − h. Older saves (head.depth) migrate on restore.
 - For 2h_H < l_H < 2(d + h_H) the inner perimeter at 2d_H would leave the head; only the slab section is checked and the face check uses d_H (Tekla: inner perimeter only when it fits).
 - Links are kept inside the drop (outermost layer ≤ l_H − cover). When u_out,ef with d_H lies beyond the drop, the slab beyond the edge is covered by the u1,ext check and the case is flagged.

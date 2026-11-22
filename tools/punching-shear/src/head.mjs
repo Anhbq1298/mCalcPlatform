@@ -14,6 +14,7 @@
 // shows heads only at internal columns, so this is a geometric interpretation (see help.html).
 import { calculate, worstState } from './calculate.mjs';
 import { perimeterAtOffset } from './geometry.mjs';
+import { mappedHeadLinks } from './head-mapped.mjs';
 import { STATES, derivedSection, groupLayers, restoreInputs } from './inputs.mjs';
 
 const positive = value => typeof value === 'number' && Number.isFinite(value) && value > 0;
@@ -196,9 +197,18 @@ export function calculateDesign(raw) {
     const sub = asColumn(input, { shape: 'circular', diameter: 2 * (rc.r - 2 * d), rotation: 0 });
     const face = { u0: perimeterAtOffset(input.column, 0), d, label: 'Maximum punching stress at the column face (slab d, conservative)', detail: 'u0 = column perimeter; d of the slab ignores the head depth.' };
     // Circular heads: the equivalent circle is the head itself, so links follow the head outline.
-    const noLinks = geo.circular ? null : 'v_Ed > v_Rd,c at r_cont. Links around a rectangular head with l_H ≤ 2h_H are not covered: Eq. 6.34/6.35 replace the head by an equivalent circle. Enlarge the head or the slab depth.';
-    const outer = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, ...(noLinks ? { noLinks } : zone(split.slab, 0)) });
-    return single(outer, { kind: 'small', ...geo, d, rcont: rc, sections: [extSection(outer, rc.eq)] });
+    if (geo.circular) {
+      const outer = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, ...zone(split.slab, 0) });
+      return single(outer, { kind: 'small', ...geo, d, rcont: rc, sections: [extSection(outer, rc.eq)] });
+    }
+    // Rectangular heads: check on the equivalent circle, links on the head outline (head-mapped.mjs).
+    const circle = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, noLinks: 'mapped' });
+    const rect = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, noLinks: 'geometry only' });
+    const info = { kind: 'small', ...geo, d, rcont: rc, mapped: true, sections: [{ ...extSection(circle, rc.eq), model: rect.model ?? circle.model }] };
+    if (!circle.loads?.length || !rect.model) return { ...circle, input, head: info };
+    const mapped = mappedHeadLinks({ circle, rectModel: rect.model, input, rc, lHalfMin: Math.min(input.head.lx, input.head.ly) / 2, layers: split.slab });
+    const result = merge({ ...circle, loads: mapped.loads }, null, issuesOf, info, input, combinedLayout(null, { layout: mapped.layout }, geo.lMin), split.notes);
+    return { ...result, detailing: mapped.detailing, mapping: { sectors: mapped.worstSector, tOut: mapped.tOut } };
   }
   const extEq = geo.circular ? 'Eq. 6.36' : internal ? '§6.4.2(9)' : 'Fig. 6.15 (interpretation)';
   if (!inside) {
