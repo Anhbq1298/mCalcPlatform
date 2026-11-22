@@ -266,21 +266,11 @@ function headSection(doc, full) {
   const head = full.head;
   const lH = head.lH.map(value => value.toFixed(0)).join(' / ');
   doc.text(`Drop panel ${full.input.head.shape === 'circular' ? 'Ø' + full.input.head.diameter : full.input.head.lx + ' × ' + full.input.head.ly} mm${head.edge ? ' (clipped to the slab edge)' : ''}, total thickness h_tot = ${full.input.head.thickness} mm (h_H = h_tot − h = ${head.hH} mm), l_H = ${lH} mm.`, 12);
-  if (head.kind === 'small' && !head.rcont) {
-    doc.text(`l_H ≤ 2h_H at an edge or corner column: only the slab section is checked, at 2d from the drop outline clipped to the slab (d = ${head.d.toFixed(1)} mm). EN 1992-1-1 gives Eq. 6.33–6.35 for internal columns only; this geometric extension is described in Help.`, 12);
-    return;
-  }
   if (head.kind === 'small') {
-    doc.text(`l_H ≤ 2h_H (Fig. 6.17): only the section in the slab is checked (§6.4.2(8)), at r_cont = ${head.rcont.r.toFixed(1)} mm from the column centroid (${head.rcont.eq}${head.rcont.l1 ? `, l1 = ${head.rcont.l1}, l2 = ${head.rcont.l2}` : ''}). It is solved as a circular loaded area of diameter 2(r_cont − 2d); the face check uses the column perimeter with the slab d.`, 12);
-    if (head.mapped && full.layout.layers.length) doc.text(`Links: placed on rounded rectangles at t from the head outline and mapped to the equivalent circle by ${360 / 16}° sectors from the column centroid (each sector needs A_sw,req/16, a leg counts in one sector only); coverage of u_out,ef uses the nearest point of the outermost layer. This mapping is a proposed method, not an EN 1992-1-1 rule: results follow that method (see Help) (see Help). Detailing rules of §9.4.3 are checked on the actual link positions.`, 12);
+    doc.text(`l_H < 2h_H on every side (Fig. 6.17): the head acts with the column, so only the slab section is checked (§6.4.2(8)), at 2d from the head outline${head.edge ? ' clipped to the slab' : ''} (d = ${head.d.toFixed(1)} mm). The section follows the head shape: a circle for a circular head (= Eq. 6.33) and a rounded rectangle for a rectangular head, used instead of the equivalent circle of Eq. 6.34/6.35, whose perimeter is shorter (see Help).`, 12);
     return;
   }
   const extSection = head.sections.find(item => item.id === 'ext');
-  if (!head.inner) {
-    doc.text(`l_H > 2h_H (Fig. 6.18) but 2d_H = ${(2 * head.dH).toFixed(0)} mm does not fit inside the drop (l_H = ${head.lMin.toFixed(0)} mm): only the slab section at 2d from the drop edge is checked, with d = ${head.d.toFixed(1)} mm. The face check uses the column perimeter with d_H = ${head.dH.toFixed(1)} mm (§6.4.2(10)). The calculation below is the slab section.`, 12);
-    if (!head.circular) doc.text('Basis: Eq. 6.36 is stated for circular columns (§6.4.2(11)); for this rectangular drop the control perimeter is constructed at 2d from the drop outline (software interpretation, see Help).', 12);
-    return;
-  }
   doc.text(`l_H > 2h_H (Fig. 6.18): sections inside the drop with d_H = d + h_H = ${head.dH.toFixed(1)} mm at 2d_H from the column face, and in the slab with d = ${head.d.toFixed(1)} mm at 2d from the drop edge (§6.4.2(9)–(11)). The calculation below is the section inside the drop.`, 12);
   if (!head.circular) doc.text('Basis: Eq. 6.36/6.37 are stated for circular columns (§6.4.2(11)); for this rectangular drop both control perimeters are constructed geometrically (software interpretation, see Help).', 12);
   full.loads.forEach(load => {

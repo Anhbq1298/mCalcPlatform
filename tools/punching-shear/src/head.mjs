@@ -13,9 +13,8 @@
 // (Fig. 6.15/6.20 perimeters), the inner section is the edge or corner column with d_H. EN 1992-1-1
 // shows heads only at internal columns, so this is a geometric interpretation (see help.html).
 import { calculate, worstState } from './calculate.mjs';
-import { perimeterAtOffset } from './geometry.mjs';
-import { mappedHeadLinks } from './head-mapped.mjs';
 import { STATES, derivedSection, groupLayers, restoreInputs } from './inputs.mjs';
+import { compositeInner } from './composite.mjs';
 
 const positive = value => typeof value === 'number' && Number.isFinite(value) && value > 0;
 
@@ -59,6 +58,7 @@ export function headGeometry(input) {
 }
 
 // r_cont from the column centroid for l_H < 2h_H (Eq. 6.33–6.35). l1 ≤ l2 are the overall head sizes.
+// Eq. 6.33–6.35 (kept for reference and the worksheet comparison; the check uses the head outline).
 export function rcontSmall(input, d) {
   const { column, head } = input;
   if (column.shape === 'circular') return { r: 2 * d + (head.diameter - column.diameter) / 2 + 0.5 * column.diameter, eq: 'Eq. 6.33' };
@@ -207,11 +207,13 @@ export function calculateDesign(raw, forcedKind = null) {
   const dropAsColumn = geo.circular ? { diameter: input.head.diameter }
     : { cx: e.xMax - e.xMin, cy: e.yMax - e.yMin, x: input.column.x + (e.xMax + e.xMin) / 2, y: input.column.y + (e.yMax + e.yMin) / 2 };
   const dH = d + geo.hH;
-  const inside = geo.kind === 'large' && 2 * dH <= geo.lMin + 1e-9; // the inner control perimeter fits inside the head
+  // Fig. 6.18: the section inside the head (d_H, 2d_H from the column) is always checked (§6.4.2(9)), also
+  // when 2d_H reaches beyond the head outline: the crack through d_H then ends in the slab part above.
+  const inside = geo.kind === 'large';
   const provided = input.reinforcement.enabled !== false && input.reinforcement.mode === 'provided';
   const split = provided ? splitLayers(input, geo, inside) : { drop: [], slab: [], issues: [], notes: [] };
   if (geo.straddles && !forcedKind) {
-    split.notes.push(`l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm: not every side has l_H < 2h_H = ${(2 * geo.hH).toFixed(0)} mm, so Fig. 6.18 applies (§6.4.2(8)–(9)); on the sides with l_H < 2h_H the section inside the head uses d_H as drawn in Fig. 6.18 (see Help).`);
+    split.notes.push(`l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm: not every side has l_H < 2h_H = ${(2 * geo.hH).toFixed(0)} mm, so Fig. 6.18 applies (§6.4.2(8)–(9)). Inside the head the section is composite: d_H at 2d_H where l_H ≥ 2h_H, the slab section at 2d from the head outline elsewhere, since there the crack leaves through the side of the head (see Help).`);
   }
   if (input.beta.method === 'moment') split.notes.push('β from moments with a drop uses the column (inside) or the drop (outside) as the loaded area (Eq. 6.39/6.42), see Help.');
   const zone = (layers, layerBase) => (provided ? { layers } : { layerBase });
@@ -228,44 +230,29 @@ export function calculateDesign(raw, forcedKind = null) {
     return merge(outer, null, issuesOf, info, input, combinedLayout(null, outer, geo.lMin), split.notes);
   };
 
-  if (geo.kind === 'small' && !internal) {
-    // Edge/corner: slab section around the clipped drop at 2d (Eq. 6.34/6.35 are for internal columns).
+  if (geo.kind === 'small') {
+    // Fig. 6.17 (l_H < 2h_H on every side): the 26.6° crack from the column face would leave through the side
+    // of the head before crossing h_H, so the head acts with the column and the crack starts at the head
+    // edge through the slab d. Control section at 2d from the head outline, shaped like the head (circle
+    // for a circular head = Eq. 6.33; rounded rectangle for a rectangular head instead of the equivalent
+    // circle of Eq. 6.34/6.35, which has a shorter perimeter); clipped at free edges. See Help.
     const face = { u0: base.u0, d, label: 'Maximum punching stress at u0 (slab d, conservative)' };
     const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
     hint(outer);
-    return single(outer, { kind: 'small', edge: true, columnModel: base.model, ...geo, d, rcont: null, sections: [extSection(outer, 'Fig. 6.15 (interpretation)')] });
-  }
-  if (geo.kind === 'small') {
-    const rc = rcontSmall(input, d);
-    const sub = asColumn(input, { shape: 'circular', diameter: 2 * (rc.r - 2 * d), rotation: 0 });
-    const face = { u0: perimeterAtOffset(input.column, 0), d, label: 'Maximum punching stress at the column face (slab d, conservative)', detail: 'u0 = column perimeter; d of the slab ignores the head depth.' };
-    // Circular heads: the equivalent circle is the head itself, so links follow the head outline.
-    if (geo.circular) {
-      const outer = calculate(sub, { betaCap, face, label: `Slab at r_cont (${rc.eq})`, ...zone(split.slab, 0) });
-      return single(outer, { kind: 'small', columnModel: base.model, ...geo, d, rcont: rc, sections: [extSection(outer, rc.eq)] });
-    }
-    // Rectangular heads: check on the equivalent circle, links on the head outline (head-mapped.mjs).
-    const circle = calculate(sub, { betaCap, face, label: `Slab at r_cont (${rc.eq})`, noLinks: 'mapped' });
-    const rect = calculate(asColumn(input, dropAsColumn), { betaCap, face: { skip: true }, noLinks: 'geometry only' });
-    const info = { kind: 'small', columnModel: base.model, ...geo, d, rcont: rc, mapped: true, sections: [{ ...extSection(circle, rc.eq), model: rect.model ?? circle.model }] };
-    if (!circle.loads?.length || !rect.model) return { ...circle, input, head: info };
-    const mapped = mappedHeadLinks({ circle, rectModel: rect.model, input, rc, lHalfMin: Math.min(input.head.lx, input.head.ly) / 2, layers: split.slab });
-    const result = merge({ ...circle, loads: mapped.loads }, null, issuesOf, info, input, combinedLayout(null, { layout: mapped.layout }, geo.lMin), split.notes);
-    return { ...result, compactOuterZone: mapped.compactOuterZone, detailing: mapped.detailing, mapping: { sectors: mapped.worstSector, tOut: mapped.tOut } };
+    return single(outer, { kind: 'small', edge: !internal, columnModel: base.model, ...geo, d, rcont: null, sections: [extSection(outer, geo.circular ? 'Eq. 6.33' : 'Fig. 6.17, 2d from the head outline')] });
   }
   const extEq = geo.circular ? 'Eq. 6.36' : internal ? '§6.4.2(9)' : 'Fig. 6.15 (interpretation)';
-  if (!inside) {
-    // Only the slab section; the face check uses the column perimeter with d_H (§6.4.2(10)).
-    const face = { u0: base.u0, d: dH, label: 'Maximum punching stress at u0 (d_H)' };
-    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, 0) });
-    hint(outer);
-    return single(outer, { kind: 'large', inner: false, columnModel: base.model, edge: !internal, ...geo, d, dH, sections: [extSection(outer, extEq)] });
-  }
   const c = input.slab.cover;
   const dropBox = geo.circular ? null : { xMin: geo.extents.xMin + c, xMax: geo.extents.xMax - c, yMin: geo.extents.yMin + c, yMax: geo.extents.yMax - c };
-  const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
+  // Mixed head (internal, rectangular): on a face with l_H < 2h_H the crack from the column face leaves
+  // through the side of the head, so the inner section there is the slab crack from the head edge. The
+  // inner check becomes a composite section (composite.mjs); links are not designed for it.
+  const mixed = geo.straddles && internal && !geo.circular;
+  const innerInput = mixed ? { ...input, reinforcement: { ...input.reinforcement, enabled: false } } : input;
+  const inner = calculate(deeper(innerInput, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
   const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
   hint(outer);
+  if (mixed && inner.loads?.length && outer.loads?.length) compositeInner({ inner, outer, input, geo, d, dH });
   const info = {
     kind: 'large', inner: true, columnModel: base.model, edge: !internal, ...geo, d, dH,
     sections: [{ id: 'int', label: 'Inside the drop', d: dH, offset: 2 * dH, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' }, extSection(outer, extEq)],

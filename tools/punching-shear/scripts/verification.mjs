@@ -2,7 +2,7 @@
 // recomputed by hand from EN 1992-1-1 formulas written out here, independently of src/, then
 // compared with the tool. Run: node tools/punching-shear/scripts/verification.mjs [--json]
 import { CASES, exampleById } from '../src/examples.mjs';
-import { calculateDesign } from '../src/head.mjs';
+import { calculateDesign, rcontSmall } from '../src/head.mjs';
 
 const round = (v, n = 3) => (Number.isFinite(v) ? Number(v.toFixed(n)) : null);
 
@@ -67,21 +67,22 @@ export function handExamples() {
     ] });
   }
   {
-    // 3 · Column head l_H ≤ 2h_H (Fig. 6.17): 400 × 400 column, head 1000 × 1000, h 250, h_tot 450, V 700 kN.
+    // 3 · Column head l_H < 2h_H (Fig. 6.17): 400 × 400 column, head 1000 × 1000, h 250, h_tot 450, V 700 kN.
+    // Control section at 2d from the head outline (rounded rectangle); Eq. 6.34 equivalent circle shown for comparison.
     const d = 210, c = 400, l = 1000, hH = 450 - 250, lH = (l - c) / 2, V = 700e3, beta = 1.15, fck = 30;
     const { vRdc } = concrete({ d, dx: 215, dy: 205, asx: 1340, asy: 1340, fck });
     const r634 = 2 * d + 0.56 * Math.sqrt(l * l), r635 = 2 * d + 0.69 * l; // Eq. 6.34, 6.35 (l1 = l2)
-    const rcont = Math.min(r634, r635);
-    const u1 = 2 * Math.PI * rcont;
+    const u1 = 4 * l + 2 * Math.PI * 2 * d; // rounded rectangle at 2d from the head
     const v1 = beta * V / (u1 * d);
     const tool = calculateDesign(exampleById('drop-small').input);
     const row = id => tool.loads[0].rows.find(entry => entry.id === id);
-    out.push({ id: 'drop-small', title: 'Column head l_H ≤ 2h_H (Fig. 6.17)', rows: [
-      ['l_H = (l − c)/2 ≤ 2h_H', 'mm', lH, Math.min(...tool.head.lH)],
+    const eq = rcontSmall(tool.input, d);
+    out.push({ id: 'drop-small', title: 'Column head l_H < 2h_H (Fig. 6.17)', rows: [
+      ['l_H = (l − c)/2 < 2h_H', 'mm', lH, Math.min(...tool.head.lH)],
       ['2h_H', 'mm', 2 * hH, 2 * tool.head.hH],
-      ['r_cont,6.34 = 2d + 0.56√(l_1·l_2)', 'mm', r634, tool.head.rcont.r],
-      ['r_cont,6.35 = 2d + 0.69·l_1', 'mm', r635, tool.head.rcont.alt],
-      ['u_1 = 2π·r_cont', 'mm', u1, tool.u1],
+      ['Eq. 6.34 r_cont = 2d + 0.56√(l_1·l_2) (comparison only)', 'mm', r634, eq.eq === 'Eq. 6.34' ? eq.r : eq.alt],
+      ['Eq. 6.35 r_cont = 2d + 0.69·l_1 (comparison only)', 'mm', r635, eq.eq === 'Eq. 6.35' ? eq.r : eq.alt],
+      ['u_1 = 4l + 2π·2d (2d from the head outline)', 'mm', u1, tool.u1],
       ['v_Ed,1 = βV/(u_1·d)', 'MPa', v1, tool.loads[0].vEd1],
       ['v_Rd,c', 'MPa', vRdc, tool.resistance.vRdc],
       ['UR = v_Ed,1/v_Rd,c', '', v1 / vRdc, row('concrete').ur],

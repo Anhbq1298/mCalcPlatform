@@ -9,7 +9,6 @@ const SHORT = {
   outer: 'Outer coverage, a_out', perimeters: 'Number of perimeters', first: 'First layer ≤ 0.5d', 'first-min': 'First layer ≥ 0.3d',
   radial: 's_r ≤ 0.75d', tangential: 'Tangential spacing s_t', minimum: 'Minimum leg area', anchorage: 'Anchorage and detailing',
   'ext-concrete': 'Slab outside the drop, u_1,ext', 'ext-max': 'Face (slab section)',
-  sector: 'Sector mapping (not EC2)',
 };
 const INFO = [STATES.notRequired, STATES.linksRequired];
 // Short name of a check; slab-section rows beyond a drop reuse the base name.
@@ -24,8 +23,8 @@ function caseLine(result) {
   if (head?.lH) {
     const lH = Math.min(...head.lH).toFixed(0);
     const two = (2 * head.hH).toFixed(0);
-    if (head.kind === 'small') parts.push(`drop l_H = ${lH} ≤ 2h_H = ${two} (Fig. 6.17): one section at ${head.rcont ? 'r_cont' : '2d from the drop'}`);
-    else parts.push(`drop l_H = ${lH} > 2h_H = ${two} (Fig. 6.18): ${head.inner ? 'sections inside (d_H) and outside the drop' : 'section outside the drop only (2d_H > l_H)'}`);
+    if (head.kind === 'small') parts.push(`drop l_H = ${lH} < 2h_H = ${two} (Fig. 6.17): one section at 2d from the drop`);
+    else parts.push(`drop l_H = ${Math.max(...head.lH).toFixed(0)} ≥ 2h_H = ${two} (Fig. 6.18): sections inside (d_H) and outside the drop`);
   }
   const openings = result.input?.openings?.length ?? 0;
   if (openings) parts.push(`${openings} opening${openings > 1 ? 's' : ''}`);
@@ -33,7 +32,7 @@ function caseLine(result) {
   if (!layers.length) parts.push('no links');
   else {
     const where = [...new Set(layers.map(layer => layer.zone))].map(zone => (zone === 'drop' ? 'in the drop' : zone === 'slab' ? 'beyond the drop' : null)).filter(Boolean);
-    parts.push(`links ${layers[0].id}–${layers.at(-1).id}${where.length ? ' ' + where.join(' and ') : ''}${head?.mapped ? ', mapped to the equivalent circle' : ''}`);
+    parts.push(`links ${layers[0].id}–${layers.at(-1).id}${where.length ? ' ' + where.join(' and ') : ''}`);
   }
   return parts.join(' · ');
 }

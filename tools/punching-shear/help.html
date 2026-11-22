@@ -38,7 +38,7 @@
 
   <h2>1 Which sections are checked</h2>
   <figure>
-    <svg viewBox="0 0 680 230" role="img" aria-label="Decision chart: l_H &lt; 2h_H on every side gives one slab section at r_cont; otherwise (l_H ≥ 2h_H) gives a slab section at 2d from the drop edge, plus a section inside the drop at 2d_H when 2d_H ≤ l_H.">
+    <svg viewBox="0 0 680 230" role="img" aria-label="Decision chart: l_H &lt; 2h_H on every side gives one slab section at 2d from the head outline; otherwise (l_H ≥ 2h_H) gives a slab section at 2d from the drop edge plus a section inside the drop at 2d_H.">
       <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#141414"/></marker></defs>
       <rect x="250" y="10" width="180" height="40" rx="4" fill="#fff" stroke="#141414"/>
       <text x="340" y="34" text-anchor="middle">l_H vs 2h_H</text>
@@ -48,14 +48,14 @@
       <text x="440" y="70" class="muted">l_H ≥ 2h_H, any side</text>
       <rect x="40" y="94" width="260" height="56" rx="4" fill="#dcefe3" stroke="#1b5733"/>
       <text x="170" y="116" text-anchor="middle">Fig. 6.17: slab only</text>
-      <text x="170" y="134" text-anchor="middle">r_cont, Eq. 6.33 / 6.34 / 6.35</text>
+      <text x="170" y="134" text-anchor="middle">2d from the head outline</text>
       <rect x="380" y="94" width="260" height="56" rx="4" fill="#fbecd2" stroke="#7a4508"/>
       <text x="510" y="116" text-anchor="middle">Fig. 6.18: slab section</text>
       <text x="510" y="134" text-anchor="middle">2d from drop edge, slab d</text>
       <path d="M510 150L510 172" stroke="#141414" fill="none" marker-end="url(#a)"/>
       <rect x="380" y="174" width="260" height="46" rx="4" fill="#fbecd2" stroke="#7a4508"/>
       <text x="510" y="194" text-anchor="middle">+ inner section at 2d_H, d_H</text>
-      <text x="510" y="210" text-anchor="middle">only if 2d_H ≤ l_H (fits in drop)</text>
+      <text x="510" y="210" text-anchor="middle">composite if a face has l_H &lt; 2h_H</text>
     </svg>
     <figcaption>Green: code rule for both circular and rectangular heads. Amber: EN 1992-1-1 states Eq. 6.36/6.37 for circular columns only; rectangular drops use the same geometric construction.</figcaption>
   </figure>
@@ -112,17 +112,16 @@
   <h2>4 Drop-panel calculation basis</h2>
   <table>
     <tr><th>Item</th><th>Basis</th><th>Status</th></tr>
-    <tr><td>Check only in the slab when l_H ≤ 2h_H; r_cont by Eq. 6.33 (circular) or the lesser of Eq. 6.34 / 6.35 with l1 ≤ l2 (rectangular)</td><td>§6.4.2(8)</td><td><span class="tag code">Code rule</span></td></tr>
+    <tr><td>Check only in the slab when l_H &lt; 2h_H on every face, at 2d from the head outline with the slab d: a circle for a circular head (= Eq. 6.33), a rounded rectangle for a rectangular head. Eq. 6.34/6.35 replace a rectangular head by an equivalent circle (0.56 = 1/√π, equal area) with a shorter perimeter; the tool follows the crack from the head edge instead.</td><td>§6.4.2(8), Fig. 6.17</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Two sections when l_H &gt; 2h_H; d_H = d + h_H inside the head</td><td>§6.4.2(9), (10)</td><td><span class="tag code">Code rule</span></td></tr>
     <tr><td>r_cont,ext = l_H + 2d + 0.5c, r_cont,int = 2(d + h_H) + 0.5c</td><td>§6.4.2(11), circular columns</td><td><span class="tag code">Code rule</span></td></tr>
     <tr><td>Rectangular drop with l_H &gt; 2h_H: perimeters built as offsets of the column and the drop outline (2d_H, 2d)</td><td>Geometric extension of Fig. 6.18; documented by Tekla Structural Designer</td><td><span class="tag interp">Interpretation</span></td></tr>
-    <tr><td>Inner section checked only when 2d_H ≤ l_H</td><td>Tekla Structural Designer</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Inner section (d_H at 2d_H) always checked when l_H ≥ 2h_H, also when 2d_H reaches beyond the head: the crack from the column face crosses the full d_H. If a face has l_H &lt; 2h_H, the crack there leaves through the side of the head, so the inner section is composite: d_H at 2d_H on the faces with l_H ≥ 2h_H (straight parts the length of the column face), the slab section at 2d from the head outline with d elsewhere; β·V ≤ Σ v_Rd,c(d_i)·u_i·d_i. Links are not designed for the composite section.</td><td>§6.4.2(9), Fig. 6.18</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Face check: column perimeter with d_H (l_H &gt; 2h_H) or with the slab d (l_H ≤ 2h_H, conservative)</td><td>§6.4.5(3), §6.4.2(10)</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Drop at an edge or corner column: the drop is clipped to the slab (flush with the free edges the column is flush with). Inside: the edge or corner column with d_H (Fig. 6.15 / 6.20 perimeters). Outside: the clipped drop as an edge or corner loaded area at 2d. For l_H ≤ 2h_H only the outer section is checked.</td><td>Extension of Figs. 6.15, 6.17, 6.18 and 6.20; EN 1992-1-1 shows heads at internal columns only</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Links beyond the drop: the slab section takes the drop as the loaded area and is designed like an ordinary column (Eq. 6.52, 6.54, §9.4.3) with d. A layer at s from the column face lies beyond the drop when s &gt; l<sub>H,min</sub> and follows the drop outline at t = s − l<sub>H,min</sub>; inside the drop a layer needs s ≤ l<sub>H,min</sub> − c. Layers on the step in between are rejected.</td><td>Extension of §6.4.2(9) with §6.4.5; Tekla Structural Designer treats the head as the loaded area for the outer section</td><td><span class="tag interp">Interpretation</span></td></tr>
-    <tr><td>Rectangular head with l<sub>H</sub> ≤ 2h<sub>H</sub> and links: the check stays on the EC2 equivalent circle (r<sub>cont</sub>, Eq. 6.34/6.35); the links are placed on rounded rectangles at t from the actual head outline and mapped to the circle by 16 sectors of 22.5° from the column centroid. Each sector needs A<sub>sw,req</sub>/16 per layer and a leg counts only in its own sector. Coverage of u<sub>out,ef</sub> uses the nearest point of the outermost layer. Eq. 6.52, outer coverage and the sector check use this mapping; §9.4.3 detailing is checked on the real link positions. Circular heads need no mapping: links follow the head.</td><td>mPunchingShear sector mapping applied to the EC2 equivalent-circle section</td><td><span class="tag interp">Interpretation</span></td></tr>
-  </table>
-  <p>Fig. 6.17 is used only when the head lies within l<sub>H</sub> &lt; 2h<sub>H</sub> on every side (§6.4.2(8)); otherwise Fig. 6.18 applies (l<sub>H</sub> ≥ 2h<sub>H</sub>, as corrected by AC2), with a section inside the head using d<sub>H</sub> at 2d<sub>H</sub> from the column and a section in the slab at 2d from the head outline. A rectangular head with some sides below 2h<sub>H</sub> and some at or beyond it is therefore checked by Fig. 6.18; on its short sides the inner section uses d<sub>H</sub> as drawn in Fig. 6.18 (tool interpretation, stated in a note). Both figures use θ = arctan(1/2) = 26.6°. Expect a step where a head grows from just below to 2h<sub>H</sub>: Eq. 6.34/6.35 replace a rectangular head by an equivalent circle whose perimeter is shorter than the rounded rectangle at 2d from the head, so Fig. 6.17 is the more conservative of the two.</p>
+      </table>
+  <p><b>Why 2h<sub>H</sub>.</b> The punching crack rises from the column face at θ = arctan(1/2) = 26.6°, so it climbs h<sub>H</sub> over a horizontal 2h<sub>H</sub>. Where the head projects l<sub>H</sub> &lt; 2h<sub>H</sub>, that crack would leave through the side of the head before crossing its depth; it cannot form, the head works with the column, and the crack starts at the head edge through the slab d, reaching the top at 2d from the head outline (Fig. 6.17). Where l<sub>H</sub> ≥ 2h<sub>H</sub> (AC2), a crack from the column face crosses the full d<sub>H</sub> and reaches the top at 2d<sub>H</sub>, and the crack from the head edge through the slab is also possible: both sections are checked (Fig. 6.18). The control section follows the shape of the loaded area (column or head), as for Fig. 6.13. A head with some faces below and some at or beyond 2h<sub>H</sub> is checked by Fig. 6.18 with a composite inner section (table above). Both figures use θ = 26.6°.</p>
 
   <h2>5 Not covered</h2>
   <ul>
@@ -209,7 +208,7 @@
 
   <p><b>Effective outer perimeter of a cruciform layout.</b> Ancon Shearfix Punching Shear Reinforcement, EC2 Design Manual, Example 16.1 (internal 600 × 400 column, d = 204 mm, outer stud lines 804 and 604 mm wide) gives u<sub>out,ef</sub> = 2(y<sub>sr0</sub> + 2d + 0.75πd + z<sub>sr0</sub> + 2d + 0.75πd) = 6371 mm. The tool's rule Σ min(L<sub>i</sub>, 2d) + 2π·1.5d gives 6371 mm for the same outer studs (test/arrangement.test.mjs), so the interpretation of Fig. 6.22 B agrees with the manufacturer's procedure. Only the perimeter formula is compared: the manual's rail layout (main and secondary rails, 3 studs per rail) and its u<sub>out,req</sub> inputs are not re-run. The manual also notes that more than three studs per rail do not increase u<sub>out,ef</sub>, as found here. </p>
   <h2>9 How mPunchingShear calculates results</h2>
-  <p><b>Result status.</b> Pass and Fail show the outcome of the applicable checks against the selected design basis. Software methods such as rectangular-head sector mapping are identified alongside the result. Incomplete input and Unsupported geometry or loading identify conditions outside the calculation. Links required indicates that the concrete demand exceeds its resistance.</p>
+  <p><b>Result status.</b> Pass and Fail show the outcome of the applicable checks against the selected design basis. Software methods such as the composite inner section of a mixed head are identified alongside the result. Incomplete input and Unsupported geometry or loading identify conditions outside the calculation. Links required indicates that the concrete demand exceeds its resistance.</p>
   <p><b>Singapore National Annex.</b> The face resistance uses 0.5ν<i>f</i><sub>cd</sub>, and the upper resistance with links uses 2.0<i>v</i><sub>Rd,c</sub>. Where the required outer control perimeter is closer than 3<i>d</i> to the loaded area, place links in the zone from 0.3<i>d</i> to 1.5<i>d</i>, with the first layer no further out than 0.5<i>d</i>. The first-layer and zone checks use each link leg’s shortest distance to the loaded area, including at corners. Auto layout omits first-layer positions beyond 0.5<i>d</i> and checks the steel area and spacing of the remaining legs.</p>
   <p><b>Defaults.</b> New designs use the Singapore National Annex, β from moments and effective depths derived from the slab thickness, cover and flexural bar layers. Punching links are off when a design starts. When enabled, the default arrangement is an orthogonal grid with spacing inputs of 150 mm.</p>
   <h3>Benchmark results</h3>
