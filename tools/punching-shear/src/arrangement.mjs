@@ -211,7 +211,10 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, 
       layers = thinGrid(layers, { column, d, sr, aswReq, legArea, leg: legArea1, gap: layer => ringGaps(layer.points).max,
         minLeg: (s, g) => (0.08 * Math.sqrt(fck) / fyk) * (s * g) / 1.5 });
     }
-    const inside = type !== 'radial' || layers.filter(layer => layer.offset <= 2 * d).every(layer => pathGap(model, layer) <= 1.5 * d + 1e-9);
+    // s_t ≤ 1.5d inside u1; outside, ≤ 2d unless Fig. 6.22 applies (internal column, then a wider gap only
+    // shortens u_out,ef). Edge and corner columns, openings and drops keep s_t ≤ 2d as a check out to a_out.
+    const stLimit = layer => (layer.offset <= 2 * d ? 1.5 * d : uReq > 0 ? Infinity : 2 * d);
+    const inside = type !== 'radial' || layers.every(layer => pathGap(model, layer) <= stLimit(layer) + 1e-9);
     const strong = layers.every(layer => layer.points.length * legArea >= aswReq - 1e-6);
     return { layers, reached, inside, strong, corner };
   };

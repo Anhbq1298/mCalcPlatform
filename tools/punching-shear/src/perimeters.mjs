@@ -53,6 +53,15 @@ const SAMPLES = 2048;
 export function effectiveIntervals(model, r) {
   const { column } = model;
   const u = perimeterAtOffset(column, r);
+  // Fast path: no openings and a circle round the whole path lies inside the slab, so every point counts.
+  const reach = (column.shape === 'circular' ? column.diameter / 2 : Math.hypot(column.cx, column.cy) / 2) + r;
+  const x = column.x || 0;
+  const y = column.y || 0;
+  const { slab } = model;
+  if (!(model.openings || []).length && !(model.shadows || []).length && slab
+    && x - reach >= slab.xMin && x + reach <= slab.xMax && y - reach >= slab.yMin && y + reach <= slab.yMax) {
+    return { u, total: u, intervals: [{ s0: 0, s1: u, closed: true }] };
+  }
   const ok = s => exclusion(model, toGlobal(column, pointAt(column, r, s))) === null;
   const step = u / SAMPLES;
   const states = Array.from({ length: SAMPLES }, (_, i) => ok(i * step));

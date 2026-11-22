@@ -184,17 +184,43 @@ test('radial: orthogonal face lines (edges in line, ≤ 1.5d apart); corner line
   }
 });
 
-test('auto arrangement order: larger bar Ø first, then more lines, then a smaller s_r', async () => {
+test('auto arrangement: every combination is tried and the passing layout with the least link steel is kept', async () => {
   const { calculateDesign } = await import('../src/head.mjs');
+  const steel = result => result.layout.links.reduce((sum, link) => sum + link.legs.length * Math.PI * link.diameter ** 2 / 4, 0);
   const input = newDefaults();
-  input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'radial', diameter: 8 };
-  input.loads = [{ name: 'U', V: 1100, Mx: 0, My: 0 }];
+  input.column = { ...input.column, cx: 300, cy: 450 };
+  input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'radial', diameter: 10 };
+  input.loads = [{ name: 'U', V: 900, Mx: 20, My: 40 }];
   const result = calculateDesign(input);
   assert.equal(result.status, 'Pass', result.notes.join(' | '));
-  const note = result.notes.find(n => n.startsWith('Auto arrangement'));
-  assert.ok(note && note.includes('raised from Ø8'), note);
-  assert.ok(result.layout.layers[0].diameter > 8 && result.layout.layers[0].diameter <= 16);
+  assert.ok(result.notes.some(n => n.startsWith('Auto arrangement') && n.includes('least link steel')));
+  // No single fixed combination that passes uses less steel (Ø-first would have picked Ø12 × 82 here).
+  for (const diameter of [10, 12, 16]) for (const extra of [0, 1, 2]) for (const sr of [150, 125, 100]) {
+    const fixed = calculateDesign({ ...input, reinforcement: { ...input.reinforcement, diameter, diameterMax: diameter, extra, sr, srAuto: false } });
+    // with srAuto false and one Ø the search still adds lines; compare only what passes
+    if (fixed.status === 'Pass') assert.ok(steel(result) <= steel(fixed) + 1e-6, `Ø${diameter} +${extra} s_r ${sr}: ${steel(fixed)} < ${steel(result)}`);
+  }
   // Unfixable (k_max) ends the search at once.
+  input.column = { ...input.column, cx: 400, cy: 400 };
   input.loads = [{ name: 'U', V: 1500, Mx: 0, My: 0 }];
   assert.equal(calculateDesign(input).status, 'Fail');
+});
+
+test('auto arrangement at edge and corner columns, with and without a drop: both arrangements pass, s_t ≤ 2d outside u1', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const cases = [
+    ['edge', false, 500, 60, -20], ['corner', false, 260, -30, -30],
+    ['edge', true, 750, 60, -20], ['corner', true, 325, -30, -30],
+  ];
+  for (const [position, drop, V, Mx, My] of cases) for (const arrangement of ['grid', 'radial']) {
+    const input = newDefaults();
+    input.column = { ...input.column, cx: 400, cy: 400, position, x: 3800, y: position === 'corner' ? 3800 : 0 };
+    if (drop) input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+    input.reinforcement = { ...input.reinforcement, enabled: true, arrangement };
+    input.loads = [{ name: 'U', V, Mx, My }];
+    const result = calculateDesign(input);
+    const label = `${position}${drop ? ' + drop' : ''} ${arrangement}`;
+    assert.equal(result.status, 'Pass', `${label}: ${result.loads[0].rows.filter(r => r.status === 'Fail').map(r => r.id).join(', ')}`);
+    assert.ok(result.notes.some(n => n.includes('least link steel')), label);
+  }
 });

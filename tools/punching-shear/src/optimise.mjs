@@ -1,18 +1,20 @@
-// Auto arrangement as a constrained search (DECON / The Concrete Centre practice). The user sets the
-// arrangement type, the smallest bar Ø, the largest bar Ø (default 16) and the maximum radial spacing s_r;
-// links follow the slab bars for the grid. When the layout as first built does not pass, the remedies are
-// tried in this order, and the first layout that passes every check is kept:
-//   1. a larger bar Ø for the whole layout (next size up to the maximum, while the hook still fits);
-//   2. more lines: orthogonal radial lines per face — for the grid, no ring widening;
-//   3. more links: a smaller s_r (on the bar grid, the next smaller multiple of the bar spacing).
-// Failures that links cannot fix (v_Rd,max at u0, k_max at u1) end the search at once. If nothing passes,
-// the layout with the lowest governing UR is reported with a note.
+// Auto arrangement as a constrained search. The user sets the arrangement type, the smallest bar Ø, the
+// largest bar Ø (default 16) and the maximum radial spacing s_r; links follow the slab bars for the grid.
+// When the layout as first built does not pass, every combination within the constraints is tried —
+//   bar Ø (Ø min … Ø max, while the hook still fits), radial lines per face (radial: +0 … +4; grid: with
+//   and without ring widening) and s_r (≤ the maximum; on the bar grid, multiples of the bar spacing) —
+// and the passing layout with the least link steel ΣA_sw (all legs, π·Ø²/4 each) is kept; ties go to
+// fewer links, then the smaller Ø, then the larger s_r. For each s_r and line count the sizes are tried
+// from the smallest up and stop at the first that passes, since the same layout in a larger bar only adds
+// steel; they also stop once the layout already carries as much steel as the best found. Failures that links cannot fix (v_Rd,max at u0, k_max at u1) end the search at once. If nothing
+// passes, the layout with the lowest governing UR is reported with a note.
 import { gridOnBars } from './arrangement.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { LINK_DIAMETERS, STATES } from './inputs.mjs';
 
 const UNFIXABLE = ['max', 'kmax'];
 const MAX_EXTRA = 4;
+const BAR_FIXABLE = ['reinforced', 'minimum'];
 
 export function optimise(calculate, input, options, d) {
   const r = input.reinforcement;
@@ -34,23 +36,40 @@ export function optimise(calculate, input, options, d) {
     ? (r.thin !== false ? [{ thin: true }, { thin: false }] : [{ thin: false }])
     : Array.from({ length: MAX_EXTRA + 1 }, (_, extra) => ({ extra }));
 
+  const steel = result => (result.layout?.links ?? []).reduce((sum, link) => sum + (link.legs?.length ?? 1) * Math.PI * link.diameter ** 2 / 4, 0);
+  const better = (a, b) => !b || a.steel < b.steel - 1e-6 || (Math.abs(a.steel - b.steel) <= 1e-6
+    && (a.n < b.n || (a.n === b.n && (a.diameter < b.diameter || (a.diameter === b.diameter && a.sr > b.sr)))));
   let best = null;
+  let chosen = null;
+  let tried = 0;
   for (const sr of spacings) {
     for (const step of steps) {
       for (const diameter of sizes) {
         const result = run({ ...r, sr, diameter, ...step });
+        tried += 1;
+        // A larger bar in the same layout only adds steel: stop once this one already matches the best.
+        if (chosen && steel(result) >= chosen.steel - 1e-6) break;
         const what = [
           diameter > r.diameter ? `Ø${diameter} (raised from Ø${r.diameter})` : `Ø${diameter}`,
           step.extra ? `${step.extra} extra radial line${step.extra > 1 ? 's' : ''} per face` : step.thin === false && r.thin !== false ? 'no ring widening' : null,
           `s_r = ${result.envelope?.sr ?? sr} mm`,
         ].filter(Boolean).join(', ');
         if (result.status === STATES.pass) {
-          result.notes = [`Auto arrangement: ${what}.`, ...(result.notes ?? [])];
-          return result;
+          const cand = { result, what, steel: steel(result), n: result.layout.links.length, diameter, sr: result.envelope?.sr ?? sr };
+          if (better(cand, chosen)) chosen = cand;
+          break;
         }
+        // Only Eq. 6.52 and Eq. 9.11 improve with a larger bar; any other failure (s_t, u_out,ef, s0, …) stays.
+        const failing = result.loads.flatMap(load => load.rows.filter(row => row.status === STATES.fail).map(row => row.id));
+        const barHelps = failing.length > 0 && failing.every(id => BAR_FIXABLE.includes(id));
         if (!best || (result.governing?.ur ?? Infinity) < (best.governing?.ur ?? Infinity)) best = Object.assign(result, { tried: what });
+        if (!barHelps) break;
       }
     }
+  }
+  if (chosen) {
+    chosen.result.notes = [`Auto arrangement: ${chosen.what} — least link steel of ${tried} layouts tried (ΣA_sw = ${Math.round(chosen.steel / 10) * 10} mm², ${chosen.n} links).`, ...(chosen.result.notes ?? [])];
+    return chosen.result;
   }
   best.notes = [`Auto arrangement: no layout within the constraints passes (bar Ø up to ${r.diameterMax ?? 16}, s_r ≤ ${limit} mm); the lowest UR is shown (${best.tried}). Raise the bar Ø limit or s_r, or change the slab.`, ...(best.notes ?? [])];
   return best;
