@@ -159,9 +159,8 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
       parts.push(`<line x1="${n(seg.t0[0])}" y1="${n(seg.t0[1])}" x2="${n(seg.t1[0])}" y2="${n(seg.t1[1])}" stroke="${COLORS.ink}" stroke-width=".8"/>`);
       parts.push(`<line x1="${n(seg.b0[0])}" y1="${n(seg.b0[1])}" x2="${n(seg.b1[0])}" y2="${n(seg.b1[1])}" stroke="${COLORS.ink}" stroke-width=".5" stroke-dasharray="3 2"/>`);
     };
-    // Fences behind the column, the column stub, then the fences in front of it.
-    const centreDepth = isoAt({ x: 0, y: 0 }, 0)[1];
-    for (const seg of segments.filter(item => item.depth < centreDepth)) drawSeg(seg);
+    // The column plan is drawn first: the fences stand on its outline (u0) or around it, so none of them
+    // is hidden by the plate. Sorting by screen depth alone wrongly hid faces on the column edge.
     const H = 0; // the column is drawn as its plan outline on the slab plane
     const lift = ([x, y]) => [x, y - H];
     const outline = column.shape === 'circular'
@@ -171,7 +170,7 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     const faces = base.map((b, i) => { const c2 = base[(i + 1) % base.length]; return { depth: (b[1] + c2[1]) / 2, pts: [b, c2, lift(c2), lift(b)] }; }).sort((a, b) => a.depth - b.depth);
     if (H > 0) for (const face of faces) parts.push(`<path d="M${face.pts.map(p => p.map(n).join(' ')).join('L')}Z" fill="#c4cad0" stroke="${column.shape === 'circular' ? '#c4cad0' : COLORS.ink}" stroke-width=".7"/>`);
     parts.push(`<path d="M${base.map(p => lift(p).map(n).join(' ')).join('L')}Z" fill="#e8ebee" stroke="${COLORS.ink}" stroke-width=".9"/>`);
-    for (const seg of segments.filter(item => item.depth >= centreDepth)) drawSeg(seg);
+    for (const seg of segments) drawSeg(seg);
     // V_Ed: the column reaction on the slab, pointing up from the column centre.
     const [ax, ay] = iso({ x: 0, y: 0 }, 0);
     parts.push(`<line x1="${n(ax)}" y1="${n(ay - 2)}" x2="${n(ax)}" y2="${n(ay - 62)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(ax - 4)} ${n(ay - 60)}L${n(ax)} ${n(ay - 70)}L${n(ax + 4)} ${n(ay - 60)}Z" fill="${COLORS.ink}"/><text x="${n(ax)}" y="${n(ay - 76)}" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">V_Ed</text>`);
@@ -185,8 +184,8 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
       { value: -governing.My, name: 'M_y', gx: 0, gy: 1, label: governing.My },
     ].filter(m => Math.abs(m.value) > 1e-9);
     const [o0, oBase] = iso({ x: 0, y: 0 }, 0);
-    parts.push(`<circle cx="${n(o0)}" cy="${n(oBase - 34)}" r="2.2" fill="#5b2a86"/>`);
-    const o1 = oBase - 34; // on the V_Ed line
+    const o1 = oBase - 2; // chân của mũi tên V_Ed (tâm cột)
+    parts.push(`<circle cx="${n(o0)}" cy="${n(o1)}" r="2.2" fill="#5b2a86"/>`);
     vectors.forEach(m => {
       const q = { x: m.gx * Math.cos(rot) + m.gy * Math.sin(rot), y: -m.gx * Math.sin(rot) + m.gy * Math.cos(rot) };
       const [d0, d1] = isoAt({ x: q.x * 1000, y: q.y * 1000 }, 0);
