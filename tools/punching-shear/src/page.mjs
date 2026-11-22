@@ -19,6 +19,7 @@ import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import './style.css';
+import { installAbout } from './about.mjs';
 
 const byId = id => document.getElementById(id);
 const form = byId('punching-inputs');
@@ -245,3 +246,5 @@ registerPage('punching-shear', {
     return buildWorksheet(result, { pageHeight: A4.h, pageGap: PAGE_GAP, designName: document.title });
   },
 });
+
+installAbout(document.getElementById('about-button'), document.getElementById('about-dialog'));

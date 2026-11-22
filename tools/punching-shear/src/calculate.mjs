@@ -4,7 +4,8 @@ import { shearDemand } from './demand.mjs';
 import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
-import { autoLayout, buildLinks, layerSummary } from './layout.mjs';
+import { arrangedLayers, faceGaps, outerPerimeterEf } from './arrangement.mjs';
+import { buildLinks, layerSummary } from './layout.mjs';
 import { offsetForLength } from './perimeters.mjs';
 import { profileFor } from './profile.mjs';
 import { CODE_PARAMETERS as P, outerPerimeterLength, requiredAswPerPerimeter } from './resistance.mjs';
@@ -56,7 +57,8 @@ function loadResult(ctx, item, layout, summary, links, detailing) {
   else if (!layout.layers.length) rows.push(row('reinforced', '§6.4.5, Eq. 6.52', 'Reinforced punching resistance at u1', vEd1, 0.75 * res.vRdc, STATES.fail, { unit: 'MPa', detail: layout.reason || 'No links provided.' }));
   else {
     const { materials } = input;
-    layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: res.vRdc, vEd: vEd1, u1: ctx.u1, aOut: Math.min(aOut, ctx.layoutOut ?? aOut), summary, links, kMax: ctx.profile.kMax, kMaxLabel: ctx.profile.kMaxLabel, detailing });
+    const outerEf = layout.outerEf ? { ...layout.outerEf, uReq: ctx.model.intervalsAt(aOut).total } : null;
+    layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: res.vRdc, vEd: vEd1, u1: ctx.u1, aOut: Math.min(aOut, ctx.layoutOut ?? aOut), summary, links, kMax: ctx.profile.kMax, kMaxLabel: ctx.profile.kMaxLabel, detailing, outerEf });
     rows.push(...layoutCheck.rows);
   }
   return { ...item, ...load, rows, layoutCheck, status: worstState(rows.map(entry => entry.status)), ur: Math.max(0, ...rows.filter(counts).map(entry => entry.ur)) };
@@ -76,7 +78,12 @@ export function calculate(rawInput, options = {}) {
 
   const { d, model } = ctx;
   const { materials, reinforcement } = input;
-  ctx.envelopeSr = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
+  // Radial spacing for the required A_sw (Eq. 6.52) and the layer grid: the auto arrangement's s_r, else
+  // the recommended 0.75d rounded down to 5 mm.
+  const srLimit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
+  ctx.envelopeSr = reinforcement.mode === 'auto' && reinforcement.sr > 0 ? Math.min(reinforcement.sr, srLimit) : srLimit;
+  const srNote = reinforcement.mode === 'auto' && reinforcement.sr > srLimit + 1e-9
+    ? `Auto arrangement: s_r = ${reinforcement.sr} mm exceeds 0.75d = ${(P.radialSpacing * d).toFixed(0)} mm (§9.4.3(1)); ${srLimit} mm used.` : null;
   const demands = loads.map(load => demandFor(ctx, load));
   const needing = demands.filter(item => item.required);
   if (needing.some(item => item.aOut === null)) {
@@ -103,10 +110,18 @@ export function calculate(rawInput, options = {}) {
   let layout;
   if (options.noLinks) layout = { mode: 'auto', layers: [], reason: options.noLinks };
   else if (reinforcement.mode === 'auto') {
-    const generated = needing.length
-      ? autoLayout({ model, d, asw: envelope.aswReq, aOut: layoutOut, fck: materials.fck, fyk: materials.fyk, diameter: reinforcement.diameter, shape: reinforcement.shape, limits: P })
-      : { layers: [], reason: 'No punching reinforcement required.' };
-    layout = { mode: 'auto', layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
+    const type = reinforcement.arrangement ?? 'grid';
+    const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
+    // Fig. 6.22 (u_out,ef from the outer links) for internal columns without openings or a drop limit;
+    // elsewhere the outer perimeter stays the clipped path at a_out and s_t ≤ 2d outside u1 is a check.
+    const fig622 = ctx.position?.kind === 'internal' && !(input.openings?.length) && !Number.isFinite(linkLimit);
+    const uReq = fig622 && needing.length ? Math.max(...needing.map(item => model.intervalsAt(item.aOut).total)) : null;
+    const generated = !needing.length
+      ? { layers: [], reason: 'No punching reinforcement required.' }
+      : arrangedLayers({ model, d, aOut: layoutOut, type, sr: ctx.envelopeSr, st: reinforcement.st, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq });
+    layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
+    if (generated.note) limitNotes.push(generated.note);
+    if (srNote && needing.length) limitNotes.push(srNote);
   } else layout = { mode: 'provided', layers: (options.layers ?? groupLayers(reinforcement)).map(layer => ({ omitted: [], ...layer })), reason: null };
   const detailing = layout.layers.length ? detailingChecks({ slab: input.slab, anchorage: reinforcement.anchorage, diameters: layout.layers.map(layer => layer.diameter) }) : null;
   model.anchorageState = detailing?.status;
@@ -114,6 +129,8 @@ export function calculate(rawInput, options = {}) {
   const links = buildLinks(model, layout.layers, layout.mode === 'auto' ? 'auto' : 'user', base);
   const summary = layerSummary(model, layout.layers, links, base);
   layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
+  if (layout.arrangement === 'cruciform') summary.forEach(layer => { layer.tangential = faceGaps(model.column, layer.offset, layer.tangential); });
+  if (layout.fig622 && layout.layers.length) layout.outerEf = outerPerimeterEf(layout.layers.at(-1).points, d, P.outerK);
   const geometry = geometryLimits(ctx, Math.max(2 * d, envelope.aOut, ...layout.layers.map(layer => layer.offset)));
   if (Number.isFinite(linkLimit)) layout.layers.forEach((layer, index) => {
     if (layer.offset > linkLimit + 1e-9) limitIssues.push({ state: STATES.fail, message: `Layer ${layer.id ?? 'L' + (base + index + 1)} at ${layer.offset} mm lies outside the drop (links must stay within ${linkLimit.toFixed(0)} mm of the column face).` });

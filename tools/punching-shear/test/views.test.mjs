@@ -51,7 +51,7 @@ test('worksheet report is a valid Canvas document with drawings, schedule and li
     assert.ok(shape.y - page * (1123 + 48) + (shape.props.h ?? 0) <= 1123, 'shape crosses a page boundary: ' + shape.id);
   }
   const text = doc.shapes.map(shape => shape.props.html ?? '').join(' ');
-  assert.ok(text.includes('Not supported') && text.includes('Requires confirmation'));
+  assert.ok(text.includes('Not supported') && text.includes('Links are assumed to enclose the top and bottom flexural bars'));
 });
 
 test('report for blocked input lists the issues and stops', () => {
@@ -90,4 +90,11 @@ test('stress figure: plastic distribution, one moment → peak v_V + v_M at u1 e
   // Panel 2 is u1: the plastic peak and the Eq. 6.39 value agree to the printed 3 decimals.
   assert.ok(vmax.length >= 2 && check.length >= 2, svg.slice(0, 200));
   assert.ok(Math.abs(vmax[1] - check[1]) <= 0.0011, `${vmax[1]} vs ${check[1]}`);
+});
+
+test('About panel lists verified sources, pending items and the handling of open points', async () => {
+  const { aboutHtml } = await import('../src/about.mjs');
+  const html = aboutHtml();
+  assert.ok(html.includes('Verified') && html.includes('Pending') && html.includes('How the tool handles'));
+  assert.ok(html.includes('Ancon') && html.includes('JRC') && html.includes('Σ min(L_i, 2d)'));
 });

@@ -8,6 +8,7 @@ const sg = edit => {
   const input = newDefaults();
   input.code = { ...input.code, profile: 'sg', naConfirmed: true };
   input.beta.confirmed = true;
+  input.flexure = { ...input.flexure, areaMode: 'explicit', asx: 1090, asy: 1090 }; // ρ = 0.5 % (CSI case)
   edit?.(input);
   return calculate(input);
 };

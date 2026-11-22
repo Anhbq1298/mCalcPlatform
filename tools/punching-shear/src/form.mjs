@@ -1,6 +1,7 @@
 // Input form built from field definitions, following the mConcreteCircCol layout (fieldset, legend,
 // label > span + control). Values are read from and written to a nested state object by path.
 // Labels are plain text with $…$ LaTeX spans rendered as MathML.
+import { ARRANGEMENTS } from './arrangement.mjs';
 import { LINK_DIAMETERS } from './inputs.mjs';
 import { SUMMARY } from './form-summary.mjs';
 import { htmlSubscripts } from './subscript.mjs';
@@ -61,13 +62,10 @@ export const GROUPS = [
     ['prestress.sigmaY', '$\\sigma_{cy}$ (MPa, compression +)', 'number'],
   ]],
   ['Top flexural reinforcement', [
-    ['flexure.areaMode', 'Area input', 'select', [option('explicit', 'Area per metre'), option('bars', 'Bars and spacing')]],
-    ['flexure.asx', '$A_{s,x}$ (mm²/m)', 'number', null, s => s.flexure.areaMode === 'explicit'],
-    ['flexure.asy', '$A_{s,y}$ (mm²/m)', 'number', null, s => s.flexure.areaMode === 'explicit'],
-    ['flexure.phiX', 'Bar $\\phi_x$ (mm)', 'number', null, s => s.flexure.areaMode === 'bars' || s.slab.depthMode === 'bars'],
-    ['flexure.sX', 'Spacing $s_x$ (mm)', 'number', null, s => s.flexure.areaMode === 'bars'],
-    ['flexure.phiY', 'Bar $\\phi_y$ (mm)', 'number', null, s => s.flexure.areaMode === 'bars' || s.slab.depthMode === 'bars'],
-    ['flexure.sY', 'Spacing $s_y$ (mm)', 'number', null, s => s.flexure.areaMode === 'bars'],
+    ['flexure.phiX', 'Bar $\\phi_x$ (mm)', 'number'],
+    ['flexure.sX', 'Spacing $s_x$ (mm)', 'number'],
+    ['flexure.phiY', 'Bar $\\phi_y$ (mm)', 'number'],
+    ['flexure.sY', 'Spacing $s_y$ (mm)', 'number'],
     ['flexure.outer', 'Outer layer', 'select', [option('x', 'Bars along x'), option('y', 'Bars along y')], s => s.slab.depthMode === 'bars'],
   ]],
   ['Design actions', []],
@@ -80,14 +78,15 @@ export const GROUPS = [
     ['reinforcement.mode', 'Links', 'select', [option('auto', 'Auto design'), option('provided', 'Provided arrangement (table)')]],
     ['reinforcement.diameter', 'Bar Ø (mm)', 'select', LINK_DIAMETERS.map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
     ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg'), option('double', 'Two-leg')], s => s.reinforcement.mode === 'auto'],
+    ['reinforcement.arrangement', 'Arrangement', 'select', Object.entries(ARRANGEMENTS).map(([value, label]) => option(value, label)), s => s.reinforcement.mode === 'auto'],
+    ['reinforcement.sr', 'Radial spacing $s_r$ (mm)', 'number', null, s => s.reinforcement.mode === 'auto'],
+    ['reinforcement.st', 'Grid spacing $s_t$ (mm)', 'number', null, s => s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
     ['@layers', '', 'anchor'],
     ['', 'Link detailing', 'heading'],
     ['reinforcement.anchorage.type', 'Anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')]],
     ['reinforcement.anchorage.mandrelFactor', 'Mandrel Ø / bar Ø', 'number'],
     ['reinforcement.anchorage.extension', 'Straight extension (mm)', 'number'],
-    ['reinforcement.legGap', 'Two-leg link width (mm)', 'number', null, s => (s.reinforcement.mode === 'auto' ? s.reinforcement.shape === 'double' : (s.reinforcement.groups || []).some(group => group.shape === 'double'))],
-    ['reinforcement.anchorage.engaged', 'Links enclose top and bottom flexural bars', 'checkbox'],
-  ]],
+    ['reinforcement.legGap', 'Two-leg link width (mm)', 'number', null, s => (s.reinforcement.mode === 'auto' ? s.reinforcement.shape === 'double' : (s.reinforcement.groups || []).some(group => group.shape === 'double'))],  ]],
 ];
 
 export function buildForm(form, anchors, getState, onChange) {

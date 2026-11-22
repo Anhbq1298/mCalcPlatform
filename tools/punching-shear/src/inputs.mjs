@@ -23,14 +23,14 @@ export function newDefaults() {
     slab: { h: 250, depthMode: 'explicit', dx: 218, dy: 218, cover: 25, xMin: -4000, xMax: 4000, yMin: -4000, yMax: 4000 },
     materials: { fck: 30, fyk: 500 },
     prestress: { sigmaX: 0, sigmaY: 0 },
-    flexure: { phiX: 16, sX: 150, phiY: 16, sY: 150, outer: 'x', asx: 1090, asy: 1090, areaMode: 'explicit' },
+    flexure: { phiX: 16, sX: 150, phiY: 16, sY: 150, outer: 'x', areaMode: 'bars' },
     head: { enabled: false, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400 },
     openings: [],
     loadType: 'net',
     loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
     beta: { method: 'simplified', confirmed: false, userValue: 1.15 },
     reinforcement: {
-      mode: 'auto', diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
+      mode: 'auto', arrangement: 'grid', sr: 150, st: 150, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
       anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: false },
     },
   };
@@ -61,6 +61,18 @@ function migrate(saved) {
     r.groups = r.layers.map((layer, i) => ({ count: 1, spacing: layer.offset - (i ? r.layers[i - 1].offset : 0), diameter: layer.diameter, shape: layer.shape, links: layer.links }));
     r.omitted = Object.fromEntries(r.layers.map((layer, i) => ['L' + (i + 1), layer.omitted || []]).filter(([, list]) => list.length));
     delete r.layers;
+  }
+  // Auto links saved before the arrangement choice (perimeter layers) are redesigned on the default grid.
+  if (record(r) && !['grid', 'radial', 'cruciform'].includes(r.arrangement)) r.arrangement = 'grid';
+  // Flexural steel is entered as bars and spacing; an area per metre becomes the equivalent spacing
+  // (unrounded, so A_s and the results are unchanged).
+  const f = saved.flexure;
+  if (record(f) && f.areaMode !== 'bars' && (Number.isFinite(f.asx) || Number.isFinite(f.asy))) {
+    const phiX = f.phiX ?? 16;
+    const phiY = f.phiY ?? 16;
+    if (f.asx > 0) f.sX = (barArea(phiX) * 1000) / f.asx;
+    if (f.asy > 0) f.sY = (barArea(phiY) * 1000) / f.asy;
+    Object.assign(f, { phiX, phiY, areaMode: 'bars' });
   }
   // Rows of n layers (count) from earlier versions become one row per layer.
   if (record(r) && Array.isArray(r.groups) && r.groups.some(group => (group.count ?? 1) > 1)) {
@@ -94,7 +106,10 @@ export function groupLayers(reinforcement = {}) {
 export function layersToGroups(layers, summary = []) {
   return layers.map((layer, i) => {
     const spacing = Math.round(layer.offset - (i ? layers[i - 1].offset : 0));
-    const gap = summary[i]?.tangential?.max;
+    // s_t no larger than the largest designed gap nor the mean spacing u/n, so the rebuilt layer never has
+    // fewer links than the design (grid rings hold more points than their path length / largest gap).
+    const own = summary[i];
+    const gap = Math.min(own?.tangential?.max ?? Infinity, own?.physicalLinks > 0 ? own.u / own.physicalLinks : Infinity);
     const st = Number.isFinite(gap) && gap > 0 ? Math.max(5, Math.floor(gap / 5 + 1e-9) * 5) : null;
     return { spacing, diameter: layer.diameter, shape: layer.shape, ...(st !== null ? { st } : { links: layer.links }) };
   });

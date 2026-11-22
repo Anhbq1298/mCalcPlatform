@@ -174,7 +174,6 @@ test('tangential spacing s_t sets the link count per layer; Auto arrangement rou
   assert.deepEqual(linkCentres({ intervals: [{ s0: 0, s1: 1000 }], u: 4000, total: 1000 }, 0, 0, 280), [125, 375, 625, 875]);
   const input = newDefaults();
   input.beta.confirmed = true;
-  input.reinforcement.anchorage.engaged = true;
   input.loads = [{ name: 'ULS 1', V: 800, Mx: 0, My: 0 }];
   const auto = calculate(input);
   const groups = layersToGroups(auto.layout.layers, auto.layout.summary);

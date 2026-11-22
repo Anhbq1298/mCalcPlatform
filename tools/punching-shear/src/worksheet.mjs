@@ -8,7 +8,6 @@ import { signSvg } from './sign-view.mjs';
 import { stressSvg } from './stress-view.mjs';
 import { esc } from './svg.mjs';
 import { LINK_SHAPES } from './layout.mjs';
-import { STATES } from './inputs.mjs';
 
 const deg = θ => R`\frac{\pi\cdot${num(θ)}}{180}`;
 
@@ -203,13 +202,18 @@ function combination(doc, result, load, i, rect, hasSr) {
   }
   doc.text('v_Ed > v_Rd,c: punching reinforcement required (§6.4.5).', 12);
   doc.math('Upper limit with links', R`v_{Ed1.${i}}\le k_{max}v_{Rd.c}`, { displayUnit: 'MPa', mode: 'auto' });
-  doc.math('u_out,ef (Eq. 6.54)', define(`u_{out.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{v_{Rd.c}d}`), { displayUnit: 'mm', precision: 0 });
+  const ef = result.layout?.outerEf;
+  doc.math(ef ? 'u_out,req (Eq. 6.54)' : 'u_out,ef (Eq. 6.54)', define(`u_{out.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{v_{Rd.c}d}`), { displayUnit: 'mm', precision: 0 });
   doc.math(result.shadows?.length ? 'Offset of u_out,ef (measured by the tool)' : 'Offset of u_out,ef from the face', define(`a_{out.${i}}`, outerOffset(result, i, rect)), { displayUnit: 'mm', precision: 0 });
   if (hasSr) {
     doc.math('v_Rd,cs (Eq. 6.52)', define(`v_{Rd.cs.${i}}`, R`0.75v_{Rd.c}+1.5\frac{d}{s_{r}}\frac{A_{sw}f_{ywd.ef}}{u_{1}d}`), { displayUnit: 'MPa' });
     doc.math('', R`v_{Ed1.${i}}\le v_{Rd.cs.${i}}`, { displayUnit: 'MPa', mode: 'auto' });
     const last = result.layout.summary.length;
-    doc.math('Outer coverage (§6.4.5(4))', R`a_{L${last}}\ge a_{out.${i}}-1.5d`, { displayUnit: 'mm', mode: 'auto' });
+    if (ef) {
+      // Fig. 6.22: perimeter 1.5d outside the outer links, gaps > 2d counted as 2d (tool value).
+      doc.math('u_out,ef 1.5d outside the outer links, Σmin(L_i, 2d) + 2π·1.5d (Fig. 6.22)', define(`u_{out.ef.${i}}`, num(ef.u) + unit.mm), { displayUnit: 'mm', precision: 0 });
+      doc.math('Outer perimeter (§6.4.5(4))', R`u_{out.ef.${i}}\ge u_{out.${i}}`, { displayUnit: 'mm', mode: 'auto' });
+    } else doc.math('Outer coverage (§6.4.5(4))', R`a_{L${last}}\ge a_{out.${i}}-1.5d`, { displayUnit: 'mm', mode: 'auto' });
   }
 }
 
@@ -217,7 +221,9 @@ function detailing(doc, result, layers) {
   doc.heading(`${4 + result.loads.length} Detailing (§9.4.3)`);
   doc.math('First layer', R`a_{L1}\le0.5d`, { displayUnit: 'mm', mode: 'auto' });
   if (layers.length > 1) doc.math('Radial spacing', R`s_{r}\le0.75d`, { displayUnit: 'mm', mode: 'auto' });
-  doc.text(`Tangential spacing is measured along each layer between consecutive effective legs: ≤ 1.5d inside u1, ≤ 2d outside. Minimum leg area from Eq. 9.11 with α = 90°.`, 12);
+  doc.text(result.layout?.outerEf
+    ? `Tangential spacing is measured along each layer between consecutive effective legs${result.layout.arrangement === 'cruciform' ? ' on the same column face' : ''}: ≤ 1.5d inside u1; outside u1 gaps > 2d are excluded from u_out,ef (Fig. 6.22 B) and Eq. 9.11 uses s_t ≤ 2d. Minimum leg area from Eq. 9.11 with α = 90°.`
+    : `Tangential spacing is measured along each layer between consecutive effective legs: ≤ 1.5d inside u1, ≤ 2d outside. Minimum leg area from Eq. 9.11 with α = 90°.`, 12);
   const check = result.loads.find(load => load.layoutCheck)?.layoutCheck ?? result.loads.find(load => load.ext?.layoutCheck)?.ext.layoutCheck;
   layers.forEach((layer, i) => {
     const j = i + 1;
@@ -242,7 +248,6 @@ function detailing(doc, result, layers) {
     doc.math('', R`l_{ext}\ge\max\left(${hook ? 5 : 10}\cdot${phi}\,\mathrm{mm},${hook ? 50 : 70}\,\mathrm{mm}\right)`, { displayUnit: 'mm', mode: 'auto' });
     doc.math('', R`h-2c\ge${m}+2\cdot${phi}\,\mathrm{mm}`, { displayUnit: 'mm', mode: 'auto' });
   }
-  doc.text(anchorage.engaged ? 'Links enclose the top and bottom flexural bars: confirmed by the designer.' : `Links enclosing the top and bottom flexural bars: ${STATES.confirm}.`, 12);
 }
 
 // Drop panel / column head: case, section depths and the slab check outside the drop (tool values).

@@ -42,7 +42,8 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
   const extModel = extSection?.model ?? null; // the drop as the loaded area
   const extOut = ext && extSection.aOut > 0 ? extSection.aOut : 0; // u_out,ef of the slab section
   const headReach = head ? Math.max(...head.lH) + Math.max(2 * head.d, extOut) : 0;
-  const reach = Math.max(u1Offset, aOut, headReach, ...layers.map(layer => layer.offset), 0);
+  const efReach = result.layout?.outerEf ? Math.max(...layers.map(layer => layer.offset)) * Math.SQRT2 + 1.5 * d : 0; // grid ring corners
+  const reach = Math.max(u1Offset, aOut, headReach, efReach, ...layers.map(layer => layer.offset), 0);
   const legendHeight = 40;
   const extent = pathExtent(column, reach);
   const margin = Math.max(160, 0.16 * Math.max(extent.xMax - extent.xMin, extent.yMax - extent.yMin));
@@ -86,7 +87,27 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
       parts.push(`<line x1="${n(view.x(column.x))}" y1="${n(view.y(column.y))}" x2="${n(view.x(end.x))}" y2="${n(view.y(end.y))}" stroke="${COLORS.muted}" stroke-width=".7" stroke-dasharray="4 3"/>`);
     }
   }
-  if (aOut > 0) {
+  const outerEf = result.layout?.outerEf;
+  if (aOut > 0 && outerEf) {
+    // §6.4.5(4): u_out,req at a_out (uniform shape, for orientation) and the line kd = 1.5d inside it that the
+    // outer links must reach; Fig. 6.22: the effective perimeter 1.5d outside the outer links as built.
+    const inner = Math.max(aOut - 1.5 * d, 0);
+    parts.push(perimeter(aOut, COLORS.muted, '2 3', 0.8));
+    parts.push(labelAt(aOut, 'u_out,req (a_out)', COLORS.muted, 0.2 * model.intervalsAt(aOut).u));
+    if (inner > 0) parts.push(perimeter(inner, COLORS.muted, '6 2 1 2', 0.8));
+    const lines = effectiveOuterLines(outerEf.segments, 1.5 * d).map(line => line.map(p => toGlobal(model.column, p)));
+    for (const line of lines) parts.push(polyline(line, view, `fill="none" stroke="${COLORS.uout}" stroke-width="1.2" stroke-dasharray="${DASH.uout}"`));
+    const tip = lines.flat().reduce((low, p) => (!low || p.y < low.y ? p : low), null); // lowest point
+    if (tip) parts.push(`<text class="label" x="${n(view.x(tip.x) + 40)}" y="${n(view.y(tip.y) + 14)}" fill="${COLORS.uout}">u_out,ef</text>`);
+    // Callout in the free top-left corner: position rule and length check.
+    const req = model.intervalsAt(aOut).total;
+    const last = layers.at(-1);
+    const ok = outerEf.u >= req - 1e-6;
+    [`u_out,req = βV/(v_Rd,c·d) = ${req.toFixed(0)} mm (drawn at a_out = ${aOut.toFixed(0)})`,
+      `outer links ≥ a_out − 1.5d = ${inner.toFixed(0)} mm (dash-dot): ${last.id} at ${last.offset.toFixed(0)}`,
+      `u_out,ef (Fig. 6.22) = ${outerEf.u.toFixed(0)} ${ok ? '≥' : '<'} ${req.toFixed(0)} mm: ${ok ? 'OK' : 'NOT OK'}`,
+    ].forEach((line, k) => parts.push(`<text class="small" x="12" y="${18 + 14 * k}">${esc(line)}</text>`));
+  } else if (aOut > 0) {
     parts.push(perimeter(aOut, COLORS.uout, DASH.uout, 1));
     parts.push(labelAt(aOut, 'u_out,ef', COLORS.uout, firstEffective(model, aOut, 0.16)));
   }
@@ -233,4 +254,29 @@ function legend(width, height, legendHeight, show, values = '') {
   }).join('');
   return `<line x1="0" y1="${height - legendHeight}" x2="${width}" y2="${height - legendHeight}" stroke="${COLORS.rule}"/>` + items
     + `<text class="small" x="14" y="${y + 18}">${esc(values || 'Dimensions in mm.')}</text>`;
+}
+
+// Counted parts of u_out,ef (Fig. 6.22), local coordinates: each side of the outer-link polygon offset by
+// r outward (the full side when ≤ 2d, else d at each end), and the arcs of radius r round each link.
+function effectiveOuterLines(segments, r) {
+  const d = r / 1.5;
+  const normal = seg => ({ x: (seg.to.y - seg.from.y) / seg.length, y: -(seg.to.x - seg.from.x) / seg.length });
+  const lines = [];
+  segments.forEach((seg, i) => {
+    const nrm = normal(seg);
+    const at = t => ({ x: seg.from.x + (seg.to.x - seg.from.x) * t + r * nrm.x, y: seg.from.y + (seg.to.y - seg.from.y) * t + r * nrm.y });
+    if (seg.length <= 2 * d + 1e-9) lines.push([at(0), at(1)]);
+    else lines.push([at(0), at(d / seg.length)], [at(1 - d / seg.length), at(1)]);
+    const next = segments[(i + 1) % segments.length];
+    const n2 = normal(next);
+    let a0 = Math.atan2(nrm.y, nrm.x);
+    let a1 = Math.atan2(n2.y, n2.x);
+    while (a1 < a0) a1 += 2 * Math.PI;
+    const steps = Math.max(1, Math.ceil((a1 - a0) / (Math.PI / 24)));
+    lines.push(Array.from({ length: steps + 1 }, (_, k) => {
+      const a = a0 + ((a1 - a0) * k) / steps;
+      return { x: seg.to.x + r * Math.cos(a), y: seg.to.y + r * Math.sin(a) };
+    }));
+  });
+  return lines;
 }
