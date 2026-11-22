@@ -14,5 +14,5 @@ export const SUMMARY = {
   'Design actions': s => `${s.loads.length} comb. · V_Ed ≤ ${n0(Math.max(0, ...s.loads.map(load => load.V || 0)))} kN`,
   'Load increment factor $\\beta$': s => (s.beta.method === 'simplified' ? 'simplified' : s.beta.method === 'user' ? `user ${s.beta.userValue}` : 'from moments'),
   Reinforcement: s => `Ø${s.flexure.phiX}@${Math.round(s.flexure.sX)} / Ø${s.flexure.phiY}@${Math.round(s.flexure.sY)} · ` + (s.reinforcement.enabled !== true ? 'no links'
-    : s.reinforcement.mode === 'auto' ? `auto · ${(s.reinforcement.arrangement ?? 'grid') === 'grid' ? 'links on bar grid' : 'stud rails'} · Ø${s.reinforcement.diameter}` : 'custom layout'),
+    : s.reinforcement.mode === 'auto' ? `auto · ${(s.reinforcement.arrangement ?? 'grid') === 'grid' ? 'grid' : 'radial'} · Ø${s.reinforcement.diameter}` : 'custom layout'),
 };

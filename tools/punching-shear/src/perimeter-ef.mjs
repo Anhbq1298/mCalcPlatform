@@ -21,7 +21,7 @@ export function outerPerimeterEf(points, d, outerK = 1.5) {
   };
 }
 
-// Cruciform layers: keep only the gaps between rails on the same column face (both ends on one straight
+// Cruciform layers: keep only the gaps between lines on the same column face (both ends on one straight
 // piece of the path); the gaps around the column corners are covered by u_out,ef (Fig. 6.22 B).
 export function faceGaps(column, offset, tangential) {
   const lines = [];

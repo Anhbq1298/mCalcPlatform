@@ -1,9 +1,9 @@
 // Automatic link arrangements with a radial spacing s_r:
 //   grid  – links on the slab bar grid: lines start at the corners of the first ring (s0 outside the faces)
 //           and step at the bar spacing; ring k holds the grid points on the rectangle s0 + k·s_r out;
-//   rails – stud rails (DECON / The Concrete Centre practice): orthogonal rails perpendicular to each face
-//           first (outer rails in line with the column edges, ≤ 1.5d and ≥ 100 mm apart, plus `extra`
-//           rails per face — on the short faces first for b/h > 2), and m corner rails fanning out at
+//   radial – links on radial lines (DECON / The Concrete Centre practice): orthogonal lines perpendicular to each face
+//           first (outer lines in line with the column edges, ≤ 1.5d and ≥ 100 mm apart, plus `extra`
+//           lines per face — on the short faces first for b/h > 2), and m corner lines fanning out at
 //           equal angles only on the perimeters where the corner gap needs them (s_t) or u_out,ef does.
 // Each perimeter is one layer of the check: its legs count for A_sw (Eq. 6.52) and its tangential gaps are
 // measured along the control path at the layer offset (grid rings: straight distances between links).
@@ -12,8 +12,8 @@ import { exclusion } from './perimeters.mjs';
 import { ringGaps, thinGrid } from './grid-thin.mjs';
 
 export const ARRANGEMENTS = {
-  grid: 'Links on the slab bar grid',
-  rails: 'Stud rails (orthogonal, corner rails where needed)',
+  grid: 'Grid arrangement (links on the slab bar grid)',
+  radial: 'Radial arrangement (lines perpendicular to the faces, corner lines where needed)',
 };
 
 // Arc length of the closest point on the path at offset r to a local point.
@@ -53,9 +53,9 @@ function faceRails(half, d, extra) {
   return spread(-half, half, Math.min(most, base + extra));
 }
 
-// Local points of one perimeter of stud rails at offset o (mm from the column face): orthogonal rails on
-// the faces (`extra` per face, short faces first when b/h > 2) and `corner` fan rails at each corner.
-function railPoints(column, o, d, { extra = 0, corner = 0 } = {}) {
+// Local points of one perimeter of the radial arrangement at offset o (mm from the column face): orthogonal lines on
+// the faces (`extra` per face, short faces first when b/h > 2) and `corner` fan lines at each corner.
+function radialPoints(column, o, d, { extra = 0, corner = 0 } = {}) {
   if (column.shape === 'circular') {
     const n = 8 + 2 * extra;
     const R = column.diameter / 2 + o;
@@ -64,7 +64,7 @@ function railPoints(column, o, d, { extra = 0, corner = 0 } = {}) {
   const a = column.cx / 2;
   const b = column.cy / 2;
   const ratio = Math.max(a, b) / Math.min(a, b);
-  // b/h ≤ 2: the extra rails go to every face; b/h > 2: to the short faces first, the long faces get the rest.
+  // b/h ≤ 2: the extra lines go to every face; b/h > 2: to the short faces first, the long faces get the rest.
   const shortX = a <= b;
   const toShort = ratio > 2 ? extra : Math.ceil(extra / 2);
   const toLong = ratio > 2 ? Math.max(0, extra - 2) : Math.floor(extra / 2);
@@ -147,7 +147,7 @@ export function gridOnBars(input, d) {
   return { on: true, spacing };
 }
 
-// Largest gap between consecutive links along the path at a layer (for the rail search). On a path cut
+// Largest gap between consecutive links along the path at a layer (for the corner-line search). On a path cut
 // by a slab edge the gap across the cut is not a tangential spacing and is skipped.
 function pathGap(model, layer) {
   const u = pathPieces(model.column, layer.offset).reduce((sum, piece) => sum + piece.length, 0);
@@ -162,7 +162,7 @@ function pathGap(model, layer) {
 
 // Layers of an automatic arrangement: offsets s0 + k·s_r up to the outermost layer within outerK·d of
 // u_out,ef (§9.4.3(4) and the Note to §6.4.5(4)), at least two perimeters. With uReq (Fig. 6.22 applies)
-// layers are added until the effective outer perimeter reaches the length Eq. 6.54 requires. Radial rails
+// layers are added until the effective outer perimeter reaches the length Eq. 6.54 requires. Radial lines
 // are added in pairs from the entered n_tang (a minimum) until s_t ≤ 1.5d inside u1 and u_out,ef is reached.
 export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false, extra = 0 }) {
   if (!(sr > 0)) return { layers: [], reason: 'Enter a radial spacing s_r > 0.' };
@@ -179,22 +179,22 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, 
       const offsets = Array.from({ length: count }, (_, i) => first + i * sr);
       return offsets.map((offset, k) => ({
         offset, diameter, shape, start: 0, omitted: [], arrangement: type,
-        points: (type === 'grid' ? gridFor(column, offsets, st, k, onBars) : railPoints(column, offset, d, { extra, corner }))
+        points: (type === 'grid' ? gridFor(column, offsets, st, k, onBars) : radialPoints(column, offset, d, { extra, corner }))
           .filter(placeable)
           .map(p => ({ ...p, s: arcLengthAt(column, offset, p) })),
       }));
     };
-    // Corner rails start only on the perimeters that need them: where the corner gap without them exceeds
+    // Corner lines start only on the perimeters that need them: where the corner gap without them exceeds
     // the s_t limit (1.5d inside u1, 2d outside). They are never added for A_sw (that is the bar Ø and the
-    // orthogonal rails), so near the column the studs do not crowd round the corner.
-    const trim = layers => (type === 'rails' && column.shape !== 'circular' ? layers.map(layer => {
+    // orthogonal lines), so near the column the links do not crowd round the corner.
+    const trim = layers => (type === 'radial' && column.shape !== 'circular' ? layers.map(layer => {
       const plain = layer.points.filter(p => !p.fan);
       const limit = (layer.offset <= 2 * d ? 1.5 : 2) * d;
       return pathGap(model, { ...layer, points: plain }) <= limit + 1e-9 ? { ...layer, points: plain } : layer;
     }) : layers);
     let layers = trim(build(minCount));
     // Rails are extended until u_out,ef reaches u_out,req; gaps > 2d count only 2d, so if the slab edge (or
-    // MAX_LAYERS) comes first the layers stay at a_out and more corner rails are tried.
+    // MAX_LAYERS) comes first the layers stay at a_out and more corner lines are tried.
     let reached = true;
     if (uReq > 0) {
       let trial = layers;
@@ -211,13 +211,13 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, 
       layers = thinGrid(layers, { column, d, sr, aswReq, legArea, leg: legArea1, gap: layer => ringGaps(layer.points).max,
         minLeg: (s, g) => (0.08 * Math.sqrt(fck) / fyk) * (s * g) / 1.5 });
     }
-    const inside = type !== 'rails' || layers.filter(layer => layer.offset <= 2 * d).every(layer => pathGap(model, layer) <= 1.5 * d + 1e-9);
+    const inside = type !== 'radial' || layers.filter(layer => layer.offset <= 2 * d).every(layer => pathGap(model, layer) <= 1.5 * d + 1e-9);
     const strong = layers.every(layer => layer.points.length * legArea >= aswReq - 1e-6);
     return { layers, reached, inside, strong, corner };
   };
-  // Stud rails: the fewest corner rails per corner (0 = orthogonal only) that keep s_t and reach u_out,req.
-  let best = place(type === 'rails' ? 0 : 0);
-  if (type === 'rails' && column.shape !== 'circular') {
+  // Radial: the fewest corner lines per corner (0 = orthogonal only) that keep s_t and reach u_out,req.
+  let best = place(0);
+  if (type === 'radial' && column.shape !== 'circular') {
     for (let m = 1; !(best.reached && best.inside) && m <= 8; m += 1) best = place(m);
   }
   const { layers } = best;

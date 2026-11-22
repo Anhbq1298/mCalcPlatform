@@ -3,7 +3,7 @@
 // links follow the slab bars for the grid. When the layout as first built does not pass, the remedies are
 // tried in this order, and the first layout that passes every check is kept:
 //   1. a larger bar Ø for the whole layout (next size up to the maximum, while the hook still fits);
-//   2. more rails: orthogonal rails per face (stud rails) — for the grid, no ring widening;
+//   2. more lines: orthogonal radial lines per face — for the grid, no ring widening;
 //   3. more links: a smaller s_r (on the bar grid, the next smaller multiple of the bar spacing).
 // Failures that links cannot fix (v_Rd,max at u0, k_max at u1) end the search at once. If nothing passes,
 // the layout with the lowest governing UR is reported with a note.
@@ -41,7 +41,7 @@ export function optimise(calculate, input, options, d) {
         const result = run({ ...r, sr, diameter, ...step });
         const what = [
           diameter > r.diameter ? `Ø${diameter} (raised from Ø${r.diameter})` : `Ø${diameter}`,
-          step.extra ? `${step.extra} extra orthogonal rail${step.extra > 1 ? 's' : ''}` : step.thin === false && r.thin !== false ? 'no ring widening' : null,
+          step.extra ? `${step.extra} extra radial line${step.extra > 1 ? 's' : ''} per face` : step.thin === false && r.thin !== false ? 'no ring widening' : null,
           `s_r = ${result.envelope?.sr ?? sr} mm`,
         ].filter(Boolean).join(', ');
         if (result.status === STATES.pass) {

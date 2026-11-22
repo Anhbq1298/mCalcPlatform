@@ -70,7 +70,7 @@ test('required vs effective outer perimeter: same u_out,req, different u_out,ef 
     input.reinforcement.arrangement = arrangement;
     return calculate(input);
   };
-  const results = ['grid', 'rails'].map(run);
+  const results = ['grid', 'radial'].map(run);
   const outer = results.map(result => result.loads[0].rows.find(row => row.id === 'outer'));
   assert.ok(outer.every(row => Math.abs(row.demand - outer[0].demand) < 1e-9)); // u_out,req
   assert.ok(outer[0].ur <= 1 && outer[1].resistance !== outer[0].resistance); // effective perimeters differ
@@ -91,7 +91,7 @@ test('u_out,ef matches Ancon Shearfix EC2 manual Example 16.1 (cruciform, publis
   assert.ok(Math.abs(ef.u - 6371) < 0.5, String(ef.u)); // published value rounded to 1 mm
 });
 
-test('auto arrangement: s_r capped at 0.75d with a note; rails added until Eq. 6.52 A_sw is met', async () => {
+test('auto arrangement: s_r capped at 0.75d with a note; lines added until Eq. 6.52 A_sw is met', async () => {
   const thin = cenDefaults();
   Object.assign(thin.slab, { h: 200, dx: 164, dy: 164 });
   thin.beta.confirmed = true;
@@ -102,7 +102,7 @@ test('auto arrangement: s_r capped at 0.75d with a note; rails added until Eq. 6
   const { CASES } = await import('../src/examples.mjs');
   const { calculateDesign } = await import('../src/head.mjs');
   const input = structuredClone(CASES.find(c => c.id === 'drop-through').input);
-  input.reinforcement = { ...input.reinforcement, mode: 'auto', arrangement: 'rails', sr: 150, st: 150, srAuto: true };
+  input.reinforcement = { ...input.reinforcement, mode: 'auto', arrangement: 'radial', sr: 150, st: 150, srAuto: true };
   const result = calculateDesign(input);
   assert.ok(result.loads[0].rows.find(row => row.id === 'reinforced').ur <= 1);
 });
@@ -170,13 +170,13 @@ test('grid lines start at the corners of the first ring and step at exactly s_t'
   assert.ok(steps.filter(step => Math.abs(step - 150) > 1e-6).length <= 2, String(steps)); // centre closing gap only
 });
 
-test('stud rails: orthogonal face rails (edges in line, ≤ 1.5d apart); corner rails only where the gap needs them', () => {
+test('radial: orthogonal face lines (edges in line, ≤ 1.5d apart); corner lines only where the gap needs them', () => {
   const wide = { ...column, cx: 300, cy: 900 };
   const mdl = { column: wide, slab: { xMin: -1e5, xMax: 1e5, yMin: -1e5, yMax: 1e5 }, openings: [], shadows: [] };
-  const { layers } = arrangedLayers({ model: mdl, d: 200, aOut: 900, type: 'rails', sr: 150, diameter: 10, shape: 'single', first: 80, outerK: 1.5 });
+  const { layers } = arrangedLayers({ model: mdl, d: 200, aOut: 900, type: 'radial', sr: 150, diameter: 10, shape: 'single', first: 80, outerK: 1.5 });
   const top = layers[0].points.filter(p => p.y > 450).map(p => p.x).sort((a, b) => a - b);
   assert.deepEqual(top, [-150, 150]);
-  assert.ok(layers[0].points.every(p => !p.fan)); // L1: corner gap (π/2)·80 ≤ 1.5d, no corner rails
+  assert.ok(layers[0].points.every(p => !p.fan)); // L1: corner gap (π/2)·80 ≤ 1.5d, no corner lines
   for (const layer of layers) {
     const gap = (Math.PI / 2) * layer.offset;
     const limit = (layer.offset <= 400 ? 1.5 : 2) * 200;
@@ -184,10 +184,10 @@ test('stud rails: orthogonal face rails (edges in line, ≤ 1.5d apart); corner 
   }
 });
 
-test('auto arrangement order: larger bar Ø first, then more rails, then a smaller s_r', async () => {
+test('auto arrangement order: larger bar Ø first, then more lines, then a smaller s_r', async () => {
   const { calculateDesign } = await import('../src/head.mjs');
   const input = newDefaults();
-  input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'rails', diameter: 8 };
+  input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'radial', diameter: 8 };
   input.loads = [{ name: 'U', V: 1100, Mx: 0, My: 0 }];
   const result = calculateDesign(input);
   assert.equal(result.status, 'Pass', result.notes.join(' | '));

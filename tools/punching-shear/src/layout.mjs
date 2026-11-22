@@ -44,7 +44,7 @@ export function buildLinks(model, layers, origin, base = 0) {
     const layerId = layer.id ?? 'L' + (base + layerIndex + 1);
     const geometry = model.intervalsAt(layer.offset);
     const omitted = new Set(layer.omitted || []);
-    // Arranged layers (rails, grid) carry their own points; perimeter layers are spaced along the path.
+    // Arranged layers (radial, grid) carry their own points; perimeter layers are spaced along the path.
     const centres = layer.points ? layer.points.map(p => p.s) : linkCentres(geometry, layer.links, layer.start || 0, layer.st);
     return centres.map((centre, index) => ({ centre, index }))
       .filter(({ index }) => !omitted.has(index))
