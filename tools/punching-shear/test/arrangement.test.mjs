@@ -224,3 +224,22 @@ test('auto arrangement at edge and corner columns, with and without a drop: both
     assert.ok(result.notes.some(n => n.includes('least link steel')), label);
   }
 });
+
+test('grid ring widening at edge columns and inside / around a drop: fewer links, every check still passes', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const cases = [
+    { column: { cx: 400, cy: 400, position: 'edge', x: 3800, y: 0 }, loads: [{ name: 'U', V: 500, Mx: 60, My: -20 }] },
+    { column: { cx: 400, cy: 400 }, head: { enabled: true, lx: 2000, ly: 2000, thickness: 400 }, loads: [{ name: 'U', V: 1500, Mx: 20, My: 40 }] },
+  ];
+  for (const c of cases) {
+    const input = newDefaults();
+    input.column = { ...input.column, ...c.column };
+    if (c.head) input.head = { ...input.head, ...c.head };
+    input.loads = c.loads;
+    const run = thin => calculateDesign({ ...input, reinforcement: { ...input.reinforcement, enabled: true, arrangement: 'grid', thin } });
+    const wide = run(true);
+    const dense = run(false);
+    assert.equal(wide.status, 'Pass');
+    assert.ok(wide.layout.links.length < dense.layout.links.length, `${wide.layout.links.length} vs ${dense.layout.links.length}`);
+  }
+});

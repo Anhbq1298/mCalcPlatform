@@ -9,7 +9,7 @@
 // measured along the control path at the layer offset (grid rings: straight distances between links).
 import { pathPieces, toGlobal } from './geometry.mjs';
 import { exclusion } from './perimeters.mjs';
-import { ringGaps, thinGrid } from './grid-thin.mjs';
+import { openGap, ringGaps, thinGrid } from './grid-thin.mjs';
 
 export const ARRANGEMENTS = {
   grid: 'Grid arrangement (links on the slab bar grid)',
@@ -207,8 +207,15 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, 
       else reached = false;
     }
     // Grid: rings at whole multiples of the bar spacing while every limit still holds (see grid-thin.mjs).
-    if (type === 'grid' && thin && uReq > 0 && !(onBars && Math.abs(column.rotation || 0) > 1e-9)) {
-      layers = thinGrid(layers, { column, d, sr, aswReq, legArea, leg: legArea1, gap: layer => ringGaps(layer.points).max,
+    // Applies everywhere: internal columns (with or without a drop), edge and corner columns, and the slab
+    // around a drop. A ring cut by a slab edge keeps its two end links and the gap across the cut is skipped.
+    if (type === 'grid' && thin && !(onBars && Math.abs(column.rotation || 0) > 1e-9)) {
+      // span: the effective stretches of a ring cut by a slab edge or an opening shadow (null when closed).
+      const span = layer => {
+        const at = model.intervalsAt?.(layer.offset);
+        return !at || at.intervals.every(item => item.closed) ? null : at;
+      };
+      layers = thinGrid(layers, { column, d, sr, aswReq, legArea, leg: legArea1, span, gap: layer => (span(layer) ? openGap(layer.points, span(layer)) : ringGaps(layer.points).max),
         minLeg: (s, g) => (0.08 * Math.sqrt(fck) / fyk) * (s * g) / 1.5 });
     }
     // s_t ≤ 1.5d inside u1; outside, ≤ 2d unless Fig. 6.22 applies (internal column, then a wider gap only

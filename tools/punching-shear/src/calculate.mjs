@@ -6,7 +6,7 @@ import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
 import { arcLengthAt, arrangedLayers, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
 import { optimise } from './optimise.mjs';
-import { dropFillPoints, radialDropFillPoints, ringGaps } from './grid-thin.mjs';
+import { dropFillPoints, openGaps, radialDropFillPoints, ringGaps } from './grid-thin.mjs';
 import { toGlobal } from './geometry.mjs';
 import { exclusion, offsetForLength } from './perimeters.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
@@ -169,8 +169,12 @@ export function calculate(rawInput, options = {}) {
     layout.edgeLinks = fill.length;
   }
   layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
-  // Grid rings (closed, internal column): s_t as straight distances between neighbouring links.
-  if (layout.arrangement === 'grid' && layout.fig622) summary.forEach((layer, i) => { layer.tangential = ringGaps(layout.layers[i].points); });
+  // Grid rings: s_t as straight distances between neighbouring links (the ring is a rectangle; projecting its
+  // corner links onto the rounded path would understate the gaps); a ring cut by a slab edge skips the cut.
+  if (layout.mode === 'auto' && layout.arrangement === 'grid') summary.forEach((layer, i) => {
+    const at = model.intervalsAt(layout.layers[i].offset);
+    layer.tangential = at.intervals.every(item => item.closed) ? ringGaps(layout.layers[i].points) : openGaps(layout.layers[i].points, at);
+  });
   if (layout.fig622 && layout.layers.length) layout.outerEf = outerPerimeterEf(layout.layers.at(-1).points, d, P.outerK);
   const geometry = geometryLimits(ctx, Math.max(2 * d, envelope.aOut, ...layout.layers.map(layer => layer.offset)));
   if (Number.isFinite(linkLimit)) layout.layers.forEach((layer, index) => {
