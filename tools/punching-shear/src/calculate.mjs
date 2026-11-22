@@ -4,7 +4,7 @@ import { shearDemand } from './demand.mjs';
 import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
-import { arrangedLayers, faceGaps, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
+import { arcLengthAt, arrangedLayers, dropFillPoints, faceGaps, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
 import { offsetForLength } from './perimeters.mjs';
 import { profileFor } from './profile.mjs';
@@ -120,6 +120,11 @@ export function calculate(rawInput, options = {}) {
   else if (reinforcement.enabled === false) layout = { mode: 'none', layers: [], reason: 'No punching reinforcement: tick "Provide punching reinforcement" to add shear links.' };
   else if (reinforcement.mode === 'auto') {
     const type = reinforcement.arrangement ?? 'grid';
+    // Inside a drop the links run out to the drop edge: the last perimeter lies within one s_r of the
+    // drop limit (l_H,min − c), so the outer zone of the drop is reinforced up to the depth change.
+    const dropEdgeOut = Number.isFinite(linkLimit) && needing.length
+      ? Math.max(layoutOut, linkLimit - ctx.envelopeSr + 1e-6 + P.outerK * d)
+      : layoutOut;
     const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
     // Fig. 6.22 (u_out,ef from the outer links) for internal columns without openings or a drop limit;
     // elsewhere the outer perimeter stays the clipped path at a_out and s_t ≤ 2d outside u1 is a check.
@@ -127,7 +132,7 @@ export function calculate(rawInput, options = {}) {
     const uReq = fig622 && needing.length ? Math.max(...needing.map(item => model.intervalsAt(item.aOut).total)) : null;
     const generated = !needing.length
       ? { layers: [], reason: 'No punching reinforcement required.' }
-      : arrangedLayers({ model, d, aOut: layoutOut, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
+      : arrangedLayers({ model, d, aOut: dropEdgeOut, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
     layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
     if (generated.note) limitNotes.push(generated.note);
     if (srNote && needing.length) limitNotes.push(srNote);
@@ -137,6 +142,14 @@ export function calculate(rawInput, options = {}) {
   const base = options.layerBase ?? 0;
   const links = buildLinks(model, layout.layers, layout.mode === 'auto' ? 'auto' : 'user', base);
   const summary = layerSummary(model, layout.layers, links, base);
+  // Drop: grid links out to the drop edge beyond the last ring (detailing; not counted in the checks).
+  if (layout.mode === 'auto' && layout.arrangement === 'grid' && options.dropBox && layout.layers.length) {
+    const fill = dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox });
+    const last = layout.layers.at(-1);
+    const edge = { ...last, id: 'E', points: fill.map(p => ({ ...p, s: arcLengthAt(model.column, last.offset, p) })), omitted: [] };
+    if (fill.length) links.push(...buildLinks(model, [edge], 'auto', base).map(link => ({ ...link, layerId: 'E', layerIndex: -1, edge: true })));
+    layout.edgeLinks = fill.length;
+  }
   layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
   if (layout.arrangement === 'cruciform') summary.forEach(layer => { layer.tangential = faceGaps(model.column, layer.offset, layer.tangential); });
   if (layout.fig622 && layout.layers.length) layout.outerEf = outerPerimeterEf(layout.layers.at(-1).points, d, P.outerK);

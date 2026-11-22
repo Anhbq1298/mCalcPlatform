@@ -192,3 +192,17 @@ test('rotated column: grid on the bars around the circumscribed rectangle, links
   assert.ok(odd.length <= 2, String(odd)); // global bar lines at the bar spacing (closing bar at the centre)
   assert.equal(result.status, 'Pass');
 });
+
+test('drop: grid links run out to the drop edge (less cover) on every side; extra links not in the checks', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const input = newDefaults();
+  input.reinforcement.enabled = true;
+  input.head = { ...input.head, enabled: true, shape: 'rectangular', lx: 2400, ly: 2400, thickness: 400 };
+  input.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }];
+  const result = calculateDesign(input);
+  const edge = result.layout.links.filter(link => link.edge);
+  assert.ok(edge.length > 0);
+  const reach = Math.max(...result.layout.links.map(link => Math.abs(link.position.x)));
+  assert.ok(reach > 1200 - 25 - 150 - 1e-6 && reach <= 1200 - 25 + 1e-6); // within one spacing of the drop edge, inside the cover
+  assert.ok(result.layout.summary.every(layer => layer.id !== 'E')); // rings only in the checks
+});
