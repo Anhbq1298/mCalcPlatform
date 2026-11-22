@@ -77,7 +77,7 @@ async function renameFolder(project, folder) {
 }
 
 async function addDesign(project, folder) {
-  const result = await pickModule(folderBreadcrumb(project, folder));
+  const result = await pickModule(folderBreadcrumb(project, folder), tools);
   if (!result) return;
   const design = { ...createDesign(result.tool, result.name, {}), pending: true };
   await db.addProjectDesign(project.id, folder.id, design);
@@ -246,7 +246,7 @@ function render() {
 qs('project-search').oninput = event => { query = event.target.value; render(); };
 qs('design-sort').onchange = event => { sortDirection = event.target.value; render(); };
 
-renderCatalog();
+renderCatalog(tools);
 qs('nav-projects').onclick = event => {
   event.preventDefault();
   const project = projects.find(item => item.id === projectId);

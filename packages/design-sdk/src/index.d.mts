@@ -13,9 +13,12 @@ export interface DesignTool<I, R = Record<string, unknown>> {
   outputs(inputs: I): Record<string, Quantity> | Promise<Record<string, Quantity>>;
   report(inputs: I): R | Promise<R>;
 }
+export type ToolCategory = 'concrete' | 'steel' | 'composite' | 'general';
+export interface DesignCode { id: string; label: string }
 export interface ToolManifest {
   id: string; name: string; version: string; schema: number; labels: string[]; folder: string;
   entry: string; description: string;
+  category?: ToolCategory; designCodes?: DesignCode[];
   title?: string; code?: string; keywords?: string[]; localDraft?: string; fileExtension?: string;
 }
 export interface ProjectDoc {

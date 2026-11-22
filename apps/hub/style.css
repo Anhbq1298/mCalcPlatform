@@ -40,8 +40,16 @@ body.hub { margin:0; }
 .hub #status { display:block; margin-top:1rem; color:#315c45; }
 .muted { color:var(--muted); }
 
-.catalog,.calculation-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr)); gap:1rem; }
-.catalog { margin:1.4rem 0 0; }
+.tool-intro { margin:.65rem 0 1.1rem; }
+.tool-filters { display:grid; gap:.65rem; min-width:0; margin-bottom:1rem; }
+.hub .tool-filters input[type="search"] { width:min(100%,33rem); }
+.tool-categories { display:flex; gap:.35rem; overflow-x:auto; padding:.25rem; margin-inline:-.25rem; }
+.hub .tool-categories button { flex:none; }
+.hub .tool-categories button[aria-pressed="true"] { background:var(--green); border-color:var(--green); color:white; }
+.catalog,.calculation-grid { display:grid; gap:1rem; }
+.calculation-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr)); }
+.catalog { grid-template-columns:repeat(auto-fill,minmax(min(100%,max(14rem,calc((100% - 3rem) / 4))),1fr)); }
+.catalog + [role="status"]:empty { margin:0; }
 .module-card,.calculation-card {
   position:relative; display:flex; flex-direction:column; min-width:0;
   background:white; border:1px solid var(--rule); border-radius:6px; overflow:hidden;
@@ -49,6 +57,8 @@ body.hub { margin:0; }
 .module-info,.calculation-info { padding:.95rem 1rem .25rem; }
 .module-info p,.calculation-info p { margin:.35rem 0 .5rem; font-size:.9rem; overflow-wrap:anywhere; }
 .module-info .module-app { color:var(--green); font-size:.82rem; font-weight:600; }
+.design-codes { display:flex; flex-wrap:wrap; gap:.25rem; }
+.design-code { padding:.15rem .4rem; border:1px solid var(--rule); border-radius:4px; background:var(--surface); color:var(--muted); font-size:.75rem; }
 .module-actions,.calculation-card .actions { padding:.65rem 1rem 1rem; margin-top:auto; display:flex; gap:.55rem; flex-wrap:wrap; align-items:center; }
 .legacy-draft { color:var(--green); font-size:.83rem; }
 .thumbnail {
@@ -105,7 +115,7 @@ body.hub { margin:0; }
 .hub dialog label:not(.module-card) { display:grid; gap:.35rem; margin:1rem 0; font-weight:600; }
 .hub input:not([type="radio"]),.hub select { min-width:0; font:inherit; padding:.55rem; border:1px solid #a5b1a5; border-radius:4px; background:white; color:inherit; }
 .hub dialog .actions { justify-content:flex-end; }
-#module-options { margin-top:0; }
+.hub #module-picker .tool-filters label { margin:0; }
 #module-options .module-card { cursor:pointer; }
 #module-options .module-card:has(:checked) { outline:2px solid var(--green); outline-offset:-2px; }
 #module-options .module-card:has(:focus-visible) { outline:2px solid #438368; outline-offset:2px; }

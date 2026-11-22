@@ -1,4 +1,4 @@
-import { tools } from '../registry.mjs';
+import { emptyToolMessage, filterTools, toolCategories } from '../tool-filters.mjs';
 import { el, link, qs } from './dom.mjs';
 
 export function thumbnail(tool) {
@@ -13,8 +13,13 @@ function moduleCard(tool, pick) {
   const title = tool.title ?? tool.name;
   const card = el(pick ? 'label' : 'article', undefined, 'module-card');
   const info = el('div', undefined, 'module-info');
-  info.append(el('h3', title), el('p', [tool.name, tool.code].filter(Boolean).join(' · '), 'module-app'),
-    el('p', tool.description, 'muted'));
+  info.append(el('h3', title), el('p', tool.name, 'module-app'));
+  if (tool.designCodes?.length) {
+    const badges = el('div', undefined, 'design-codes');
+    badges.append(...tool.designCodes.map(code => el('span', code.label, 'design-code')));
+    info.append(badges);
+  }
+  info.append(el('p', tool.description, 'muted'));
   if (pick) {
     const radio = el('input', undefined, 'module-radio');
     radio.type = 'radio';
@@ -40,14 +45,46 @@ function moduleCard(tool, pick) {
   return card;
 }
 
-export function renderCatalog() {
-  qs('catalog').replaceChildren(...tools.map(tool => moduleCard(tool, false)));
+function browseTools({ tools, search, categories, results, empty, renderCards }) {
+  let category = 'all';
+  const tabs = toolCategories.map(([id, label]) => {
+    const tab = el('button', label);
+    tab.type = 'button';
+    tab.setAttribute('aria-controls', results.id);
+    tab.onclick = () => {
+      category = id;
+      render();
+    };
+    return [id, tab];
+  });
+  categories.replaceChildren(...tabs.map(([, tab]) => tab));
+
+  function render() {
+    for (const [id, tab] of tabs) tab.setAttribute('aria-pressed', String(id === category));
+    const inCategory = filterTools(tools, { category });
+    const found = filterTools(inCategory, { query: search.value });
+    renderCards(found);
+    const message = found.length ? '' : emptyToolMessage(inCategory.length > 0);
+    if (empty.textContent !== message) empty.textContent = message;
+  }
+
+  search.oninput = render;
+  render();
 }
 
-const match = (tool, query) => query.split(/\s+/).every(word =>
-  [tool.title, tool.name, tool.code, ...(tool.keywords ?? [])].join(' ').toLowerCase().includes(word));
+export function renderCatalog(tools) {
+  const results = qs('catalog');
+  browseTools({
+    tools,
+    search: qs('tool-search'),
+    categories: qs('tool-categories'),
+    results,
+    empty: qs('catalog-empty'),
+    renderCards: found => results.replaceChildren(...found.map(tool => moduleCard(tool, false))),
+  });
+}
 
-export function pickModule(destination) {
+export function pickModule(destination, tools) {
   const modal = qs('module-picker');
   const form = modal.querySelector('form');
   const search = qs('module-search');
@@ -58,27 +95,27 @@ export function pickModule(destination) {
   let result;
   qs('picker-destination').textContent = destination;
   form.reset();
-  name.disabled = true;
+  let shown = [];
 
   function update() {
-    add.disabled = !selected || !name.value.trim();
+    name.disabled = !shown.includes(selected);
+    add.disabled = name.disabled || !name.value.trim();
   }
 
-  function renderOptions() {
-    const found = tools.filter(tool => match(tool, search.value.trim().toLowerCase()));
+  function renderOptions(found) {
+    shown = found;
     options.replaceChildren(...found.map(tool => {
       const card = moduleCard(tool, true);
       const radio = card.querySelector('input');
       radio.checked = selected?.id === tool.id;
       radio.onchange = () => {
         selected = tool;
-        name.disabled = false;
         name.value = tool.title ?? tool.name;
         update();
       };
       return card;
     }));
-    qs('no-modules').hidden = found.length > 0;
+    update();
   }
 
   modal.onkeydown = event => {
@@ -86,7 +123,6 @@ export function pickModule(destination) {
     event.preventDefault();
     modal.close();
   };
-  search.oninput = renderOptions;
   name.oninput = update;
   qs('cancel-design').onclick = () => modal.close();
   form.onsubmit = event => {
@@ -95,8 +131,14 @@ export function pickModule(destination) {
     result = { tool: selected, name: name.value.trim() };
     modal.close();
   };
-  renderOptions();
-  update();
+  browseTools({
+    tools,
+    search,
+    categories: qs('module-categories'),
+    results: options,
+    empty: qs('no-modules'),
+    renderCards: renderOptions,
+  });
   return new Promise(resolve => {
     modal.addEventListener('close', () => resolve(result), { once: true });
     modal.showModal();
