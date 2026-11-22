@@ -51,8 +51,12 @@ export function headGeometry(input) {
   for (const side of SIDES) sides[side] = Math.abs(extents[side]) - (side.startsWith('x') ? half.x : half.y);
   const interior = SIDES.filter(side => !extents.free[side]);
   const lH = circular ? [(head.diameter - column.diameter) / 2] : interior.map(side => sides[side]);
-  const below = lH.every(value => value <= 2 * hH + 1e-9);
-  const above = lH.every(value => value > 2 * hH + 1e-9);
+  // Fig. 6.17 needs l_H < 2h_H (§6.4.2(8)), Fig. 6.18 l_H > 2h_H (§6.4.2(10)). At l_H = 2h_H the two
+  // constructions coincide for a circular head (r_cont = 2d + l_H + 0.5c either way), so equality is taken
+  // as Fig. 6.18: the slab check then runs on the actual drop outline instead of the smaller, conservative
+  // equivalent circle of Eq. 6.34/6.35, and a side exactly at 2h_H does not make the drop "mixed".
+  const below = lH.every(value => value < 2 * hH - 1e-9);
+  const above = lH.every(value => value >= 2 * hH - 1e-9);
   return { circular, lH, lSides: sides, extents, lMin: Math.min(...lH), hH, kind: below ? 'small' : above ? 'large' : 'mixed' };
 }
 
@@ -201,12 +205,16 @@ export function calculateDesign(raw, forcedKind = null) {
   const momentBeta = [];
   if (geo.kind === 'mixed') {
     // l_H straddles 2h_H (Fig. 6.17 one way, Fig. 6.18 the other): EN 1992-1-1 gives no rule. The tool
-    // checks the drop both ways and reports the governing one (worse status, then higher UR); see Help.
+    // checks the drop both ways and reports the governing one: worse status, then the higher unreinforced
+    // v_Ed / v_Rd,c (the construction that needs more links), then the higher UR. Ranking by the UR after
+    // links would let a construction that needs links lose to one that needs none; see Help.
     const both = ['small', 'large'].map(kind => calculateDesign(raw, kind));
     const governingState = worstState(both.map(item => item.status));
+    const plain = item => Math.max(0, ...(item.loads ?? []).flatMap(load => load.rows ?? []).filter(row => /concrete$/.test(row.id)).map(row => row.ur ?? 0));
+    const key = item => [plain(item), item.governing?.ur ?? 0];
     const worse = both.filter(item => item.status === governingState)
-      .reduce((a, b) => ((b.governing?.ur ?? 0) > (a.governing?.ur ?? 0) ? b : a));
-    const which = worse === both[0] ? 'Fig. 6.17 (l_H ≤ 2h_H)' : 'Fig. 6.18 (l_H > 2h_H)';
+      .reduce((a, b) => { const [pa, ua] = key(a); const [pb, ub] = key(b); return pb > pa + 1e-9 || (Math.abs(pb - pa) <= 1e-9 && ub > ua) ? b : a; });
+    const which = worse === both[0] ? 'Fig. 6.17 (l_H < 2h_H)' : 'Fig. 6.18 (l_H ≥ 2h_H)';
     const note = `l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm straddles 2h_H = ${(2 * geo.hH).toFixed(0)} mm: the drop is checked as Fig. 6.17 and as Fig. 6.18; ${which} governs (see Help).`;
     return { ...worse, methods: [...(worse.methods ?? []), 'Mixed drop: envelope of Fig. 6.17 and Fig. 6.18'], notes: [note, ...(worse.notes ?? [])] };
   }
