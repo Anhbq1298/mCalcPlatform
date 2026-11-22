@@ -58,8 +58,8 @@ const CASES = [
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 2400, ly: 2400, thickness: 400 }), column: { shape: 'rectangular', position: 'internal', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 1250, Mx: 0, My: 0 }] },
   },
   {
-    id: 'drop-through', title: '9b · Links inside and beyond the drop', expect: 'Pass',
-    note: 'Links in the drop (d_H, around the column) continue beyond the drop edge (d, around the drop): both sections need them.',
+    id: 'drop-through', title: '9 · Drop with l_H > 2h_H (Fig. 6.18)', expect: 'Pass',
+    note: 'Two sections: inside the drop (d_H, around the column) and the slab beyond it (d, around the drop). Links go where the layout needs them, here in both.',
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 2000, ly: 2000, thickness: 400 }), column: { shape: 'rectangular', position: 'internal', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 1400, Mx: 0, My: 0 }] },
   },
   {
@@ -98,7 +98,8 @@ const variant = (id, label) => ({ ...byId[id], label });
 
 // Six cards: interior, edge and corner, each without and with a drop. The first variant loads when
 // the card is picked; the others cover circular columns, openings, prestress, the Singapore profile,
-// a failing provided layout, Fig. 6.17 and circular heads.
+// a failing provided layout, Fig. 6.17 and circular heads. Drop variants differ by geometry only:
+// where links go (inside or beyond the drop, mapped or not) follows from the layout, not the case.
 export const EXAMPLE_CARDS = [
   { id: 'interior', title: 'Interior', position: 'internal', drop: false, variants: [
     variant('internal-links', 'Auto links (CSI geometry)'), variant('internal-plain', 'No links needed'), variant('circular-moment', 'Circular column, β from moments'),
@@ -107,7 +108,7 @@ export const EXAMPLE_CARDS = [
   { id: 'edge', title: 'Edge', position: 'edge', drop: false, variants: [variant('edge', 'β from moments')] },
   { id: 'corner', title: 'Corner', position: 'corner', drop: false, variants: [variant('corner', 'Simplified β = 1.5')] },
   { id: 'interior-drop', title: 'Interior + drop', position: 'internal', drop: true, variants: [
-    variant('drop-large', 'l_H > 2h_H, links in the drop'), variant('drop-through', 'Links beyond the drop'), variant('drop-small', 'l_H ≤ 2h_H (Fig. 6.17)'), variant('drop-small-links', 'l_H ≤ 2h_H with links (mapped)'), variant('drop-circular', 'Circular column and head'),
+    variant('drop-through', 'l_H > 2h_H (Fig. 6.18)'), variant('drop-small', 'l_H ≤ 2h_H (Fig. 6.17)'), variant('drop-circular', 'Circular column and head'),
   ] },
   { id: 'edge-drop', title: 'Edge + drop', position: 'edge', drop: true, variants: [variant('edge-drop', 'Drop clipped at the edge')] },
   { id: 'corner-drop', title: 'Corner + drop', position: 'corner', drop: true, variants: [variant('corner-drop', 'Drop clipped at both edges')] },
@@ -115,4 +116,5 @@ export const EXAMPLE_CARDS = [
 
 // Every variant once, for tests and lookup.
 export const EXAMPLES = EXAMPLE_CARDS.flatMap(card => card.variants.map(item => ({ ...item, card: card.id })));
-export const exampleById = id => EXAMPLES.find(item => item.id === id);
+// Any case by id, including reference cases kept for tests only (drop-large, drop-small-links).
+export const exampleById = id => EXAMPLES.find(item => item.id === id) ?? byId[id];

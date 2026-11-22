@@ -82,7 +82,7 @@ test('unsupported drop configurations are reported, not computed', () => {
 
 test('the six example cards and all their variants give their intended status', () => {
   assert.equal(EXAMPLE_CARDS.length, 6);
-  assert.equal(EXAMPLES.length, 16);
+  assert.equal(EXAMPLES.length, 14);
   for (const example of EXAMPLES) assert.equal(calculateDesign(example.input).status, example.expect, example.id);
 });
 
@@ -93,8 +93,9 @@ test('LaTeX labels render to MathML and plain text', () => {
   assert.equal(labelText('$V_{Ed}$'), 'V_Ed');
 });
 
-test('the governing check of a drop design is never an informational row', () => {
-  const example = EXAMPLES.find(item => item.id === 'drop-large');
+test('the governing check of a drop design is never an informational row', async () => {
+  const { exampleById } = await import('../src/examples.mjs');
+  const example = exampleById('drop-large');
   const result = calculateDesign(example.input);
   const row = result.loads[0].rows.find(entry => entry.label === result.governing.check);
   assert.ok(row && ![STATES.linksRequired, STATES.notRequired].includes(row.status), result.governing.check);
