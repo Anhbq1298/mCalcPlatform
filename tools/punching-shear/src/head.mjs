@@ -166,9 +166,8 @@ export function calculateDesign(raw) {
 
   const d = base.section.d;
   const geo = headGeometry(input);
-  const momentBeta = input.beta.method === 'moment'
-    ? [{ state: STATES.confirm, message: 'β from moments with a drop uses the column (inside) or the drop (outside) as the loaded area in Eq. 6.39/6.42; EN 1992-1-1 gives no W1 for column heads.' }]
-    : [];
+  // β from moments with a drop: column (inside) or drop (outside) as the loaded area, see Help.
+  const momentBeta = [];
   if (geo.kind === 'mixed') {
     return { status: STATES.unsupportedGeometry, issues: [{ state: STATES.unsupportedGeometry, message: `l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm straddles 2h_H = ${(2 * geo.hH).toFixed(0)} mm: one direction falls under Fig. 6.17 and the other under Fig. 6.18. Not covered.` }], notes: [], profile: base.profile, loads: [], input };
   }
@@ -180,6 +179,7 @@ export function calculateDesign(raw) {
   const inside = geo.kind === 'large' && 2 * dH <= geo.lMin + 1e-9; // the inner control perimeter fits inside the head
   const provided = input.reinforcement.mode === 'provided';
   const split = provided ? splitLayers(input, geo, inside) : { drop: [], slab: [], issues: [], notes: [] };
+  if (input.beta.method === 'moment') split.notes.push('β from moments with a drop uses the column (inside) or the drop (outside) as the loaded area (Eq. 6.39/6.42), see Help.');
   const zone = (layers, layerBase) => (provided ? { layers } : { layerBase });
   const issuesOf = [...momentBeta, ...split.issues];
   const extSection = (outer, eq, offset = 2 * d) => ({ id: 'ext', label: 'Slab outside the drop', d, offset, model: outer.model, u1: outer.u1, eq, aOut: outer.envelope?.uOut ? outer.envelope.aOut : 0 });

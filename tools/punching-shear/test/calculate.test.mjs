@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
-import { newDefaults, restoreInputs } from '../src/inputs.mjs';
+import { cenDefaults, restoreInputs } from '../src/inputs.mjs';
 
 // CSI RC-PN-001 geometry: ρ = 0.5 % each way (A_s = 1090 mm²/m, migrated to Ø16 at the equivalent spacing).
 const base = () => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.flexure = { ...input.flexure, areaMode: 'explicit', asx: 1090, asy: 1090 };
   return input;

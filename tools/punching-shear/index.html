@@ -8,7 +8,6 @@
 <body>
   <header class="titlebar">
     <h1>mPunchingShear <span>Slab–Column Punching Shear</span></h1>
-    <button type="button" id="about-button" class="help-link about-link">About</button>
     <a class="help-link" href="help.html" target="_blank" rel="noopener">Help</a>
     <output id="calculation-status" aria-live="polite">Preparing</output>
   </header>
@@ -35,8 +34,7 @@
       </div>
       <div id="layers-anchor">
         <div class="arrangement-head">
-          <span class="card-subhead">Arrangement</span>
-          <button type="button" id="copy-layout" class="primary-action" title="Fill the table from the automatic design">Auto arrangement</button>
+          <span class="card-subhead">Custom layout</span>
         </div>
         <p class="table-caption" id="arrangement-caption">One row per layer: s from the previous layer (L1 from the column face), links at spacing s<sub>t</sub> along the layer.</p>
         <div class="layer-buttons">
@@ -97,10 +95,6 @@
       </details>
     </section>
   </main>
-  <dialog id="about-dialog" class="about-dialog" aria-label="About mPunchingShear">
-    <button type="button" class="about-close" aria-label="Close">×</button>
-    <div class="about-body"></div>
-  </dialog>
   <script type="module" src="/platform/tools/punching-shear/src/page.mjs"></script>
 </body>
 </html>

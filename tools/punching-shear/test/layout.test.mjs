@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
-import { newDefaults } from '../src/inputs.mjs';
+import { cenDefaults } from '../src/inputs.mjs';
 import { buildLinks, layerSummary, tangentialGaps } from '../src/layout.mjs';
 import { perimeterAtOffset } from '../src/geometry.mjs';
 import { effectiveIntervals } from '../src/perimeters.mjs';
@@ -12,7 +12,7 @@ const model = () => {
   return m;
 };
 const provided = layers => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.column = { ...input.column, cx: 400, cy: 400 };
   input.loads = [{ name: 'A', V: 700, Mx: 0, My: 0 }];
@@ -61,7 +61,7 @@ test('check-provided mode does not move links; s_r is a warning without UR, tang
   ]);
   const rows = Object.fromEntries(result.loads[0].rows.map(entry => [entry.id, entry.status]));
   assert.equal(rows.first, 'Fail');
-  assert.equal(rows.radial, 'Requires confirmation');
+  assert.equal(rows.radial, 'Fail'); // s_r > 0.75d (§9.4.3(1)); reason in the row detail
   const radial = result.loads[0].rows.find(entry => entry.id === 'radial');
   assert.equal(radial.ur, null);
   assert.match(radial.detail, /s_r = 250 mm > 0\.75d/);
@@ -80,7 +80,7 @@ test('different diameters per layer: Eq. 6.52 uses the smallest layer A_sw', () 
 });
 
 test('arrangement rows need a positive radial spacing and tangential spacing', () => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.reinforcement = { ...input.reinforcement, mode: 'provided', groups: [{ count: 1, spacing: 230, diameter: 10, shape: 'single', links: 20 }, { count: 1, spacing: -150, diameter: 10, shape: 'single', links: 20 }] };
   assert.equal(calculate(input).status, 'Incomplete input');
@@ -89,7 +89,7 @@ test('arrangement rows need a positive radial spacing and tangential spacing', (
 });
 
 test('auto layout reports a reason when two-leg links cannot fit the layer', () => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.loads = [{ name: 'A', V: 800, Mx: 0, My: 0 }];
   input.reinforcement = { mode: 'auto', diameter: 10, shape: 'double', legGap: 2000, groups: [] };

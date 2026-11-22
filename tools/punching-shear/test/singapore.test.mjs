@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
-import { newDefaults } from '../src/inputs.mjs';
+import { cenDefaults } from '../src/inputs.mjs';
 
 const close = (a, b, tol) => assert.ok(Math.abs(a - b) <= tol, `${a} ≠ ${b}`);
 const sg = edit => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.code = { ...input.code, profile: 'sg', naConfirmed: true };
   input.beta.confirmed = true;
   input.flexure = { ...input.flexure, areaMode: 'explicit', asx: 1090, asy: 1090 }; // ρ = 0.5 % (CSI case)
@@ -34,7 +34,7 @@ test('SG NA 3.1.2(2)P: f_ck above C50/60 is capped at 50 MPa for shear', () => {
   assert.equal(c60.resistance.vRdc, c50.resistance.vRdc);
   assert.equal(c60.vRdMax, c50.vRdMax);
   assert.ok(c60.notes.some(note => note.includes('C50/60')));
-  const cenInput = newDefaults();
+  const cenInput = cenDefaults();
   cenInput.beta.confirmed = true;
   cenInput.materials.fck = 60;
   cenInput.loads = [{ name: 'A', V: 300, Mx: 0, My: 0 }];
@@ -42,10 +42,25 @@ test('SG NA 3.1.2(2)P: f_ck above C50/60 is capped at 50 MPa for shear', () => {
   assert.ok(cen.resistance.vRdc > c50.resistance.vRdc);
 });
 
-test('Singapore profile stays Not verified until the NA values are confirmed', () => {
-  const input = newDefaults();
+test('Singapore profile is the default and gives Pass/Fail directly (values accepted by the user)', async () => {
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const fresh = newDefaults();
+  assert.equal(fresh.code.profile, 'sg');
+  assert.equal(fresh.beta.method, 'moment');
+  assert.equal(fresh.slab.depthMode, 'bars');
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.code.profile = 'sg';
   input.loads = [{ name: 'A', V: 200, Mx: 0, My: 0 }];
-  assert.equal(calculate(input).status, 'Not verified');
+  assert.equal(calculate(input).status, 'Pass');
+});
+
+test('slab thickness drives the effective depth and the result (default bar-derived d)', async () => {
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const at = h => { const input = newDefaults(); input.slab.h = h; return calculate(input); };
+  const [thin, thick] = [at(220), at(300)];
+  assert.ok(thick.section.d > thin.section.d && thick.loads[0].ur < thin.loads[0].ur);
+  const bad = cenDefaults();
+  bad.slab.h = 200; // entered d = 218 > h − c
+  assert.equal(calculate(bad).status, 'Incomplete input');
 });

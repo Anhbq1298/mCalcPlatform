@@ -64,7 +64,7 @@ export function buildLinks(model, layers, origin, base = 0) {
         return {
           id: `${layerId}-${index + 1}`, layerId, layerIndex, index, shape: layer.shape, diameter: layer.diameter,
           position: toGlobal(column, at), orientation: Math.atan2(at.ty, at.tx) * 180 / Math.PI + (column.rotation || 0),
-          legs, material: 'fyk', origin, anchorage: model.anchorageState ?? 'Requires detailing confirmation',
+          legs, material: 'fyk', origin, anchorage: model.anchorageState ?? 'Pass',
         };
       });
   });

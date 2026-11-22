@@ -1,3 +1,4 @@
+import { cenDefaults } from './inputs.mjs';
 // Worked cases covering the scope of the tool, grouped below into six cards. Each is a partial input merged over the
 // defaults by restoreInputs. `expect` is the overall status the case is built to show; the unit
 // tests assert it so that a change in engineering behaviour is noticed.
@@ -6,7 +7,7 @@ const engaged = { reinforcement: { mode: 'auto', diameter: 10, shape: 'single', 
 const slab = (h, d, extra = {}) => ({ slab: { h, depthMode: 'explicit', dx: d + 5, dy: d - 5, cover: 25, xMin: -6000, xMax: 6000, yMin: -6000, yMax: 6000, ...extra } });
 const head = values => ({ head: { enabled: true, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400, ...values } });
 
-export const CASES = [
+const CASE_LIST = [
   {
     id: 'internal-plain', title: '1 · Internal column, no links', expect: 'Pass',
     note: 'v_Ed ≤ v_Rd,c at u1; only the face check applies.',
@@ -53,8 +54,8 @@ export const CASES = [
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 700, Mx: 0, My: 0 }] },
   },
   {
-    id: 'drop-small-links', title: '8b · Rectangular head l_H ≤ 2h_H with links (mapped)', expect: 'Not verified',
-    note: 'Check on the EC2 equivalent circle, links on the head outline, mapped by 22.5° sectors. Proposed method: reinforced checks report Not verified.',
+    id: 'drop-small-links', title: '8b · Rectangular head l_H ≤ 2h_H with links (mapped)', expect: 'Fail',
+    note: 'Check on the EC2 equivalent circle, links on the head outline, mapped by 22.5° sectors. Proposed method outside the EC2 rules: the reinforced checks report Fail (see Help).',
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 900, Mx: 0, My: 0 }] },
   },
   {
@@ -97,6 +98,12 @@ export const CASES = [
     input: { ...confirmed, ...engaged, ...slab(250, 210, { xMax: 250, yMax: 250 }), ...head({ lx: 2400, ly: 2400, thickness: 400 }), beta: { method: 'simplified', confirmed: true, userValue: 1.5 }, column: { shape: 'rectangular', position: 'corner', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 300, Mx: 0, My: 0 }] },
   },
 ];
+// Cases fill unset groups from the CEN basis they were built on, not from the current UI defaults.
+const BASE = cenDefaults();
+export const CASES = CASE_LIST.map(item => ({
+  ...item,
+  input: { code: BASE.code, slab: BASE.slab, beta: BASE.beta, ...item.input },
+}));
 
 const byId = Object.fromEntries(CASES.map(item => [item.id, item]));
 

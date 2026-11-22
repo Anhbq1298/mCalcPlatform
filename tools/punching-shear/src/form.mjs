@@ -20,8 +20,8 @@ const option = (value, label) => ({ value, label });
 export const GROUPS = [
   ['Design basis', [
     ['code.edition', 'Code edition', 'select', [option('EN 1992-1-1:2004 + AC:2010 + A1:2014', 'EN 1992-1-1:2004 + AC:2010 + A1:2014')]],
-    ['code.profile', 'Parameter set', 'select', [option('cen', 'CEN recommended values'), option('sg', 'Singapore National Annex (confirm values)'), option('uk', 'UK National Annex (confirm values)')]],
-    ['code.naConfirmed', 'NA values confirmed against the NA text', 'checkbox', null, s => s.code.profile !== 'cen'],
+    ['code.profile', 'Parameter set', 'select', [option('cen', 'CEN recommended values'), option('sg', 'Singapore National Annex'), option('uk', 'UK National Annex')]],
+    ['code.naConfirmed', 'UK NA values checked against the NA text', 'checkbox', null, s => s.code.profile === 'uk'],
     ['column.position', 'Column position', 'select', [option('internal', 'Internal'), option('edge', 'Edge (face flush with slab edge)'), option('corner', 'Corner (faces flush with two edges)')]],
   ]],
   ['Column', [
@@ -75,7 +75,7 @@ export const GROUPS = [
     ['beta.userValue', '$\\beta$ (user value)', 'number', null, s => s.beta.method === 'user'],
   ]],
   ['Punching reinforcement', [
-    ['reinforcement.mode', 'Links', 'select', [option('auto', 'Auto design'), option('provided', 'Provided arrangement (table)')]],
+    ['reinforcement.mode', 'Links', 'select', [option('auto', 'Auto arrangement'), option('provided', 'Custom layout (table)')]],
     ['reinforcement.diameter', 'Bar Ø (mm)', 'select', LINK_DIAMETERS.map(value => option(value, String(value))), s => s.reinforcement.mode === 'auto'],
     ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg'), option('double', 'Two-leg')], s => s.reinforcement.mode === 'auto'],
     ['reinforcement.arrangement', 'Arrangement', 'select', Object.entries(ARRANGEMENTS).map(([value, label]) => option(value, label)), s => s.reinforcement.mode === 'auto'],

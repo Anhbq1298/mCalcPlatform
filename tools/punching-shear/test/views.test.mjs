@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
-import { newDefaults } from '../src/inputs.mjs';
+import { cenDefaults } from '../src/inputs.mjs';
 import { planSvg } from '../src/plan-view.mjs';
 import { sectionSvg } from '../src/section-view.mjs';
 import { buildWorksheet } from '../src/worksheet.mjs';
 
 const design = edit => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.loads = [{ name: 'ULS', V: 800, Mx: 0, My: 0 }];
   edit?.(input);
@@ -33,7 +33,7 @@ test('full section shows every layer on both sides', () => {
   const result = design();
   const svg = sectionSvg(result);
   assert.equal((svg.match(/data-layer="/g) || []).length, 2 * result.layout.layers.length);
-  assert.ok(svg.includes('anchorage requires detailing confirmation') && !svg.includes('stroke-dasharray="2.5 1.5"'));
+  assert.ok(svg.includes('hook anchorage per §8.5') && !svg.includes('stroke-dasharray="2.5 1.5"'));
   assert.ok(balanced(svg));
 });
 
@@ -55,7 +55,7 @@ test('worksheet report is a valid Canvas document with drawings, schedule and li
 });
 
 test('report for blocked input lists the issues and stops', () => {
-  const result = calculate({ ...newDefaults(), loads: [] });
+  const result = calculate({ ...cenDefaults(), loads: [] });
   const doc = buildWorksheet(result, { pageHeight: 1123, pageGap: 48 });
   assert.ok(doc.shapes.some(shape => (shape.props.html ?? '').includes('Add at least one load combination')));
   assert.equal(doc.shapes.filter(shape => shape.type === 'math').length, 0);
@@ -92,9 +92,9 @@ test('stress figure: plastic distribution, one moment → peak v_V + v_M at u1 e
   assert.ok(Math.abs(vmax[1] - check[1]) <= 0.0011, `${vmax[1]} vs ${check[1]}`);
 });
 
-test('About panel lists verified sources, pending items and the handling of open points', async () => {
-  const { aboutHtml } = await import('../src/about.mjs');
-  const html = aboutHtml();
-  assert.ok(html.includes('Verified') && html.includes('Pending') && html.includes('How the tool handles'));
-  assert.ok(html.includes('Ancon') && html.includes('JRC') && html.includes('Σ min(L_i, 2d)'));
+test('Help holds the status policy, verification table and handling of open points', async () => {
+  const { readFileSync } = await import('node:fs');
+  const help = readFileSync(new URL('../help.html', import.meta.url), 'utf8');
+  assert.ok(help.includes('9 Status, verification and how the tool calculates'));
+  assert.ok(help.includes('Ancon') && help.includes('JRC') && help.includes('Σ min(L<sub>i</sub>, 2d)'));
 });

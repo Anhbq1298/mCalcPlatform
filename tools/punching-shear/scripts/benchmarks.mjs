@@ -3,11 +3,11 @@
 // source computes under rules the tool does not implement (another National Annex, pre-A1:2014 text)
 // are compared and flagged `basis: 'different'` with the reason.
 // Run: node tools/punching-shear/scripts/benchmarks.mjs [--json]
-import { newDefaults } from '../src/inputs.mjs';
+import { cenDefaults } from '../src/inputs.mjs';
 import { calculateDesign } from '../src/head.mjs';
 
 const base = (values) => {
-  const input = newDefaults();
+  const input = cenDefaults();
   return {
     ...input, ...values,
     slab: { ...input.slab, depthMode: 'explicit', xMin: -8000, xMax: 8000, yMin: -8000, yMax: 8000, ...values.slab },

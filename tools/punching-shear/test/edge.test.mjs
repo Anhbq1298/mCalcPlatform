@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
-import { newDefaults } from '../src/inputs.mjs';
+import { cenDefaults } from '../src/inputs.mjs';
 
 const close = (a, b, tol = 1e-3) => assert.ok(Math.abs(a - b) <= tol, `${a} ≠ ${b}`);
 // 400 (x) × 300 (y) column, d = 200 mm, flush with slab edge X max at 4000 → c1 = 400 (⊥ edge), c2 = 300.
 const edgeInput = edit => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.column = { ...input.column, position: 'edge', cx: 400, cy: 300, x: 3800, y: 0 };
   input.slab = { ...input.slab, h: 240, dx: 200, dy: 200 };

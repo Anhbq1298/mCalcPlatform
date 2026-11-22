@@ -431,17 +431,13 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.goto('./');
   await page.locator('a[href*="t/punching-shear/"]').filter({ hasText: 'New design' }).first().click();
   await expect(page.getByRole('heading', { name: /mPunchingShear/ })).toBeVisible();
-  await page.getByRole('button', { name: 'About', exact: true }).click();
-  await expect(page.locator('#about-dialog')).toContainText('Verified');
-  await expect(page.locator('#about-dialog')).toContainText('Pending');
-  await page.locator('#about-dialog .about-close').click();
-  await expect(page.locator('#about-dialog')).not.toBeVisible();
   await page.getByLabel('Show all inputs').check();
   const status = page.locator('#design-status');
-  await expect(status).toContainText('Incomplete input');
-  await page.getByLabel('Braced, spans differ ≤ 25 % (§6.4.3(6))').check();
+  // Defaults: Singapore NA, β from moments, d from h, cover and bars; a result straight away.
+  await expect(page.getByLabel('Parameter set')).toHaveValue('sg');
   await page.getByLabel('1 V_Ed', { exact: true }).fill('800');
   await expect(status).toContainText('Design status: Pass');
+  await expect(page.locator('#layers-anchor')).toBeHidden(); // custom table only in custom mode
   await page.getByLabel('Column position').selectOption('edge');
   await expect(status).toContainText('Incomplete input');
   await expect(page.locator('#messages')).toContainText('geometry is an internal column');
@@ -449,8 +445,9 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   const schedule = page.locator('#layer-schedule tbody tr');
   await expect(schedule).toHaveCount(3); // default: orthogonal grid, s_r = 150 mm
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
-  await page.getByRole('button', { name: 'Auto arrangement' }).click();
-  await expect(page.getByLabel('Links', { exact: true })).toHaveValue('provided');
+  await page.getByLabel('Links', { exact: true }).selectOption('provided');
+  await expect(page.locator('#layers-anchor')).toBeVisible();
+  await expect(page.locator('#layers-anchor tbody tr')).toHaveCount(3); // starts from the auto arrangement
   await page.getByRole('button', { name: 'What is s_t?' }).click();
   await expect(page.locator('.info-note')).toContainText('tangential spacing');
   await page.getByRole('button', { name: 'Link arrangement: add row' }).click();

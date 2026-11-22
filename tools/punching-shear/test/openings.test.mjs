@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
 import { detailingChecks } from '../src/detailing.mjs';
-import { newDefaults } from '../src/inputs.mjs';
+import { cenDefaults } from '../src/inputs.mjs';
 
 const close = (a, b, tol = 1e-3) => assert.ok(Math.abs(a - b) <= tol, `${a} ≠ ${b}`);
 const square = edit => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.column = { ...input.column, cx: 400, cy: 400 };
   input.slab = { ...input.slab, h: 240, dx: 200, dy: 200 };
@@ -29,7 +29,7 @@ test('Fig. 6.14: when l1 > l2 the tangential width is replaced by √(l1·l2)', 
   assert.ok(result.shadows[0].replaced);
 });
 
-test('openings beyond 6d do not reduce u1; moment β with a reduced perimeter is Not verified', () => {
+test('openings beyond 6d do not reduce u1; moment β with a reduced perimeter is outside EC2 and reported Fail', () => {
   const far = calculate(square(input => { input.openings = [{ x: 2500, y: 0, w: 200, h: 200 }]; }));
   close(far.u1, fullU1);
   const moment = calculate(square(input => {
@@ -37,7 +37,7 @@ test('openings beyond 6d do not reduce u1; moment β with a reduced perimeter is
     input.beta = { method: 'moment' };
     input.loads = [{ name: 'A', V: 300, Mx: 0, My: 30 }];
   }));
-  assert.equal(moment.status, 'Not verified');
+  assert.equal(moment.status, 'Fail');
 });
 
 test('links in an opening shadow are not placed; layers carry legs only on effective parts', () => {
@@ -69,17 +69,17 @@ test('detailing: slab depth, mandrel, hook extension and fit (bar enclosure is a
   assert.ok(!plain.rows.some(row => row.id === 'engaged'));
 });
 
-test('UK profile uses 0.5·ν·f_cd and 2·v_Rd,c, and stays Not verified until confirmed', () => {
+test('UK profile uses 0.5·ν·f_cd and 2·v_Rd,c, and stays Incomplete input until the UK values are ticked', () => {
   const uk = square(input => { input.code.profile = 'uk'; input.loads = [{ name: 'A', V: 200, Mx: 0, My: 0 }]; });
   const result = calculate(uk);
   close(result.vRdMax, 0.5 * 0.6 * (1 - 30 / 250) * 20, 1e-12);
-  assert.equal(result.status, 'Not verified');
+  assert.equal(result.status, 'Incomplete input');
   uk.code.naConfirmed = true;
   assert.equal(calculate(uk).status, 'Pass');
 });
 
 test('Dlubal VE 1028 circular column: u1, v_Ed, k, v_Rd,c and v_min (CEN-independent quantities)', () => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.column = { ...input.column, shape: 'circular', diameter: 300 };
   input.slab = { ...input.slab, h: 240, dx: 210, dy: 210 };
   input.flexure = { ...input.flexure, areaMode: 'explicit', asx: 1050, asy: 1050 };

@@ -166,13 +166,13 @@ test('rectangular head l_H ≤ 2h_H with links: equivalent-circle check, links o
 });
 
 test('tangential spacing s_t sets the link count per layer; Auto arrangement round-trips to s_t rows', async () => {
-  const { newDefaults, layersToGroups } = await import('../src/inputs.mjs');
+  const { cenDefaults, layersToGroups } = await import('../src/inputs.mjs');
   const { calculate } = await import('../src/calculate.mjs');
   const { linkCentres } = await import('../src/layout.mjs');
   // Closed path u = 3000, s_t = 280 → ceil(10.71) = 11 links; open interval 1000 → ceil(3.57) = 4 links.
   assert.equal(linkCentres({ intervals: [{ s0: 0, s1: 3000, closed: true }], u: 3000, total: 3000 }, 0, 0, 280).length, 11);
   assert.deepEqual(linkCentres({ intervals: [{ s0: 0, s1: 1000 }], u: 4000, total: 1000 }, 0, 0, 280), [125, 375, 625, 875]);
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.loads = [{ name: 'ULS 1', V: 800, Mx: 0, My: 0 }];
   const auto = calculate(input);

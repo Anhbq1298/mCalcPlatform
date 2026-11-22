@@ -57,7 +57,7 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
   const first = offsets[0];
   rows.push(row('first', '§9.4.3(4)', 'First layer ≤ 0.5d from the loaded area', first, P.firstLayerMax * d, null, { unit: 'mm', governing: summary[0].id }));
   if (first < P.firstLayerMin * d) {
-    rows.push(row('first-min', 'The Concrete Centre guidance', 'First layer ≥ 0.3d (guidance, not a code limit)', P.firstLayerMin * d, first, STATES.confirm, { unit: 'mm' }));
+    rows.push({ ...row('first-min', 'The Concrete Centre guidance', 'First layer < 0.3d (guidance, not a code limit)', P.firstLayerMin * d, first, STATES.pass, { unit: 'mm', warning: true }), ur: null });
   }
   const radialLimit = P.radialSpacing * d;
   // Radial spacing is a detailing warning, not a utilisation: it carries no UR and never governs.
@@ -67,7 +67,7 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
   rows.push({
     ...row('radial', '§9.4.3(1)', 'Radial spacing s_r ≤ 0.75d (warning)', srMax ?? 0, radialLimit, srState, {
       unit: 'mm', governing: srMax === null ? null : summary[spacings.indexOf(srMax) + 1].id, warning: true,
-      detail: srOk || srMax === null ? undefined : `s_r = ${srMax.toFixed(0)} mm > 0.75d = ${radialLimit.toFixed(0)} mm (§9.4.3(1)). Eq. 6.52 uses this s_r; confirm the detailing.`,
+      detail: srOk || srMax === null ? undefined : `s_r = ${srMax.toFixed(0)} mm > 0.75d = ${radialLimit.toFixed(0)} mm (§9.4.3(1)). Eq. 6.52 uses this s_r.`,
     }),
     ur: null,
   });
