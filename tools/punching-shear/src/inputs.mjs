@@ -36,7 +36,8 @@ export function newDefaults() {
     materials: { fck: 30, fyk: 500 },
     prestress: { sigmaX: 0, sigmaY: 0 },
     flexure: { phiX: 16, sX: 150, phiY: 16, sY: 150, outer: 'x', areaMode: 'bars' },
-    head: { enabled: false, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400 },
+    // sizeMode 'column': the drop is the column plus l_H = offset on every side; 'absolute': lx × ly / diameter.
+    head: { enabled: false, sizeMode: 'column', offset: 300, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400 },
     openings: [],
     loadType: 'net',
     loads: [{ id: 'uls-1', name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
@@ -68,6 +69,8 @@ function migrate(saved) {
     head.thickness = (saved.slab?.h ?? newDefaults().slab.h) + head.depth;
     delete head.depth;
   }
+  // Drops saved before the size choice were entered as absolute sizes.
+  if (record(head) && head.sizeMode === undefined) head.sizeMode = 'absolute';
   const r = saved.reinforcement;
   if (record(r) && Array.isArray(r.layers) && r.groups === undefined) {
     r.groups = r.layers.map((layer, i) => ({ count: 1, spacing: layer.offset - (i ? r.layers[i - 1].offset : 0), diameter: layer.diameter, shape: layer.shape, links: layer.links }));
@@ -97,8 +100,20 @@ function migrate(saved) {
   return saved;
 }
 
+// Drop sized from the column: l_H = offset beyond every column face (both directions).
+export function resolveHead(input) {
+  const head = input.head;
+  if (!record(head) || head.sizeMode !== 'column' || !Number.isFinite(head.offset)) return input;
+  const c = input.column ?? {};
+  const add = 2 * head.offset;
+  // The drop follows the column shape: circular for a circular column, rectangular otherwise.
+  if (c.shape === 'circular') Object.assign(head, { shape: 'circular', lx: c.diameter + add, ly: c.diameter + add, diameter: c.diameter + add });
+  else Object.assign(head, { shape: 'rectangular', lx: c.cx + add, ly: c.cy + add, diameter: Math.max(c.cx, c.cy) + add });
+  return input;
+}
+
 export function restoreInputs(saved) {
-  const input = merge(newDefaults(), migrate(structuredClone(saved ?? {})));
+  const input = resolveHead(merge(newDefaults(), migrate(structuredClone(saved ?? {}))));
   if (!Array.isArray(input.loads)) return input;
   const ids = new Set(input.loads.map(load => load.id).filter(id => typeof id === 'string' && id));
   const used = new Set();

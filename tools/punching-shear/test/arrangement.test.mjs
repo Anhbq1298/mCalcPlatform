@@ -161,7 +161,7 @@ test('drop: grid links run out to the drop edge (less cover) on every side; extr
   const input = newDefaults();
   input.reinforcement.enabled = true;
   input.reinforcement.dropFill = true;
-  input.head = { ...input.head, enabled: true, shape: 'rectangular', lx: 2400, ly: 2400, thickness: 400 };
+  input.head = { ...input.head, enabled: true, sizeMode: 'absolute', shape: 'rectangular', lx: 2400, ly: 2400, thickness: 400 };
   input.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }];
   const result = calculateDesign(input);
   const edge = result.layout.links.filter(link => link.edge);
@@ -224,7 +224,7 @@ test('auto arrangement at edge and corner columns, with and without a drop: both
   for (const [position, drop, V, Mx, My] of cases) for (const arrangement of ['grid', 'radial']) {
     const input = newDefaults();
     input.column = { ...input.column, cx: 400, cy: 400, position, x: 3800, y: position === 'corner' ? 3800 : 0 };
-    if (drop) input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+    if (drop) input.head = { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 };
     input.reinforcement = { ...input.reinforcement, enabled: true, arrangement };
     input.loads = [{ name: 'U', V, Mx, My }];
     const result = calculateDesign(input);
@@ -238,7 +238,7 @@ test('grid ring widening at edge columns and inside / around a drop: fewer links
   const { calculateDesign } = await import('../src/head.mjs');
   const cases = [
     { column: { cx: 400, cy: 400, position: 'edge', x: 3800, y: 0 }, loads: [{ name: 'U', V: 500, Mx: 60, My: -20 }] },
-    { column: { cx: 400, cy: 400 }, head: { enabled: true, lx: 2000, ly: 2000, thickness: 400 }, loads: [{ name: 'U', V: 1500, Mx: 20, My: 40 }] },
+    { column: { cx: 400, cy: 400 }, head: { enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 }, loads: [{ name: 'U', V: 1500, Mx: 20, My: 40 }] },
   ];
   for (const c of cases) {
     const input = newDefaults();

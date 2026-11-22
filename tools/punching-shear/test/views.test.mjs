@@ -107,7 +107,7 @@ test('slab thickness and drop size change the result, the link arrangement and t
   const [thin, thick] = [run(i => { i.slab.h = 220; }), run(i => { i.slab.h = 300; })];
   assert.ok(thick.section.d > thin.section.d && thick.layout.links.length !== thin.layout.links.length);
   views(thin).forEach((svg, k) => assert.notEqual(svg, views(thick)[k]));
-  const drop = size => run(i => { i.head = { ...i.head, enabled: true, shape: 'rectangular', lx: size, ly: size, thickness: 400 }; i.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }]; });
+  const drop = size => run(i => { i.head = { ...i.head, enabled: true, sizeMode: 'absolute', shape: 'rectangular', lx: size, ly: size, thickness: 400 }; i.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }]; });
   const [small, large] = [drop(2400), drop(3000)];
   assert.notEqual(small.layout.links.length, large.layout.links.length);
   views(small).forEach((svg, k) => assert.notEqual(svg, views(large)[k]));

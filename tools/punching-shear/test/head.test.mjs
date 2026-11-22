@@ -199,7 +199,7 @@ test('drop at edge and corner columns: β outside the drop is capped at the colu
     input.reinforcement = { ...input.reinforcement, enabled: true, arrangement };
     input.loads = [{ name: 'U', V, Mx, My }];
     const flat = calculateDesign(input);
-    const drop = calculateDesign({ ...input, head: { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 } });
+    const drop = calculateDesign({ ...input, head: { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 } });
     assert.equal(drop.status, 'Pass');
     assert.ok(steel(drop) < steel(flat), `${position} ${arrangement}: drop ${steel(drop)} ≥ flat ${steel(flat)}`);
   }
@@ -210,7 +210,7 @@ test('radial arrangement in a drop: with the option ticked, radial lines continu
   const { newDefaults } = await import('../src/inputs.mjs');
   const input = newDefaults();
   input.column = { ...input.column, cx: 400, cy: 400 };
-  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.head = { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 };
   input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'radial', dropFill: true };
   input.loads = [{ name: 'U', V: 1500, Mx: 20, My: 40 }];
   const result = calculateDesign(input);
@@ -229,7 +229,7 @@ test('links out to the drop edge are an option, off by default', async () => {
   assert.equal(input.reinforcement.dropFill, false);
   input.code = { ...input.code, profile: 'cen' }; // outside the SG compact link zone
   input.column = { ...input.column, cx: 400, cy: 400 };
-  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.head = { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 };
   input.loads = [{ name: 'U', V: 1200, Mx: 20, My: 40 }];
   for (const arrangement of ['grid', 'radial']) {
     const off = calculateDesign({ ...input, reinforcement: { ...input.reinforcement, enabled: true, arrangement } });
@@ -245,7 +245,7 @@ test('hint: the smallest drop that needs no links in the slab around it', async 
   const { newDefaults } = await import('../src/inputs.mjs');
   const input = newDefaults();
   input.column = { ...input.column, cx: 400, cy: 400 };
-  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.head = { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 };
   input.reinforcement = { ...input.reinforcement, enabled: true };
   input.loads = [{ name: 'U', V: 1500, Mx: 20, My: 40 }];
   const note = calculateDesign(input).notes.find(n => n.startsWith('Links are needed in the slab around the drop'));
@@ -253,4 +253,21 @@ test('hint: the smallest drop that needs no links in the slab around it', async 
   const ext = l => calculateDesign({ ...input, head: { ...input.head, lx: l, ly: l } }).loads[0].rows.find(r => r.id === 'ext-concrete').ur;
   assert.equal(lx, ly);
   assert.ok(ext(lx) <= 1 && ext(lx - 50) > 1, `${lx}: ${ext(lx)}, ${ext(lx - 50)}`);
+});
+
+test('drop sized from the column: l_H on every side; old saves keep their absolute size', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults, restoreInputs } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  assert.equal(input.head.sizeMode, 'column');
+  input.column = { ...input.column, cx: 300, cy: 900 };
+  input.head = { ...input.head, enabled: true, offset: 300 };
+  const restored = restoreInputs(input);
+  assert.deepEqual([restored.head.lx, restored.head.ly], [900, 1500]);
+  const absolute = calculateDesign({ ...input, head: { ...input.head, sizeMode: 'absolute', lx: 900, ly: 1500 } });
+  assert.equal(calculateDesign(input).governing.ur, absolute.governing.ur);
+  const circular = restoreInputs({ ...input, column: { shape: 'circular', diameter: 500 } });
+  assert.deepEqual([circular.head.shape, circular.head.diameter], ['circular', 1100]);
+  const old = restoreInputs({ head: { enabled: true, shape: 'rectangular', lx: 2000, ly: 1800, thickness: 400 } });
+  assert.deepEqual([old.head.sizeMode, old.head.lx, old.head.ly], ['absolute', 2000, 1800]);
 });

@@ -102,7 +102,7 @@ const asColumn = (input, size) => ({ ...input, column: { ...input.column, ...siz
 // the slab around it needs no links, with the β cap of the column connection. Null when it already needs
 // none or no size within 20 m does. Bisection on the plan growth; each step is one unreinforced check.
 function dropForNoLinks(input, betaCap) {
-  const grown = delta => ({ ...input, head: { ...input.head, lx: input.head.lx + delta, ly: input.head.ly + delta, diameter: input.head.diameter + delta } });
+  const grown = delta => ({ ...input, head: { ...input.head, sizeMode: 'absolute', lx: input.head.lx + delta, ly: input.head.ly + delta, diameter: input.head.diameter + delta } });
   const needs = delta => {
     const inp = grown(delta);
     const geo = headGeometry(inp);
@@ -118,7 +118,8 @@ function dropForNoLinks(input, betaCap) {
   while (needs(hi)) { lo = hi; hi *= 2; if (hi > 20000) return null; }
   while (hi - lo > 50) { const mid = Math.round((lo + hi) / 100) * 50; if (mid <= lo || mid >= hi) break; if (needs(mid)) lo = mid; else hi = mid; }
   const head = grown(hi).head;
-  return head.shape === 'circular' ? `Ø${head.diameter.toFixed(0)}` : `${head.lx.toFixed(0)} × ${head.ly.toFixed(0)}`;
+  const size = head.shape === 'circular' ? `Ø${head.diameter.toFixed(0)}` : `${head.lx.toFixed(0)} × ${head.ly.toFixed(0)}`;
+  return input.head.sizeMode === 'column' ? `l_H = ${(input.head.offset + hi / 2).toFixed(0)} mm (${size})` : `${size} mm`;
 }
 
 // Provided layers by zone, s = distance from the column face. Inside the drop (s ≤ l_H,min − c) they
@@ -218,7 +219,7 @@ export function calculateDesign(raw, forcedKind = null) {
   const hint = outer => {
     if (!outer.loads?.some(load => load.required) || input.head.shape === 'circular' && !(input.head.diameter > 0)) return;
     const size = dropForNoLinks(input, betaCap);
-    if (size) split.notes.push(`Links are needed in the slab around the drop. A drop of ${size} mm (same depth) would need none there (β of the column connection; inside the drop unchanged).`);
+    if (size) split.notes.push(`Links are needed in the slab around the drop. A drop of ${size} (same depth) would need none there (β of the column connection; inside the drop unchanged).`);
   };
   const issuesOf = [...momentBeta, ...split.issues];
   const extSection = (outer, eq, offset = 2 * d) => ({ id: 'ext', label: 'Slab outside the drop', d, offset, model: outer.model, u1: outer.u1, eq, aOut: outer.envelope?.uOut ? outer.envelope.aOut : 0 });
