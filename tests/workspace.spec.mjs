@@ -448,6 +448,8 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
   await page.getByRole('button', { name: 'Auto arrangement' }).click();
   await expect(page.getByLabel('Links', { exact: true })).toHaveValue('provided');
+  await page.getByRole('button', { name: 'What is s_t?' }).click();
+  await expect(page.locator('.info-note')).toContainText('tangential spacing');
   await page.getByRole('button', { name: 'Link arrangement: add row' }).click();
   await expect(schedule).toHaveCount(5);
   await page.locator('#plan-view [data-link="L2-3"]').click();

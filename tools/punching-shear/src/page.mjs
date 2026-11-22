@@ -48,7 +48,6 @@ const refreshLoads = mountTable(byId('loads-anchor'), {
 const layerAnchor = byId('layers-anchor');
 const layerTableHost = document.createElement('div');
 layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons:not(.arrangement-head)'));
-for (const cell of layerTableHost.querySelectorAll('thead th')) if (cell.textContent === 's_t (mm)') cell.innerHTML = 's<sub>t</sub> (mm)';
 // Link arrangement: rows of n layers at radial spacing s (row 1 from the column face) with links at
 // tangential spacing s_t along each layer.
 const refreshLayers = mountTable(layerTableHost, {
@@ -63,6 +62,23 @@ const refreshLayers = mountTable(layerTableHost, {
   },
   onChange: () => schedule(), addLabel: '+ Row', removeLabel: '− Row', rowLabel: index => String(index + 1),
 });
+for (const cell of layerTableHost.querySelectorAll('thead th')) {
+  if (cell.textContent !== 's_t (mm)') continue;
+  // (i) next to s_t: what the tangential spacing is and its EC2 limits.
+  cell.innerHTML = 's<sub>t</sub> <button type="button" class="info-button" aria-label="What is s_t?" aria-expanded="false">i</button>';
+  const note = document.createElement('p');
+  note.className = 'info-note';
+  note.hidden = true;
+  note.innerHTML = '<b>s<sub>t</sub></b>: tangential spacing, centre to centre of the links along one layer (mm). '
+    + 'Links per layer = layer length / s<sub>t</sub>, rounded up, so outer layers get more links. '
+    + 'EC2 §9.4.3(1): s<sub>t</sub> ≤ 1.5d within 2d of the loaded area, ≤ 2d further out (checked per layer).';
+  layerTableHost.querySelector('table').before(note);
+  const button = cell.querySelector('button');
+  button.addEventListener('click', () => {
+    note.hidden = !note.hidden;
+    button.setAttribute('aria-expanded', String(!note.hidden));
+  });
+}
 
 // Calculation case: worked cases appear as cards only when "Worked case" is chosen.
 let activeCard = null;

@@ -159,3 +159,6 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 #layers-anchor .table-caption { margin: .25rem 0 0; font-size: .75rem; }
 .compact-warning { margin: .3rem 0; padding: .3rem .5rem; border-left: 3px solid #c98a16; background: #fbecd2; color: #7a4508; font-size: .8rem; }
 .compact-case { margin: .2rem 0 .1rem; font-size: .8rem; color: #3d4a43; }
+.info-button { display: inline-grid; place-items: center; width: 1.05rem; height: 1.05rem; margin-left: .15rem; padding: 0; border: 1px solid #8a968f; border-radius: 50%; background: #fff; color: #4a5650; font: italic 600 .68rem/1 Georgia, serif; cursor: pointer; vertical-align: middle; }
+.info-button[aria-expanded="true"] { background: #2f5d47; border-color: #2f5d47; color: #fff; }
+.info-note { margin: .3rem 0 0; padding: .35rem .5rem; border-left: 3px solid #2f5d47; background: #eef3f0; font-size: .75rem; line-height: 1.4; color: #2e3a33; }
