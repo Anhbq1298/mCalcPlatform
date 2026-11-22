@@ -172,21 +172,21 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     if (H > 0) for (const face of faces) parts.push(`<path d="M${face.pts.map(p => p.map(n).join(' ')).join('L')}Z" fill="#c4cad0" stroke="${column.shape === 'circular' ? '#c4cad0' : COLORS.ink}" stroke-width=".7"/>`);
     parts.push(`<path d="M${base.map(p => lift(p).map(n).join(' ')).join('L')}Z" fill="#e8ebee" stroke="${COLORS.ink}" stroke-width=".9"/>`);
     for (const seg of segments.filter(item => item.depth >= centreDepth)) drawSeg(seg);
-    // V_Ed arrow at the column centre.
+    // V_Ed: the column reaction on the slab, pointing up from the column centre.
     const [ax, ay] = iso({ x: 0, y: 0 }, 0);
-    parts.push(`<line x1="${n(ax)}" y1="${n(ay - 70)}" x2="${n(ax)}" y2="${n(ay - 8)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(ax - 4)} ${n(ay - 14)}L${n(ax)} ${n(ay - 4)}L${n(ax + 4)} ${n(ay - 14)}Z" fill="${COLORS.ink}"/><text x="${n(ax)}" y="${n(ay - 76)}" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">V_Ed</text>`);
-    // Moment vectors (double-headed arrows, right-hand rule), tail on the V_Ed line at the slab
-    // plane. The moment the column applies to the slab is r × F with F = −V_Ed·Z at e = (e_x, e_y):
-    // (−V·e_y, V·e_x, 0) = (−M_x, +M_y, 0) with this tool's sign convention (+M_y moves the load to
-    // +X, +M_x to +Y), so a positive M_y points along +Y and a positive M_x along −X.
+    parts.push(`<line x1="${n(ax)}" y1="${n(ay - 2)}" x2="${n(ax)}" y2="${n(ay - 62)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(ax - 4)} ${n(ay - 60)}L${n(ax)} ${n(ay - 70)}L${n(ax + 4)} ${n(ay - 60)}Z" fill="${COLORS.ink}"/><text x="${n(ax)}" y="${n(ay - 76)}" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">V_Ed</text>`);
+    // Moment vectors (double-headed arrows, right-hand rule), tail on the V_Ed line. The reaction
+    // +V_Ed·Z acting at e = (e_x, e_y) carries the moment r × F = (V·e_y, −V·e_x, 0) = (+M_x, −M_y, 0)
+    // with this tool's sign convention (+M_y moves the reaction to +X, +M_x to +Y): a positive M_x
+    // points along +X and a positive M_y along −Y.
     const rot = ((column.rotation || 0) * Math.PI) / 180;
     const vectors = [
-      { value: governing.My, name: 'M_y', gx: 0, gy: 1 },
-      { value: -governing.Mx, name: 'M_x', gx: 1, gy: 0, label: governing.Mx },
+      { value: governing.Mx, name: 'M_x', gx: 1, gy: 0 },
+      { value: -governing.My, name: 'M_y', gx: 0, gy: 1, label: governing.My },
     ].filter(m => Math.abs(m.value) > 1e-9);
     const [o0, oBase] = iso({ x: 0, y: 0 }, 0);
-    parts.push(`<circle cx="${n(o0)}" cy="${n(oBase - 36)}" r="2.2" fill="#5b2a86"/>`);
-    const o1 = oBase - 36; // on the V_Ed line, above the slab
+    parts.push(`<circle cx="${n(o0)}" cy="${n(oBase - 34)}" r="2.2" fill="#5b2a86"/>`);
+    const o1 = oBase - 34; // on the V_Ed line
     vectors.forEach(m => {
       const q = { x: m.gx * Math.cos(rot) + m.gy * Math.sin(rot), y: -m.gx * Math.sin(rot) + m.gy * Math.cos(rot) };
       const [d0, d1] = isoAt({ x: q.x * 1000, y: q.y * 1000 }, 0);
@@ -202,7 +202,7 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
       const value = Math.abs(m.label ?? m.value);
       parts.push(`<line x1="${n(o0)}" y1="${n(o1)}" x2="${n(ex - 6 * ux)}" y2="${n(ey - 6 * uy)}" stroke="#5b2a86" stroke-width="1.6"/>`
         + head(ex, ey) + head(ex - 7 * ux, ey - 7 * uy)
-        + `<text class="small" x="${n(ux >= 0 ? Math.min(ex + 5, panelW * (index + 1) - 92) : Math.max(ex - 5, panelW * index + 92))}" y="${n(ey - 10)}" text-anchor="${ux >= 0 ? 'start' : 'end'}" fill="#5b2a86" style="fill:#5b2a86" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">${m.name} = ${(m.label ?? m.value) < 0 ? '−' : ''}${value.toFixed(0)} kN·m</text>`);
+        + `<text class="small" x="${n(ux >= 0 ? Math.min(ex + 5, panelW * (index + 1) - 92) : Math.max(ex - 5, panelW * index + 92))}" y="${n(uy > 0 ? ey + 16 : ey - 10)}" text-anchor="${ux >= 0 ? 'start' : 'end'}" fill="#5b2a86" style="fill:#5b2a86" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">${m.name} = ${(m.label ?? m.value) < 0 ? '−' : ''}${value.toFixed(0)} kN·m</text>`);
     });
     // Global axes (X, Y in plan, Z up) at the lower right of the panel.
     {
