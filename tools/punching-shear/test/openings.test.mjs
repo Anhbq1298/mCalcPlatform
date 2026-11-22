@@ -54,7 +54,7 @@ test('σ_cp adds k1·σ_cp to v_Rd,c and to its lower bound (Eq. 6.47)', () => {
   close(compressed.vRdc - plain.vRdc, 0.1 * 1.5, 1e-12);
 });
 
-test('detailing: slab depth, mandrel, hook extension, fit and engagement confirmation', () => {
+test('detailing: slab depth, mandrel, hook extension and fit (bar enclosure is an assumption, not a row)', () => {
   const slab = { h: 250, cover: 25 };
   const ok = detailingChecks({ slab, anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true }, diameters: [10, 12] });
   assert.equal(ok.status, 'Pass');
@@ -64,8 +64,9 @@ test('detailing: slab depth, mandrel, hook extension, fit and engagement confirm
   assert.equal(bend.rows.find(row => row.id === 'extension-10').status, 'Fail'); // needs max(10φ, 70) = 100
   const big = detailingChecks({ slab, anchorage: { type: 'hook', mandrelFactor: 4, extension: 120, engaged: true }, diameters: [20] });
   assert.equal(big.rows.find(row => row.id === 'mandrel-20').status, 'Fail'); // needs 7φ for φ > 16
-  const unconfirmed = detailingChecks({ slab, anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: false }, diameters: [10] });
-  assert.equal(unconfirmed.status, 'Requires confirmation');
+  const plain = detailingChecks({ slab, anchorage: { type: 'hook', mandrelFactor: 4, extension: 75 }, diameters: [10] });
+  assert.equal(plain.status, 'Pass');
+  assert.ok(!plain.rows.some(row => row.id === 'engaged'));
 });
 
 test('UK profile uses 0.5·ν·f_cd and 2·v_Rd,c, and stays Not verified until confirmed', () => {
@@ -81,7 +82,7 @@ test('Dlubal VE 1028 circular column: u1, v_Ed, k, v_Rd,c and v_min (CEN-indepen
   const input = newDefaults();
   input.column = { ...input.column, shape: 'circular', diameter: 300 };
   input.slab = { ...input.slab, h: 240, dx: 210, dy: 210 };
-  input.flexure = { ...input.flexure, asx: 1050, asy: 1050 };
+  input.flexure = { ...input.flexure, areaMode: 'explicit', asx: 1050, asy: 1050 };
   input.beta = { method: 'user', userValue: 1.1 };
   input.loads = [{ name: 'VE1028', V: 500, Mx: 0, My: 0 }];
   const result = calculate(input);

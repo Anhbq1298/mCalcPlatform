@@ -9,7 +9,7 @@ export function row(id, clause, label, demand, resistance, status, extra = {}) {
   return { id, clause, label, demand, resistance, ur, status: status ?? (ur !== null && ur <= 1 + 1e-9 ? STATES.pass : STATES.fail), ...extra };
 }
 
-export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, kMax = P.kMax, kMaxLabel = 'k_max·v_Rd,c', detailing }) {
+export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, kMax = P.kMax, kMaxLabel = 'k_max·v_Rd,c', detailing, outerEf = null }) {
   const rows = [];
   const layerRows = [];
   const fywdEf = fywdEffective(fyk, d);
@@ -41,7 +41,14 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
 
   const outermost = Math.max(...offsets);
   const needed = aOut - P.outerK * d;
-  rows.push(row('outer', '§6.4.5(4), Eq. 6.54', 'Outer coverage: outermost layer ≥ a_out − 1.5d', Math.max(needed, 0), outermost, null, {
+  if (outerEf) {
+    // Fig. 6.22: u_out,ef 1.5d outside the outer links, gaps > 2d counted as 2d; Eq. 6.54 needs βV/(v_Rd,c·d).
+    const cut = outerEf.segments.filter(seg => seg.length > 2 * d + 1e-9).length;
+    rows.push(row('outer', '§6.4.5(4), Eq. 6.54, Fig. 6.22', 'Outer perimeter u_out,ef ≥ β·V_Ed/(v_Rd,c·d)', outerEf.uReq, outerEf.u, null, {
+      unit: 'mm', governing: summary[offsets.indexOf(outermost)].id,
+      detail: `u_out,ef = ${outerEf.u.toFixed(0)} mm 1.5d outside ${summary[offsets.indexOf(outermost)].id}${cut ? ` (${cut} gaps > 2d counted as 2d, Fig. 6.22 B; full ${outerEf.full.toFixed(0)} mm)` : ''}, required ${outerEf.uReq.toFixed(0)} mm`,
+    }));
+  } else rows.push(row('outer', '§6.4.5(4), Eq. 6.54', 'Outer coverage: outermost layer ≥ a_out − 1.5d', Math.max(needed, 0), outermost, null, {
     unit: 'mm', detail: `a_out = ${aOut.toFixed(0)} mm, required ${Math.max(needed, 0).toFixed(0)} mm, provided ${outermost.toFixed(0)} mm`, governing: summary[offsets.indexOf(outermost)].id,
   }));
   // A count, not a utilisation: pass/fail only, no UR (2/n would read as a spare capacity).
@@ -72,14 +79,20 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
     const adjacent = [spacings[i - 1], spacings[i]].filter(value => value > 0);
     const sr = adjacent.length ? Math.max(...adjacent) : radialLimit;
     const legArea = layer.asw / Math.max(layer.effectiveLegs, 1);
-    const minArea = minimumLegArea({ fck, fyk, sr, st: layer.tangential.max });
-    const tangential = row('tangential-' + layer.id, '§9.4.3(1)', `${layer.id} tangential spacing ≤ ${limit === 1.5 * d ? '1.5d' : '2d'}`, layer.tangential.max, limit, null, { unit: 'mm', governing: layer.id });
+    // Outside u1 with Fig. 6.22: a gap > 2d is not a failure, that part of the perimeter does not count
+    // (§9.4.3(1) "where that part … is assumed to contribute"); each leg then serves at most 2d (Eq. 9.11).
+    const excluded = outerEf && layer.offset > 2 * d && layer.tangential.max > limit + 1e-9;
+    const minArea = minimumLegArea({ fck, fyk, sr, st: excluded ? limit : layer.tangential.max });
+    const tangential = excluded
+      ? { ...row('tangential-' + layer.id, '§9.4.3(1), Fig. 6.22 B', `${layer.id} tangential spacing > 2d outside u1`, layer.tangential.max, limit, STATES.pass, { unit: 'mm', governing: layer.id, detail: 'Gaps > 2d excluded from u_out,ef (Fig. 6.22 B).' }), ur: null }
+      : row('tangential-' + layer.id, '§9.4.3(1)', `${layer.id} tangential spacing ≤ ${limit === 1.5 * d ? '1.5d' : '2d'}`, layer.tangential.max, limit, null, { unit: 'mm', governing: layer.id });
     const minimum = row('minimum-' + layer.id, '§9.4.3(2), Eq. 9.11', `${layer.id} minimum leg area`, minArea, layer.effectiveLegs ? legArea : 0, layer.effectiveLegs ? null : STATES.fail, { unit: 'mm²', governing: layer.id });
     const placement = layer.ineffective.length
       ? row('legs-' + layer.id, '§6.4.5', `${layer.id} legs outside the slab or in openings`, layer.ineffective.length, 0, STATES.fail, { unit: 'legs', detail: layer.ineffective.map(leg => leg.id + ' ' + leg.reason).join(', ') })
       : null;
     layerRows.push({ layer, limit, sr, minArea, legArea, tangential, minimum, placement });
-    if (!worstTangential || (tangential.ur ?? Infinity) > (worstTangential.ur ?? Infinity)) worstTangential = tangential;
+    // Rows without a UR (gaps excluded under Fig. 6.22 B) never mask a layer that has one.
+    if (!worstTangential || (tangential.ur ?? -Infinity) > (worstTangential.ur ?? -Infinity)) worstTangential = tangential;
     if (!worstMinimum || (minimum.ur ?? Infinity) > (worstMinimum.ur ?? Infinity)) worstMinimum = minimum;
   });
   rows.push({ ...worstTangential, id: 'tangential', label: 'Tangential spacing (governing layer)' });

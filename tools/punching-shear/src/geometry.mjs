@@ -51,6 +51,8 @@ function pieces(column, r) {
   ].filter(piece => piece.length > 0);
 }
 
+export const pathPieces = (column, r) => pieces(column, r);
+
 // Local point and unit tangent at arc length s along the path at offset r.
 export function pointAt(column, r, s) {
   const list = pieces(column, r);

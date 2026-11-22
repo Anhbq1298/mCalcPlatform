@@ -45,7 +45,7 @@ export function handExamples() {
     const { k, rho, vRdc } = concrete({ d, dx: 218, dy: 218, asx: 1090, asy: 1090, fck });
     const u1 = 2 * (c1 + c2) + 4 * Math.PI * d;
     const v1 = beta * V / (u1 * d);
-    const sr = Math.floor(0.75 * d / 5) * 5; // §9.4.3(1), rounded down to 5 mm
+    const sr = 150; // auto arrangement s_r (input, default 150 mm ≤ 0.75d = 163.5)
     const fywdEf = Math.min(250 + 0.25 * d, 500 / 1.15); // Eq. 6.52 note
     const asw = (v1 - 0.75 * vRdc) * u1 * sr / (1.5 * fywdEf); // Eq. 6.52 solved for A_sw
     const uOut = beta * V / (vRdc * d); // Eq. 6.54
@@ -59,7 +59,7 @@ export function handExamples() {
       ['u_1 = 2(c_1 + c_2) + 4πd', 'mm', u1, tool.u1],
       ['v_Ed,1 = βV/(u_1·d)', 'MPa', v1, tool.loads[0].vEd1],
       ['k_max·v_Rd,c = 1.5 v_Rd,c', 'MPa', 1.5 * vRdc, row('kmax').resistance],
-      ['s_r = 0.75d rounded down to 5', 'mm', sr, tool.envelope.sr],
+      ['s_r (auto arrangement input)', 'mm', sr, tool.envelope.sr],
       ['f_ywd,ef = 250 + 0.25d ≤ f_ywd', 'MPa', fywdEf, tool.fywdEf],
       ['A_sw,req per perimeter (Eq. 6.52)', 'mm²', asw, tool.envelope.aswReq],
       ['u_out,ef = βV/(v_Rd,c·d) (Eq. 6.54)', 'mm', uOut, tool.envelope.uOut],

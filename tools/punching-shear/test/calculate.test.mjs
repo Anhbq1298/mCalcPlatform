@@ -3,9 +3,11 @@ import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
 import { newDefaults, restoreInputs } from '../src/inputs.mjs';
 
+// CSI RC-PN-001 geometry: ρ = 0.5 % each way (A_s = 1090 mm²/m, migrated to Ø16 at the equivalent spacing).
 const base = () => {
   const input = newDefaults();
   input.beta.confirmed = true;
+  input.flexure = { ...input.flexure, areaMode: 'explicit', asx: 1090, asy: 1090 };
   return input;
 };
 const rowOf = (load, id) => load.rows.find(entry => entry.id === id);
@@ -23,17 +25,14 @@ test('CSI geometry: u1, v_Rd,c and the k_max cap give a Fail that links cannot r
   assert.ok(result.notes[0].includes('Adding links cannot resolve'));
 });
 
-test('moderate load: auto layout satisfies every implemented check; anchorage keeps the design at Requires confirmation', () => {
+test('moderate load: auto layout satisfies every implemented check (bar enclosure is a stated assumption)', () => {
   const input = base();
   input.loads = [{ name: 'ULS', V: 800, Mx: 0, My: 0 }];
   const result = calculate(input);
   const load = result.loads[0];
   assert.equal(load.required, true);
-  for (const entry of load.rows) {
-    if (entry.id === 'anchorage') assert.equal(entry.status, 'Requires confirmation');
-    else assert.ok(['Pass', 'Links required'].includes(entry.status), `${entry.id}: ${entry.status}`);
-  }
-  assert.equal(result.status, 'Requires confirmation');
+  for (const entry of load.rows) assert.ok(['Pass', 'Links required'].includes(entry.status), `${entry.id}: ${entry.status}`);
+  assert.equal(result.status, 'Pass');
   const layers = result.layout.summary;
   assert.ok(layers.length >= 2);
   assert.ok(layers[0].offset <= 0.5 * result.section.d && layers[0].offset >= 0.3 * result.section.d);

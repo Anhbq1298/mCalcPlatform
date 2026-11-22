@@ -1,6 +1,6 @@
 // Physical detailing of the links: slab depth (§9.3.2(1)), mandrel diameter (§8.3, Table 8.1N),
 // anchorage of links by bends or hooks (§8.5, Fig. 8.5) and the fit of both bends within the slab.
-// Whether each link encloses the flexural bars must be confirmed by the user.
+// That the links enclose the top and bottom flexural bars is a stated assumption (profile.mjs), not a check.
 import { STATES } from './inputs.mjs';
 
 export const ANCHORAGE_TYPES = {
@@ -26,10 +26,6 @@ export function detailingChecks({ slab, anchorage = {}, diameters }) {
     const clear = slab.h - 2 * (slab.cover ?? 0);
     rows.push(item('fit-' + phi, 'Physical geometry', `Ø${phi} both bends fit: h − 2c ≥ φm + 2φ`, mandrel + 2 * phi, clear, null, `h − 2c = ${clear.toFixed(0)} mm`));
   }
-  rows.push({
-    id: 'engaged', clause: '§8.5, §9.4.3', label: 'Links enclose the top and bottom flexural bars', demand: null, resistance: null, ur: null,
-    status: anchorage.engaged === true ? STATES.pass : STATES.confirm, detail: anchorage.engaged === true ? 'Confirmed by the user.' : 'Confirm the link engages the flexural bars at both ends.',
-  });
   const status = rows.some(row => row.status === STATES.fail) ? STATES.fail : rows.some(row => row.status === STATES.confirm) ? STATES.confirm : STATES.pass;
   return { rows, status };
 }

@@ -44,13 +44,19 @@ export function buildLinks(model, layers, origin, base = 0) {
     const layerId = layer.id ?? 'L' + (base + layerIndex + 1);
     const geometry = model.intervalsAt(layer.offset);
     const omitted = new Set(layer.omitted || []);
-    return linkCentres(geometry, layer.links, layer.start || 0, layer.st).map((centre, index) => ({ centre, index }))
+    // Arranged layers (rails, grid) carry their own points; perimeter layers are spaced along the path.
+    const centres = layer.points ? layer.points.map(p => p.s) : linkCentres(geometry, layer.links, layer.start || 0, layer.st);
+    return centres.map((centre, index) => ({ centre, index }))
       .filter(({ index }) => !omitted.has(index))
       .map(({ centre, index }) => {
-        const at = pointAt(column, layer.offset, centre);
+        const own = layer.points?.[index];
+        const onPath = pointAt(column, layer.offset, centre);
+        // Off-path points (grid corners) keep their position; legs of two-leg links sit ± legGap/2 along the tangent.
+        const at = own ? { ...onPath, x: own.x, y: own.y } : onPath;
         const legPositions = layer.shape === 'double' ? [centre - legGap / 2, centre + legGap / 2] : [centre];
         const legs = legPositions.map((s, legIndex) => {
-          const point = toGlobal(column, pointAt(column, layer.offset, s));
+          const shift = s - centre;
+          const point = toGlobal(column, own ? { x: own.x + shift * onPath.tx, y: own.y + shift * onPath.ty } : pointAt(column, layer.offset, s));
           const reason = exclusion(model, point);
           const u = geometry.u;
           return { id: `${layerId}-${index + 1}-${legIndex + 1}`, s: ((s % u) + u) % u, x: point.x, y: point.y, effective: !reason, reason };
@@ -101,38 +107,4 @@ export function layerSummary(model, layers, links, base = 0) {
       ineffective: legs.filter(leg => !leg.effective).map(leg => ({ id: leg.id, reason: leg.reason })),
     };
   });
-}
-
-const floorTo = (value, step) => Math.floor(value / step + 1e-9) * step;
-
-// Automatic layout (§6.4.5 and §9.4.3, recommended values): the smallest link count per layer that
-// gives the required A_sw, the tangential spacing limit and the Eq. 9.11 leg area.
-export function autoLayout({ model, d, asw, aOut, fck, fyk, diameter, shape, limits }) {
-  if (!(asw > 0)) return { layers: [], reason: 'No punching reinforcement required.' };
-  const first = Math.max(Math.ceil((limits.firstLayerMin * d) / 5) * 5, floorTo(0.4 * d, 5));
-  const sr = floorTo(limits.radialSpacing * d, 5);
-  if (!(sr > 0) || first > limits.firstLayerMax * d) return { layers: [], reason: 'Effective depth is too small for a valid first-layer position and radial spacing.' };
-  const required = Math.max(aOut - limits.outerK * d, first);
-  const count = Math.max(2, Math.ceil((required - first) / sr - 1e-9) + 1);
-  const legArea = barArea(diameter);
-  const perLink = LINK_SHAPES[shape].legs;
-  const layers = [];
-  for (let i = 0; i < count; i += 1) {
-    const offset = first + i * sr;
-    const geometry = model.intervalsAt(offset);
-    if (!geometry.total) return { layers: [], reason: `Layer L${i + 1} has no effective length inside the slab.` };
-    const stLimit = (offset <= 2 * d ? limits.tangentialInside : limits.tangentialOutside) * d;
-    const minLinks = Math.max(1, Math.ceil(Math.max(asw / legArea, geometry.total / stLimit, 4) / perLink - 1e-9));
-    let found = null;
-    for (let links = minLinks; links <= minLinks + 3000 && !found; links += 1) {
-      if (perLink === 2 && model.legGap >= geometry.total / links) break; // legs of adjacent links would overlap
-      const layer = { offset, diameter, shape, links, start: 0, omitted: [] };
-      const summary = layerSummary(model, [layer], buildLinks(model, [layer], 'auto'))[0];
-      const minLeg = (0.08 * Math.sqrt(fck) / fyk) * (sr * summary.tangential.max) / 1.5;
-      if (summary.tangential.max <= stLimit + 1e-9 && summary.asw >= asw - 1e-9 && legArea >= minLeg - 1e-9) found = layer;
-    }
-    if (!found) return { layers: [], reason: `No valid link count for layer L${i + 1} with Ø${diameter} ${LINK_SHAPES[shape].label.toLowerCase()}s; the two-leg link width must be smaller than the link spacing; reduce it or use single-leg links.` };
-    layers.push(found);
-  }
-  return { layers, first, sr };
 }

@@ -55,6 +55,7 @@ export const ASSUMPTIONS = [
   'Eccentricities e_x = M_y/V_Ed and e_y = M_x/V_Ed give the position of the punching force resultant relative to the column centroid.',
   'Openings within 6d remove the sector between the tangents from the column centre (Fig. 6.14) from every check perimeter and link layer, and from u0 of internal columns.',
   'Outer perimeters u_out,ef follow the same clipped shape as u1.',
+  'Links are assumed to enclose the top and bottom flexural bars (§8.5, §9.4.3); the tool does not check this.',
 ];
 
 export const UNSUPPORTED = [

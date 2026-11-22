@@ -161,3 +161,18 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 .info-button { display: inline-grid; place-items: center; width: 1.05rem; height: 1.05rem; margin-left: .15rem; padding: 0; border: 1px solid #8a968f; border-radius: 50%; background: #fff; color: #4a5650; font: italic 600 .68rem/1 Georgia, serif; cursor: pointer; vertical-align: middle; }
 .info-button[aria-expanded="true"] { background: #2f5d47; border-color: #2f5d47; color: #fff; }
 .info-note { margin: .3rem 0 0; padding: .35rem .5rem; border-left: 3px solid #2f5d47; background: #eef3f0; font-size: .75rem; line-height: 1.4; color: #2e3a33; }
+
+.about-link { background: none; cursor: pointer; font: inherit; font-size: .85rem; }
+.about-link + .help-link { margin-left: .4rem; }
+.about-dialog { max-width: min(920px, 94vw); max-height: 88vh; overflow: auto; border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.25rem; position: relative; }
+.about-dialog::backdrop { background: rgba(0, 0, 0, .35); }
+.about-dialog h2 { margin: 0 0 .5rem; font-size: 1.05rem; }
+.about-dialog h3 { margin: 1rem 0 .4rem; font-size: .92rem; }
+.about-dialog table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.about-dialog th, .about-dialog td { border-bottom: 1px solid var(--rule); padding: .3rem .4rem; text-align: left; vertical-align: top; }
+.about-dialog ul { font-size: .82rem; padding-left: 1.1rem; }
+.about-dialog p { font-size: .82rem; }
+.about-dialog .badge { font-size: .72rem; border-radius: 3px; padding: .05rem .4rem; margin-right: .3rem; }
+.about-dialog .badge.verified { background: #e3f1e5; color: #1e5b2a; }
+.about-dialog .badge.pending { background: #fbefd9; color: #6b4708; }
+.about-close { position: absolute; top: .5rem; right: .6rem; border: 0; background: none; font-size: 1.3rem; cursor: pointer; }

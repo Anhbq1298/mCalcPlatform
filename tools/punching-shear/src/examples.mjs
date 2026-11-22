@@ -15,7 +15,7 @@ export const CASES = [
   {
     id: 'internal-links', title: '2 · Internal column, auto links (CSI RC-PN-001)', expect: 'Pass',
     note: 'Benchmark geometry: 300 × 900 column, h = 250, d = 218, auto single-leg links.',
-    input: { ...confirmed, ...engaged, loads: [{ name: 'ULS 1', V: 800, Mx: 0, My: 0 }] },
+    input: { ...confirmed, ...engaged, flexure: { areaMode: 'explicit', asx: 1090, asy: 1090 }, loads: [{ name: 'ULS 1', V: 800, Mx: 0, My: 0 }] },
   },
   {
     id: 'internal-moment', title: '2b · Rectangular column, biaxial moments (Eq. 6.43)', expect: 'Pass',

@@ -8,6 +8,7 @@
 <body>
   <header class="titlebar">
     <h1>mPunchingShear <span>Slab–Column Punching Shear</span></h1>
+    <button type="button" id="about-button" class="help-link about-link">About</button>
     <a class="help-link" href="help.html" target="_blank" rel="noopener">Help</a>
     <output id="calculation-status" aria-live="polite">Preparing</output>
   </header>
@@ -96,6 +97,10 @@
       </details>
     </section>
   </main>
+  <dialog id="about-dialog" class="about-dialog" aria-label="About mPunchingShear">
+    <button type="button" class="about-close" aria-label="Close">×</button>
+    <div class="about-body"></div>
+  </dialog>
   <script type="module" src="/platform/tools/punching-shear/src/page.mjs"></script>
 </body>
 </html>
