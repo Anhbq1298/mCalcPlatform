@@ -4,7 +4,8 @@ import { shearDemand } from './demand.mjs';
 import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
-import { arcLengthAt, arrangedLayers, faceGaps, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
+import { arcLengthAt, arrangedLayers, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
+import { optimise } from './optimise.mjs';
 import { dropFillPoints, ringGaps } from './grid-thin.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
 import { offsetForLength } from './perimeters.mjs';
@@ -83,22 +84,8 @@ export function calculate(rawInput, options = {}) {
 
   const { d, model } = ctx;
   const { materials, reinforcement } = input;
-  // Auto s_r: try the radial spacings the arrangement allows and keep the one with the fewest links that
-  // passes (else the lowest UR). On the bar grid s_r is a whole multiple of the bar spacing.
-  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && reinforcement.srAuto !== false && !options.srFixed) {
-    // The entered s_r is the user's upper limit (constraint); the code limit is 0.75d.
-    const limit = Math.min(Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5, reinforcement.sr > 0 ? reinforcement.sr : Infinity);
-    const bars = gridOnBars(input, d);
-    const candidates = bars.on
-      ? Array.from({ length: Math.max(1, Math.floor(limit / bars.spacing + 1e-9)) }, (_, k) => (k + 1) * bars.spacing)
-      : [...new Set([limit, ...Array.from({ length: 8 }, (_, k) => Math.floor((limit - 25 * (k + 1)) / 25) * 25).filter(v => v >= Math.max(50, Math.min(0.4 * d, limit)))])];
-    if (!candidates.length) candidates.push(limit);
-    const trials = candidates.map(sr => calculate({ ...input, reinforcement: { ...reinforcement, sr, srAuto: false } }, { ...options, srFixed: true }));
-    const score = r => [r.status === STATES.pass ? 0 : 1, r.status === STATES.pass ? (r.layout?.links?.length ?? 0) : (r.governing?.ur ?? Infinity)];
-    const best = trials.reduce((a, b) => { const [sa, va] = score(a); const [sb, vb] = score(b); return sb < sa || (sb === sa && vb < va) ? b : a; });
-    if (best.envelope?.sr && best.layout?.layers?.length) best.notes = [`Auto s_r = ${best.envelope.sr} mm (fewest links that pass among ${candidates.join(', ')} mm).`, ...(best.notes ?? [])];
-    return best;
-  }
+  // Auto arrangement: the user's bar Ø and maximum spacings are constraints; see optimise.mjs.
+  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && !options.srFixed) return optimise(calculate, input, options, d);
   // Radial spacing for the required A_sw (Eq. 6.52) and the layer grid: the auto arrangement's s_r, else
   // the recommended 0.75d rounded down to 5 mm.
   const srLimit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
@@ -150,7 +137,7 @@ export function calculate(rawInput, options = {}) {
     const uReq = fig622 && needing.length ? Math.max(...needing.map(item => model.intervalsAt(item.aOut).total)) : null;
     const generated = !needing.length
       ? { layers: [], reason: 'No punching reinforcement required.' }
-      : arrangedLayers({ model, d, aOut: dropEdgeOut, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
+      : arrangedLayers({ model, d, aOut: dropEdgeOut, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, extra: reinforcement.extra ?? 0, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
     layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
     if (generated.note) limitNotes.push(generated.note);
     if (srNote && needing.length) limitNotes.push(srNote);
@@ -169,7 +156,6 @@ export function calculate(rawInput, options = {}) {
     layout.edgeLinks = fill.length;
   }
   layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
-  if (layout.arrangement === 'cruciform') summary.forEach(layer => { layer.tangential = faceGaps(model.column, layer.offset, layer.tangential); });
   // Grid rings (closed, internal column): s_t as straight distances between neighbouring links.
   if (layout.arrangement === 'grid' && layout.fig622) summary.forEach((layer, i) => { layer.tangential = ringGaps(layout.layers[i].points); });
   if (layout.fig622 && layout.layers.length) layout.outerEf = outerPerimeterEf(layout.layers.at(-1).points, d, P.outerK);

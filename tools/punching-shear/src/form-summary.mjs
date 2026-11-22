@@ -11,9 +11,8 @@ export const SUMMARY = {
   Openings: s => (s.openings?.length ? `${s.openings.length} opening${s.openings.length > 1 ? 's' : ''}` : 'none'),
   Materials: s => `f_ck ${n0(s.materials.fck)} · f_yk ${n0(s.materials.fyk)}`,
   'In-plane normal stress': s => (s.prestress?.sigmaX || s.prestress?.sigmaY ? `σ ${s.prestress.sigmaX ?? 0} / ${s.prestress.sigmaY ?? 0} MPa` : 'none'),
-  'Top flexural reinforcement': s => (s.flexure.areaMode === 'explicit' ? `A_s ${n0(s.flexure.asx)} / ${n0(s.flexure.asy)} mm²/m` : `Ø${s.flexure.phiX}@${s.flexure.sX} / Ø${s.flexure.phiY}@${s.flexure.sY}`),
   'Design actions': s => `${s.loads.length} comb. · V_Ed ≤ ${n0(Math.max(0, ...s.loads.map(load => load.V || 0)))} kN`,
   'Load increment factor $\\beta$': s => (s.beta.method === 'simplified' ? 'simplified' : s.beta.method === 'user' ? `user ${s.beta.userValue}` : 'from moments'),
-  'Punching reinforcement': s => (s.reinforcement.enabled !== true ? 'none'
-    : s.reinforcement.mode === 'auto' ? `auto · ${(s.reinforcement.arrangement ?? 'grid') === 'grid' ? 'grid on flexural bars' : s.reinforcement.arrangement} · Ø${s.reinforcement.diameter}` : 'custom layout'),
+  Reinforcement: s => `Ø${s.flexure.phiX}@${Math.round(s.flexure.sX)} / Ø${s.flexure.phiY}@${Math.round(s.flexure.sY)} · ` + (s.reinforcement.enabled !== true ? 'no links'
+    : s.reinforcement.mode === 'auto' ? `auto · ${(s.reinforcement.arrangement ?? 'grid') === 'grid' ? 'links on bar grid' : 'stud rails'} · Ø${s.reinforcement.diameter}` : 'custom layout'),
 };

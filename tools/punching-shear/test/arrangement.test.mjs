@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { arcLengthAt, arrangedLayers, faceGaps, outerPerimeterEf } from '../src/arrangement.mjs';
+import { arcLengthAt, arrangedLayers, outerPerimeterEf } from '../src/arrangement.mjs';
 import { layerSummary, buildLinks } from '../src/layout.mjs';
 import { calculate } from '../src/calculate.mjs';
 import { pointAt } from '../src/geometry.mjs';
@@ -8,7 +8,7 @@ import { cenDefaults, newDefaults, restoreInputs } from '../src/inputs.mjs';
 
 const column = { shape: 'rectangular', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 };
 const model = { column, slab: null, openings: [], shadows: [] };
-const make = (type, extra = {}) => arrangedLayers({ model: { ...model, slab: { xMin: -1e5, xMax: 1e5, yMin: -1e5, yMax: 1e5 } }, d: 200, aOut: 900, type, sr: 150, st: 150, rails: 12, diameter: 10, shape: 'single', first: 80, outerK: 1.5, ...extra });
+const make = (type, extra = {}) => arrangedLayers({ model: { ...model, slab: { xMin: -1e5, xMax: 1e5, yMin: -1e5, yMax: 1e5 } }, d: 200, aOut: 900, type, sr: 150, st: 150, diameter: 10, shape: 'single', first: 80, outerK: 1.5, ...extra });
 
 test('arc length projection returns the point on the control path', () => {
   for (const s of [0, 120, 400, 777, 1300]) {
@@ -20,22 +20,6 @@ test('arc length projection returns the point on the control path', () => {
 test('layers at s0 + k·s_r up to u_out,ef − 1.5d, at least two', () => {
   const { layers } = make('grid');
   assert.deepEqual(layers.map(layer => layer.offset), [80, 230, 380, 530, 680]); // last ≥ 900 − 300
-});
-
-test('radial rails (Fig. 6.22 A): face rails plus corner rails that start where the corner gap needs them', () => {
-  const wide = { ...column, cx: 300, cy: 900 };
-  const mdl = { column: wide, slab: { xMin: -1e5, xMax: 1e5, yMin: -1e5, yMax: 1e5 }, openings: [], shadows: [] };
-  const { layers, rails } = arrangedLayers({ model: mdl, d: 200, aOut: 900, type: 'radial', sr: 150, diameter: 10, shape: 'single', first: 80, outerK: 1.5 });
-  // L1 (80 mm): the corner gap without fan rails, (π/2)·80 = 126 ≤ 1.5d, so the corner rails start further out.
-  assert.equal(layers[0].points.length, 2 * 2 + 2 * 4);
-  assert.ok(layers.some(layer => layer.points.length === 2 * 2 + 2 * 4 + 4 * rails)); // fan rails where needed
-  for (const layer of layers) {
-    for (const p of layer.points) {
-      const q = pointAt(wide, layer.offset, p.s);
-      assert.ok(Math.hypot(q.x - p.x, q.y - p.y) < 1e-6); // every stud lies on the control path at its offset
-    }
-    if (layer.offset <= 400) assert.ok((Math.PI / 2) * layer.offset / (rails + 1) <= 300 + 1e-9); // corner gap
-  }
 });
 
 test('orthogonal grid: ring points on the rectangle at the offset, grid lines ≤ s_t apart', () => {
@@ -70,25 +54,6 @@ test('defaults: orthogonal grid at 150 mm and flexural bars; older auto saves mo
   assert.ok(Math.abs((Math.PI * 64 * 1000) / old.flexure.sX - 1090) < 1e-9);
 });
 
-test('cruciform rails (Fig. 6.22 B): rails in line with the column edges, ≤ 1.5d apart on each face', () => {
-  const wide = { ...column, cx: 300, cy: 900 };
-  const { layers } = arrangedLayers({ model: { column: wide, slab: { xMin: -1e5, xMax: 1e5, yMin: -1e5, yMax: 1e5 }, openings: [], shadows: [] }, d: 200, aOut: 900, type: 'cruciform', sr: 150, diameter: 10, shape: 'single', first: 80, outerK: 1.5 });
-  const top = layers[0].points.filter(p => p.y > 450).map(p => p.x).sort((a, b) => a - b);
-  assert.deepEqual(top, [-150, 150]); // 300 ≤ 1.5d = 300: two rails
-  const side = layers[0].points.filter(p => p.x > 150).map(p => p.y).sort((a, b) => a - b);
-  assert.equal(side.length, 4); // 900 / 300 → 4 rails, 300 apart
-  assert.ok(Math.abs(side[1] - side[0] - 300) < 1e-9);
-});
-
-test('cruciform: only gaps along a face count as s_t; the corner gaps are left to u_out,ef', () => {
-  const mdl = { column, slab: { xMin: -1e5, xMax: 1e5, yMin: -1e5, yMax: 1e5 }, openings: [], shadows: [], intervalsAt: r => { const u = 4 * 400 + 2 * Math.PI * r; return { u, total: u, intervals: [{ s0: 0, s1: u, closed: true }] }; } };
-  const { layers } = arrangedLayers({ model: mdl, d: 200, aOut: 900, type: 'cruciform', sr: 150, diameter: 10, shape: 'single', first: 80, outerK: 1.5 });
-  const outer = layers.at(-1);
-  const [summary] = layerSummary(mdl, [outer], buildLinks(mdl, [outer], 'auto'));
-  assert.ok(summary.tangential.max > 300); // around the corner
-  assert.ok(Math.abs(faceGaps(column, outer.offset, summary.tangential).max - 400 / 2) < 1e-6); // 400 face, 3 rails
-});
-
 test('u_out,ef (Fig. 6.22): Σ min(L_i, 2d) + 2π·1.5d', () => {
   const square = [{ x: 100, y: 100 }, { x: -100, y: 100 }, { x: -100, y: -100 }, { x: 100, y: -100 }];
   const close = outerPerimeterEf(square, 200); // sides 200 ≤ 2d: full polygon + arcs (Fig. 6.22 A)
@@ -105,23 +70,11 @@ test('required vs effective outer perimeter: same u_out,req, different u_out,ef 
     input.reinforcement.arrangement = arrangement;
     return calculate(input);
   };
-  const results = ['grid', 'radial', 'cruciform'].map(run);
+  const results = ['grid', 'rails'].map(run);
   const outer = results.map(result => result.loads[0].rows.find(row => row.id === 'outer'));
   assert.ok(outer.every(row => Math.abs(row.demand - outer[0].demand) < 1e-9)); // u_out,req
-  assert.ok(outer[0].ur <= 1 && outer[2].resistance < outer[0].resistance); // grid covers, cruciform loses the corners
+  assert.ok(outer[0].ur <= 1 && outer[1].resistance !== outer[0].resistance); // effective perimeters differ
   assert.ok(results.every(result => result.layout.outerEf));
-});
-
-test('cruciform reaches u_out,req by widening the arms, not by longer rails', () => {
-  const input = cenDefaults();
-  input.beta.confirmed = true;
-  input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }];
-  input.reinforcement.arrangement = 'cruciform';
-  const result = calculate(input);
-  const outer = result.loads[0].rows.find(row => row.id === 'outer');
-  assert.ok(outer.ur <= 1, String(outer.ur));
-  const top = result.layout.layers[0].points.filter(p => p.y > 450).map(p => p.x);
-  assert.ok(Math.max(...top) > 150 + 1e-6); // rails beside the 300 mm face, outside the column edge
 });
 
 test('u_out,ef matches Ancon Shearfix EC2 manual Example 16.1 (cruciform, published 6371 mm)', () => {
@@ -149,7 +102,7 @@ test('auto arrangement: s_r capped at 0.75d with a note; rails added until Eq. 6
   const { CASES } = await import('../src/examples.mjs');
   const { calculateDesign } = await import('../src/head.mjs');
   const input = structuredClone(CASES.find(c => c.id === 'drop-through').input);
-  input.reinforcement = { ...input.reinforcement, mode: 'auto', arrangement: 'cruciform', sr: 150, st: 150 };
+  input.reinforcement = { ...input.reinforcement, mode: 'auto', arrangement: 'rails', sr: 150, st: 150, srAuto: true };
   const result = calculateDesign(input);
   assert.ok(result.loads[0].rows.find(row => row.id === 'reinforced').ur <= 1);
 });
@@ -209,23 +162,39 @@ test('drop: grid links run out to the drop edge (less cover) on every side; extr
   assert.ok(result.layout.summary.every(layer => layer.id !== 'E')); // rings only in the checks
 });
 
-test('auto s_r: the fewest links that pass; on the bar grid s_r is a multiple of the bar spacing', async () => {
-  const { calculateDesign } = await import('../src/head.mjs');
-  const run = (arrangement, edit = () => {}) => { const input = newDefaults(); input.reinforcement.enabled = true; input.reinforcement.arrangement = arrangement; input.loads = [{ name: 'U', V: 800, Mx: 20, My: 40 }]; edit(input); return calculateDesign(input); };
-  const fine = run('grid', input => { input.flexure.sX = input.flexure.sY = 75; input.flexure.phiX = input.flexure.phiY = 12; });
-  assert.equal(fine.envelope.sr % 75, 0);
-  assert.ok(fine.envelope.sr <= 0.75 * fine.section.d);
-  const radial = run('radial');
-  const fixed = run('radial', input => { input.reinforcement.srAuto = false; input.reinforcement.sr = 100; });
-  assert.equal(radial.status, 'Pass');
-  assert.ok(radial.layout.links.length <= fixed.layout.links.length);
-  assert.ok(radial.notes.some(note => note.startsWith('Auto s_r')));
-});
-
 test('grid lines start at the corners of the first ring and step at exactly s_t', () => {
   const { layers } = make('grid');
   const xs = [...new Set(layers[0].points.map(p => Math.round(p.x * 1e6) / 1e6))].sort((a, b) => a - b);
   assert.equal(xs[0], -(200 + 80));
   const steps = xs.slice(1).map((x, i) => x - xs[i]);
   assert.ok(steps.filter(step => Math.abs(step - 150) > 1e-6).length <= 2, String(steps)); // centre closing gap only
+});
+
+test('stud rails: orthogonal face rails (edges in line, ≤ 1.5d apart); corner rails only where the gap needs them', () => {
+  const wide = { ...column, cx: 300, cy: 900 };
+  const mdl = { column: wide, slab: { xMin: -1e5, xMax: 1e5, yMin: -1e5, yMax: 1e5 }, openings: [], shadows: [] };
+  const { layers } = arrangedLayers({ model: mdl, d: 200, aOut: 900, type: 'rails', sr: 150, diameter: 10, shape: 'single', first: 80, outerK: 1.5 });
+  const top = layers[0].points.filter(p => p.y > 450).map(p => p.x).sort((a, b) => a - b);
+  assert.deepEqual(top, [-150, 150]);
+  assert.ok(layers[0].points.every(p => !p.fan)); // L1: corner gap (π/2)·80 ≤ 1.5d, no corner rails
+  for (const layer of layers) {
+    const gap = (Math.PI / 2) * layer.offset;
+    const limit = (layer.offset <= 400 ? 1.5 : 2) * 200;
+    if (gap <= limit) assert.ok(layer.points.every(p => !p.fan), String(layer.offset));
+  }
+});
+
+test('auto arrangement order: larger bar Ø first, then more rails, then a smaller s_r', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const input = newDefaults();
+  input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'rails', diameter: 8 };
+  input.loads = [{ name: 'U', V: 1100, Mx: 0, My: 0 }];
+  const result = calculateDesign(input);
+  assert.equal(result.status, 'Pass', result.notes.join(' | '));
+  const note = result.notes.find(n => n.startsWith('Auto arrangement'));
+  assert.ok(note && note.includes('raised from Ø8'), note);
+  assert.ok(result.layout.layers[0].diameter > 8 && result.layout.layers[0].diameter <= 16);
+  // Unfixable (k_max) ends the search at once.
+  input.loads = [{ name: 'U', V: 1500, Mx: 0, My: 0 }];
+  assert.equal(calculateDesign(input).status, 'Fail');
 });

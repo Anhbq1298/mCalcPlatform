@@ -42,7 +42,7 @@ export function newDefaults() {
     loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
     beta: { method: 'moment', confirmed: false, userValue: 1.15 },
     reinforcement: {
-      enabled: false, mode: 'auto', arrangement: 'grid', srAuto: true, sr: 150, st: 150, thin: true, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
+      enabled: false, mode: 'auto', arrangement: 'grid', srAuto: true, sr: 150, st: 150, thin: true, diameterMax: 16, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
       anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: false },
     },
   };
@@ -77,7 +77,9 @@ function migrate(saved) {
   // Designs saved before the links tick always considered links.
   if (record(r) && r.enabled === undefined) r.enabled = true;
   // Auto links saved before the arrangement choice (perimeter layers) are redesigned on the default grid.
-  if (record(r) && !['grid', 'radial', 'cruciform'].includes(r.arrangement)) r.arrangement = 'grid';
+  // Radial and cruciform rails became one stud-rail arrangement (orthogonal rails, corner rails where needed).
+  if (record(r) && ['radial', 'cruciform'].includes(r.arrangement)) r.arrangement = 'rails';
+  if (record(r) && !['grid', 'rails'].includes(r.arrangement)) r.arrangement = 'grid';
   // Flexural steel is entered as bars and spacing; an area per metre becomes the equivalent spacing
   // (unrounded, so A_s and the results are unchanged).
   const f = saved.flexure;
