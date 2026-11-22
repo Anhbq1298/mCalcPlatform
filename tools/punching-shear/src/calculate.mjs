@@ -134,9 +134,9 @@ export function calculate(rawInput, options = {}) {
   else if (reinforcement.enabled === false) layout = { mode: 'none', layers: [], reason: 'No punching reinforcement: tick "Provide punching reinforcement" to add shear links.' };
   else if (reinforcement.mode === 'auto') {
     const type = reinforcement.arrangement ?? 'grid';
-    // Inside a drop the links run out to the drop edge: the last perimeter lies within one s_r of the
-    // drop limit (l_H,min − c), so the outer zone of the drop is reinforced up to the depth change.
-    const dropEdgeOut = Number.isFinite(linkLimit) && needing.length
+    // Optional (reinforcement.dropFill, off by default): inside a drop the links run out to the drop edge;
+    // the last perimeter lies within one s_r of the drop limit (l_H,min − c). Detailing, not required by EC2.
+    const dropEdgeOut = Number.isFinite(linkLimit) && needing.length && reinforcement.dropFill
       ? Math.max(layoutOut, linkLimit - ctx.envelopeSr + 1e-6 + P.outerK * d)
       : layoutOut;
     const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
@@ -156,9 +156,9 @@ export function calculate(rawInput, options = {}) {
   const base = options.layerBase ?? 0;
   const links = buildLinks(model, layout.layers, layout.mode === 'auto' ? 'auto' : 'user', base);
   const summary = layerSummary(model, layout.layers, links, base);
-  // Drop: links out to the drop edge beyond the last perimeter (detailing; not counted in the checks) —
+  // Drop, optional (dropFill): links out to the drop edge beyond the last perimeter (detailing; not counted) —
   // on the grid lines for the grid, along every radial line for the radial arrangement.
-  if (layout.mode === 'auto' && options.dropBox && layout.layers.length) {
+  if (layout.mode === 'auto' && reinforcement.dropFill && options.dropBox && layout.layers.length) {
     const fill = (layout.arrangement === 'grid'
       ? dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox, d, widen: reinforcement.thin !== false })
       : radialDropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox }))

@@ -152,6 +152,7 @@ test('drop: grid links run out to the drop edge (less cover) on every side; extr
   const { calculateDesign } = await import('../src/head.mjs');
   const input = newDefaults();
   input.reinforcement.enabled = true;
+  input.reinforcement.dropFill = true;
   input.head = { ...input.head, enabled: true, shape: 'rectangular', lx: 2400, ly: 2400, thickness: 400 };
   input.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }];
   const result = calculateDesign(input);

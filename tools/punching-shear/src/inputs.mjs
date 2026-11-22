@@ -42,7 +42,7 @@ export function newDefaults() {
     loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
     beta: { method: 'moment', confirmed: false, userValue: 1.15 },
     reinforcement: {
-      enabled: false, mode: 'auto', arrangement: 'grid', srAuto: true, sr: 150, st: 150, thin: true, diameterMax: 16, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
+      enabled: false, mode: 'auto', arrangement: 'grid', srAuto: true, sr: 150, st: 150, thin: true, dropFill: false, diameterMax: 16, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
       anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: false },
     },
   };

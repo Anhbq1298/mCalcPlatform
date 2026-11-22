@@ -89,6 +89,7 @@ export const GROUPS = [
     ['reinforcement.srAuto', 'Allow a smaller $s_r$ if needed', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto'],
     ['reinforcement.st', 'Grid spacing $s_t$, max (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid' && !onBars(s)],
     ['reinforcement.thin', 'Wider ring spacing where allowed (2s_t, 3s_t …)', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
+    ['reinforcement.dropFill', 'Links out to the drop edge (detailing, not counted)', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto' && s.head?.enabled],
     ['@layers', '', 'anchor'],
     ['', 'Link detailing', 'heading', null, on],
     ['reinforcement.anchorage.type', 'Anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')], on],
