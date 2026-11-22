@@ -1,10 +1,11 @@
-import { createDesign, createFolder, createProject, createStore, designFileName, duplicateDesign, exportDesignFile, folderBreadcrumb, folderPath, importDesignFile, importPackage, isDesignExtension, moveFolder, searchProject, sortByName, withFolder, withFolderName } from '../../packages/design-sdk/src/index.mjs';
+import { createDesign, createFolder, createProject, createStore, designFileName, duplicateDesign, exportDesignFile, folderBreadcrumb, folderPath, importPackage, isDesignExtension, moveFolder, searchProject, sortByName, withFolder, withFolderName } from '../../packages/design-sdk/src/index.mjs';
 import { findTool, tools } from '../registry.mjs';
 import { button, dialog, el, link, qs, saveBlob, saveFile, status } from './dom.mjs';
 import { pickModule, renderCatalog, thumbnail } from './module-cards.mjs';
 import { designMime, folderCommands, startDrag, trashPanel } from './folder-actions.mjs';
 import { renderSearch } from './project-search.mjs';
 import { renderTree } from './project-tree.mjs';
+import { openToolFile, saveImportedDesign } from './tool-files.mjs';
 import './style.css';
 
 const db = createStore();
@@ -246,7 +247,7 @@ function render() {
 qs('project-search').oninput = event => { query = event.target.value; render(); };
 qs('design-sort').onchange = event => { sortDirection = event.target.value; render(); };
 
-renderCatalog(tools);
+renderCatalog(tools, (file, tool) => openToolFile(file, tool, db));
 qs('nav-projects').onclick = event => {
   event.preventDefault();
   const project = projects.find(item => item.id === projectId);
@@ -259,9 +260,7 @@ qs('import').onchange = async event => {
   if (!file) return;
   try {
     if (isDesignExtension(file.name.split('.').pop().toLowerCase())) {
-      const design = await importDesignFile(file, tools);
-      if (await db.getDesign(design.id)) design.id = crypto.randomUUID();
-      await db.saveDesign(design);
+      await saveImportedDesign(file, tools, db);
       await refresh();
       status('Opened ' + file.name + '.');
       return;
