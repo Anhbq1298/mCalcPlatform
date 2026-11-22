@@ -5,7 +5,7 @@ import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
 import { arcLengthAt, arrangedLayers, faceGaps, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
-import { dropFillPoints } from './grid-thin.mjs';
+import { dropFillPoints, ringGaps } from './grid-thin.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
 import { offsetForLength } from './perimeters.mjs';
 import { profileFor } from './profile.mjs';
@@ -170,6 +170,8 @@ export function calculate(rawInput, options = {}) {
   }
   layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
   if (layout.arrangement === 'cruciform') summary.forEach(layer => { layer.tangential = faceGaps(model.column, layer.offset, layer.tangential); });
+  // Grid rings (closed, internal column): s_t as straight distances between neighbouring links.
+  if (layout.arrangement === 'grid' && layout.fig622) summary.forEach((layer, i) => { layer.tangential = ringGaps(layout.layers[i].points); });
   if (layout.fig622 && layout.layers.length) layout.outerEf = outerPerimeterEf(layout.layers.at(-1).points, d, P.outerK);
   const geometry = geometryLimits(ctx, Math.max(2 * d, envelope.aOut, ...layout.layers.map(layer => layer.offset)));
   if (Number.isFinite(linkLimit)) layout.layers.forEach((layer, index) => {

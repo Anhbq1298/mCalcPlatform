@@ -8,6 +8,18 @@
 // Every ring, the first included, takes the widest multiple the limits allow; ring corners are always kept. Applied where Fig. 6.22 applies (internal column, no openings or drop).
 const near = (a, b) => Math.abs(a - b) < 1e-6;
 
+// Gaps between neighbouring links of a closed grid ring, as straight distances in plan (the ring is a
+// rectangle; projecting its corner points onto the rounded control path would understate the gaps).
+export function ringGaps(points) {
+  if (points.length < 2) return { max: 0, gaps: [] };
+  const ring = [...points].sort((p, q) => Math.atan2(p.y, p.x) - Math.atan2(q.y, q.x));
+  const gaps = ring.map((p, i) => {
+    const q = ring[(i + 1) % ring.length];
+    return { length: Math.hypot(q.x - p.x, q.y - p.y), s0: p.s, from: { x: p.x, y: p.y }, to: { x: q.x, y: q.y } };
+  });
+  return { max: Math.max(...gaps.map(gap => gap.length)), gaps };
+}
+
 function thinRing(layer, column, m) {
   if (m <= 1) return layer.points;
   const a = column.shape === 'circular' ? column.diameter / 2 : column.cx / 2;

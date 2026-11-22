@@ -16,7 +16,7 @@
 // u1 and covers it by the reduced u_out,ef (interpretation, stated in the Help).
 import { pathPieces, toGlobal } from './geometry.mjs';
 import { exclusion } from './perimeters.mjs';
-import { thinGrid } from './grid-thin.mjs';
+import { ringGaps, thinGrid } from './grid-thin.mjs';
 
 export const ARRANGEMENTS = {
   grid: 'Orthogonal grid',
@@ -84,16 +84,16 @@ function railPoints(column, type, rails, o, d) {
     for (let j = 1; j <= rails; j += 1) {
       const t = (j * Math.PI) / (2 * (rails + 1));
       const phi = Math.atan2(sy * Math.sin(t), sx * Math.cos(t));
-      points.push({ x: sx * a + o * Math.cos(phi), y: sy * b + o * Math.sin(phi) });
+      points.push({ x: sx * a + o * Math.cos(phi), y: sy * b + o * Math.sin(phi), fan: true });
     }
   }
   return points;
 }
 
-function gridLines(half, offsets, st, onBars = false) {
+function gridLines(half, offsets, st) {
   const inner = half + offsets[0];
   let lines;
-  if (onBars) {
+  {
     // Flexural bar lines: symmetric about the column, one bar line at s0 outside each face and then at the
     // bar spacing inward; a closing bar on the centre line where the middle gap would exceed the spacing.
     // Middle of the column: a centre bar when the two nearest bars are more than s apart; when they would
@@ -104,9 +104,6 @@ function gridLines(half, offsets, st, onBars = false) {
     const smallest = Math.min(...lines.map(Math.abs));
     if (Math.abs(v) < 1e-6 || 2 * smallest > st + 1e-9) lines.push(0);
     else if (2 * smallest < st / 2 - 1e-9) lines = [...lines.filter(x => Math.abs(Math.abs(x) - smallest) > 1e-6), 0];
-  } else {
-    const n = Math.max(1, Math.ceil((2 * inner) / st - 1e-9));
-    lines = Array.from({ length: n + 1 }, (_, i) => -inner + (2 * inner * i) / n);
   }
   for (const o of offsets.slice(1)) lines.push(half + o, -half - o);
   return [...new Set(lines.map(v => Math.round(v * 1e6) / 1e6))].sort((p, q) => p - q);
@@ -115,8 +112,9 @@ function gridLines(half, offsets, st, onBars = false) {
 function gridPoints(column, offsets, st, k, onBars = false) {
   const a = column.shape === 'circular' ? column.diameter / 2 : column.cx / 2;
   const b = column.shape === 'circular' ? column.diameter / 2 : column.cy / 2;
-  const xs = gridLines(a, offsets, st, onBars);
-  const ys = gridLines(b, offsets, st, onBars);
+  // Lines start at the corners of the first ring (s0 outside the faces) and step inward at exactly s_t.
+  const xs = gridLines(a, offsets, st);
+  const ys = gridLines(b, offsets, st);
   const o = offsets[k];
   const on = (value, edge) => Math.abs(Math.abs(value) - edge) < 1e-6;
   const points = [];
@@ -250,8 +248,20 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
     const legArea1 = (Math.PI * diameter * diameter) / 4; // one leg (Eq. 9.11)
     // Not with a rotated column on the bars: the rings there are rectangles in the bar axes, not the column's.
     if (type === 'grid' && thin && uReq > 0 && !(onBars && Math.abs(column.rotation || 0) > 1e-9)) {
-      layers = thinGrid(layers, { column, d, sr, aswReq, legArea: legArea1 * (shape === 'double' ? 2 : 1), leg: legArea1, gap: layer => pathGap(model, layer),
+      layers = thinGrid(layers, { column, d, sr, aswReq, legArea: legArea1 * (shape === 'double' ? 2 : 1), leg: legArea1, gap: layer => ringGaps(layer.points).max,
         minLeg: (s, g) => (0.08 * Math.sqrt(fck) / fyk) * (s * g) / 1.5 });
+    }
+    // Radial: a corner rail starts only where it is needed. On a perimeter where the corner gap without
+    // the fan rails stays within the s_t limit and the A_sw of Eq. 6.52 is met by the face rails, the fan
+    // studs are left out (near the column they would crowd round the corner).
+    if (type === 'radial' && column.shape !== 'circular') {
+      const leg = (Math.PI * diameter * diameter) / 4 * (shape === 'double' ? 2 : 1);
+      layers = layers.map(layer => {
+        const plain = layer.points.filter(p => !p.fan);
+        const limit = (layer.offset <= 2 * d ? 1.5 : 2) * d;
+        const gap = pathGap(model, { ...layer, points: plain });
+        return gap <= limit + 1e-9 && plain.length * leg >= aswReq - 1e-6 ? { ...layer, points: plain } : layer;
+      });
     }
     const inside = type !== 'radial' || layers.filter(layer => layer.offset <= 2 * d).every(layer => pathGap(model, layer) <= 1.5 * d + 1e-9);
     // Eq. 6.52: every perimeter carries at least the required A_sw (legs × bar area).
