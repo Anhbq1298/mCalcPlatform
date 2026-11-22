@@ -156,7 +156,7 @@ function merge(primary, extra, headIssues, headInfo, input, layout, headNotes = 
   };
 }
 
-export function calculateDesign(raw) {
+export function calculateDesign(raw, forcedKind = null) {
   const input = restoreInputs(raw);
   if (!input.head?.enabled) return calculate(input);
   const base = calculate({ ...input, head: { ...input.head, enabled: false } });
@@ -165,11 +165,19 @@ export function calculateDesign(raw) {
   if (blocking.length) return { status: worstState(blocking.map(item => item.state)), issues: blocking, notes: [], profile: base.profile, loads: [], input };
 
   const d = base.section.d;
-  const geo = headGeometry(input);
+  const geo0 = headGeometry(input);
+  const geo = forcedKind ? { ...geo0, kind: forcedKind } : geo0;
   // β from moments with a drop: column (inside) or drop (outside) as the loaded area, see Help.
   const momentBeta = [];
   if (geo.kind === 'mixed') {
-    return { status: STATES.unsupportedGeometry, issues: [{ state: STATES.unsupportedGeometry, message: `l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm straddles 2h_H = ${(2 * geo.hH).toFixed(0)} mm: one direction falls under Fig. 6.17 and the other under Fig. 6.18. Not covered.` }], notes: [], profile: base.profile, loads: [], input };
+    // l_H straddles 2h_H (Fig. 6.17 one way, Fig. 6.18 the other): EN 1992-1-1 gives no rule. The tool
+    // checks the drop both ways and reports the governing one (worse status, then higher UR); see Help.
+    const both = ['small', 'large'].map(kind => calculateDesign(raw, kind));
+    const rank = r => [r.status === STATES.pass ? 0 : 1, r.governing?.ur ?? 0];
+    const worse = both.reduce((a, b) => { const [sa, ua] = rank(a); const [sb, ub] = rank(b); return sb > sa || (sb === sa && ub > ua) ? b : a; });
+    const which = worse === both[0] ? 'Fig. 6.17 (l_H ≤ 2h_H)' : 'Fig. 6.18 (l_H > 2h_H)';
+    const note = `l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm straddles 2h_H = ${(2 * geo.hH).toFixed(0)} mm: the drop is checked as Fig. 6.17 and as Fig. 6.18; ${which} governs (see Help).`;
+    return { ...worse, notes: [note, ...(worse.notes ?? [])] };
   }
   const internal = (base.position?.kind ?? 'internal') === 'internal';
   const e = geo.extents;

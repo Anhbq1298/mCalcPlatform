@@ -69,8 +69,14 @@ test('rectangular head with l_H > 2h_H needs no confirmation; the inner section 
   close(face.demand, (1.15 * 500e3) / (1600 * 360), 1e-6);
 });
 
-test('unsupported drop configurations are reported, not computed', () => {
-  assert.equal(calculateDesign(base({ lx: 2400, ly: 1000, depth: 200 })).status, STATES.unsupportedGeometry); // straddles 2h_H
+test('mixed drops are checked both ways; unsupported drop configurations are reported', () => {
+  // l_H straddles 2h_H: checked both as Fig. 6.17 and Fig. 6.18, the governing one reported with a note.
+  const mixed = calculateDesign(base({ lx: 2400, ly: 1000, depth: 200 }));
+  assert.notEqual(mixed.status, STATES.unsupportedGeometry);
+  assert.ok(mixed.notes[0].includes('checked as Fig. 6.17 and as Fig. 6.18'));
+  const small = calculateDesign(base({ lx: 2400, ly: 1000, depth: 200 }), 'small');
+  const large = calculateDesign(base({ lx: 2400, ly: 1000, depth: 200 }), 'large');
+  assert.ok(mixed.governing.ur >= Math.min(small.governing?.ur ?? 0, large.governing?.ur ?? 0) - 1e-9);
   const edge = base({ lx: 1000, ly: 1000, depth: 200 }, { slab: { h: 250, depthMode: 'explicit', dx: 215, dy: 205, cover: 25, xMin: -6000, xMax: 200, yMin: -6000, yMax: 6000 } });
   edge.column.position = 'edge';
   const edgeResult = calculateDesign(edge); // links beyond the drop are now designed, not refused
