@@ -152,17 +152,70 @@ test('auto arrangement: s_r capped at 0.75d with a note; rails added until Eq. 6
   assert.ok(result.loads[0].rows.find(row => row.id === 'reinforced').ur <= 1);
 });
 
-test('grid: outer rings at whole multiples of s_t within s_t, Eq. 6.52, Eq. 9.11 and u_out,ef', async () => {
+test('grid: rings at whole multiples of s_t within s_t, Eq. 6.52, Eq. 9.11 and u_out,ef', async () => {
   const { calculateDesign } = await import('../src/head.mjs');
   const { exampleById } = await import('../src/examples.mjs');
   const input = structuredClone(exampleById('internal-links').input);
   const run = thin => calculateDesign({ ...input, reinforcement: { ...input.reinforcement, enabled: true, mode: 'auto', arrangement: 'grid', sr: 150, st: 150, thin } });
   const [full, thin] = [run(false), run(true)];
-  assert.equal(thin.layout.layers[0].points.length, full.layout.layers[0].points.length); // inner ring keeps s_t
+  assert.ok(thin.layout.layers[0].points.length <= full.layout.layers[0].points.length); // every ring may widen
   const multiples = thin.layout.layers.map(layer => layer.multiple);
   assert.ok(multiples.every((m, i) => i === 0 || m >= multiples[i - 1])); // never denser outward
   assert.ok(thin.layout.links.length < full.layout.links.length);
   assert.equal(thin.status, 'Pass');
   const outer = row => thin.loads[0].rows.find(entry => entry.id === row);
   assert.ok(Math.abs(outer('outer').resistance - full.loads[0].rows.find(entry => entry.id === 'outer').resistance) < 1e-6); // gaps ≤ 2d: u_out,ef unchanged
+});
+
+test('auto grid follows the flexural bars: links on bar lines at the bar spacing, fallback with a note', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const run = edit => { const input = newDefaults(); input.reinforcement.enabled = true; input.reinforcement.thin = false; input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }]; edit(input); return calculateDesign(input); };
+  const on = run(input => { input.flexure.sX = input.flexure.sY = 125; });
+  assert.equal(on.envelope.sr, 125);
+  const xs = [...new Set(on.layout.layers.flatMap(layer => layer.points.map(p => Math.round(p.x * 1e3) / 1e3)))].sort((a, b) => a - b);
+  const steps = xs.slice(1).map((x, i) => x - xs[i]).filter(step => Math.abs(step - 125) > 1e-6);
+  assert.ok(steps.length <= 2, String(steps)); // bar spacing everywhere except the closing bar at the centre
+  const off = run(input => { input.flexure.sX = 150; input.flexure.sY = 200; });
+  assert.ok(off.notes.some(note => note.includes('Grid not on the flexural bars')));
+});
+
+test('rotated column: grid on the bars around the circumscribed rectangle, links on bar lines', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const input = newDefaults();
+  input.reinforcement.enabled = true;
+  input.column.rotation = 30;
+  input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }];
+  const result = calculateDesign(input);
+  assert.equal(result.envelope.sr, 150);
+  const xs = [...new Set(result.layout.links.map(link => Math.round(link.position.x * 1e3) / 1e3))].sort((a, b) => a - b);
+  const odd = xs.slice(1).map((x, i) => x - xs[i]).filter(step => Math.abs(step - 150) > 1e-3);
+  assert.ok(odd.length <= 2, String(odd)); // global bar lines at the bar spacing (closing bar at the centre)
+  assert.equal(result.status, 'Pass');
+});
+
+test('drop: grid links run out to the drop edge (less cover) on every side; extra links not in the checks', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const input = newDefaults();
+  input.reinforcement.enabled = true;
+  input.head = { ...input.head, enabled: true, shape: 'rectangular', lx: 2400, ly: 2400, thickness: 400 };
+  input.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }];
+  const result = calculateDesign(input);
+  const edge = result.layout.links.filter(link => link.edge);
+  assert.ok(edge.length > 0);
+  const reach = Math.max(...result.layout.links.map(link => Math.abs(link.position.x)));
+  assert.ok(reach > 1200 - 25 - 150 - 1e-6 && reach <= 1200 - 25 + 1e-6); // within one spacing of the drop edge, inside the cover
+  assert.ok(result.layout.summary.every(layer => layer.id !== 'E')); // rings only in the checks
+});
+
+test('auto s_r: the fewest links that pass; on the bar grid s_r is a multiple of the bar spacing', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const run = (arrangement, edit = () => {}) => { const input = newDefaults(); input.reinforcement.enabled = true; input.reinforcement.arrangement = arrangement; input.loads = [{ name: 'U', V: 800, Mx: 20, My: 40 }]; edit(input); return calculateDesign(input); };
+  const fine = run('grid', input => { input.flexure.sX = input.flexure.sY = 75; input.flexure.phiX = input.flexure.phiY = 12; });
+  assert.equal(fine.envelope.sr % 75, 0);
+  assert.ok(fine.envelope.sr <= 0.75 * fine.section.d);
+  const radial = run('radial');
+  const fixed = run('radial', input => { input.reinforcement.srAuto = false; input.reinforcement.sr = 100; });
+  assert.equal(radial.status, 'Pass');
+  assert.ok(radial.layout.links.length <= fixed.layout.links.length);
+  assert.ok(radial.notes.some(note => note.startsWith('Auto s_r')));
 });

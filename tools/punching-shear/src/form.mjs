@@ -1,10 +1,12 @@
 // Input form built from field definitions, following the mConcreteCircCol layout (fieldset, legend,
 // label > span + control). Values are read from and written to a nested state object by path.
 // Labels are plain text with $…$ LaTeX spans rendered as MathML.
-import { ARRANGEMENTS } from './arrangement.mjs';
+import { ARRANGEMENTS, gridOnBars } from './arrangement.mjs';
 
 const on = s => s.reinforcement.enabled === true; // links provided
-import { LINK_DIAMETERS } from './inputs.mjs';
+// The auto grid on the flexural bars takes s_r and s_t from the bar spacing (no spacing inputs).
+const onBars = s => { try { return gridOnBars(s, derivedSection(s).d).on; } catch { return false; } };
+import { LINK_DIAMETERS, derivedSection } from './inputs.mjs';
 import { SUMMARY } from './form-summary.mjs';
 import { htmlSubscripts } from './subscript.mjs';
 import { labelHtml, labelText } from './tex.mjs';
@@ -82,9 +84,10 @@ export const GROUPS = [
     ['reinforcement.diameter', 'Bar Ø (mm)', 'select', LINK_DIAMETERS.map(value => option(value, String(value))), s => on(s) && s.reinforcement.mode === 'auto'],
     ['reinforcement.shape', 'Link shape', 'select', [option('single', 'Single-leg'), option('double', 'Two-leg')], s => on(s) && s.reinforcement.mode === 'auto'],
     ['reinforcement.arrangement', 'Arrangement', 'select', Object.entries(ARRANGEMENTS).map(([value, label]) => option(value, label)), s => on(s) && s.reinforcement.mode === 'auto'],
-    ['reinforcement.sr', 'Radial spacing $s_r$ (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto'],
-    ['reinforcement.st', 'Grid spacing $s_t$ (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
-    ['reinforcement.thin', 'Wider spacing on outer rings (2s_t, 3s_t …)', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
+    ['reinforcement.srAuto', 'Auto radial spacing $s_r$', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto'],
+    ['reinforcement.sr', 'Radial spacing $s_r$ (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.srAuto === false],
+    ['reinforcement.st', 'Grid spacing $s_t$ (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid' && !onBars(s)],
+    ['reinforcement.thin', 'Wider ring spacing where allowed (2s_t, 3s_t …)', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
     ['@layers', '', 'anchor'],
     ['', 'Link detailing', 'heading', null, on],
     ['reinforcement.anchorage.type', 'Anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')], on],

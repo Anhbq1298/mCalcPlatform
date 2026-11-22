@@ -3,7 +3,7 @@ import { cenDefaults } from './inputs.mjs';
 // defaults by restoreInputs. `expect` is the overall status the case is built to show; the unit
 // tests assert it so that a change in engineering behaviour is noticed.
 const confirmed = { beta: { method: 'simplified', confirmed: true, userValue: 1.15 } };
-const engaged = { reinforcement: { mode: 'auto', diameter: 10, shape: 'single', legGap: 100, layers: [], anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true } } };
+const engaged = { reinforcement: { mode: 'auto', srAuto: false, diameter: 10, shape: 'single', legGap: 100, layers: [], anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true } } };
 const slab = (h, d, extra = {}) => ({ slab: { h, depthMode: 'explicit', dx: d + 5, dy: d - 5, cover: 25, xMin: -6000, xMax: 6000, yMin: -6000, yMax: 6000, ...extra } });
 const head = values => ({ head: { enabled: true, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400, ...values } });
 

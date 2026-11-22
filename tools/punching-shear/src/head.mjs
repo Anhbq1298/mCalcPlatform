@@ -219,7 +219,9 @@ export function calculateDesign(raw) {
     const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, 0) });
     return single(outer, { kind: 'large', inner: false, columnModel: base.model, edge: !internal, ...geo, d, dH, sections: [extSection(outer, extEq)] });
   }
-  const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - input.slab.cover, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
+  const c = input.slab.cover;
+  const dropBox = geo.circular ? null : { xMin: geo.extents.xMin + c, xMax: geo.extents.xMax - c, yMin: geo.extents.yMin + c, yMax: geo.extents.yMax - c };
+  const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
   const outer = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
   const info = {
     kind: 'large', inner: true, columnModel: base.model, edge: !internal, ...geo, d, dH,
