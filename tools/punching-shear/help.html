@@ -113,16 +113,20 @@
     <tr><td>Rectangular drop with l_H &gt; 2h_H: perimeters built as offsets of the column and the drop outline (2d_H, 2d)</td><td>Geometric extension of Fig. 6.18; documented by Tekla Structural Designer</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Inner section checked only when 2d_H ≤ l_H</td><td>Tekla Structural Designer</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Face check: column perimeter with d_H (l_H &gt; 2h_H) or with the slab d (l_H ≤ 2h_H, conservative)</td><td>§6.4.5(3), §6.4.2(10)</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Drop at an edge or corner column: the drop is clipped to the slab (flush with the free edges the column is flush with). Inside: the edge or corner column with d_H (Fig. 6.15 / 6.20 perimeters). Outside: the clipped drop as an edge or corner loaded area at 2d. For l_H ≤ 2h_H only the outer section is checked.</td><td>Extension of Figs. 6.15, 6.17, 6.18 and 6.20; EN 1992-1-1 shows heads at internal columns only</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Links kept inside the drop; the slab beyond the drop must pass without links</td><td>Tool scope</td><td><span class="tag interp">Limitation</span></td></tr>
   </table>
   <p>The calculation report states the basis in one line for rectangular drops. The status is not held at “Requires confirmation”.</p>
 
   <h2>5 Not covered</h2>
   <ul>
-    <li>Drops at edge or corner columns, drops combined with openings, and drops offset from the column.</li>
+    <li>Drops combined with openings, drops offset from the column, circular or rotated columns with a drop at a slab edge, and a drop that reaches an edge the column is set back from.</li>
     <li>A drop that is under Fig. 6.17 in one direction and Fig. 6.18 in the other (l_H straddles 2h_H).</li>
     <li>Links in the slab outside the drop.</li>
   </ul>
+
+  <h2>6 Shear stress figure</h2>
+  <p>The stress figure shows v<sub>Ed</sub> along u<sub>0</sub>, u<sub>1</sub> and u<sub>out,ef</sub> (or u<sub>1,ext</sub> for a drop). The mean value is V<sub>Ed</sub>/(u·d). When β comes from moments at an internal column (Eq. 6.39, 6.42 or 6.43) the shape is the plastic distribution behind Eq. 6.39 (Fig. 6.19): a constant part plus k·M/W<sub>1</sub> with the sign of the side, scaled so that the peak equals β times the mean. With the simplified or a user β, and at edge and corner columns, the figure shows the uniform envelope β·V<sub>Ed</sub>/(u·d). The check itself always uses β·V<sub>Ed</sub>/(u·d).</p>
 
   <h2>Sources</h2>
   <ul>

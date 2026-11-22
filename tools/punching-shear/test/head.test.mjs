@@ -1,7 +1,7 @@
 // Drop panels / column heads (§6.4.2(8)–(11)), the example set, and the LaTeX label renderer.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { EXAMPLES } from '../src/examples.mjs';
+import { EXAMPLE_CARDS, EXAMPLES } from '../src/examples.mjs';
 import { calculateDesign, rcontSmall } from '../src/head.mjs';
 import { STATES } from '../src/inputs.mjs';
 import { labelText, texToMathML } from '../src/tex.mjs';
@@ -78,8 +78,9 @@ test('unsupported drop configurations are reported, not computed', () => {
   assert.equal(calculateDesign(base({ lx: 300, ly: 1000, depth: 200 })).status, STATES.incomplete); // head smaller than column
 });
 
-test('the twelve examples give their intended status', () => {
-  assert.equal(EXAMPLES.length, 12);
+test('the six example cards and all their variants give their intended status', () => {
+  assert.equal(EXAMPLE_CARDS.length, 6);
+  assert.equal(EXAMPLES.length, 14);
   for (const example of EXAMPLES) assert.equal(calculateDesign(example.input).status, example.expect, example.id);
 });
 
@@ -95,4 +96,21 @@ test('the governing check of a drop design is never an informational row', () =>
   const result = calculateDesign(example.input);
   const row = result.loads[0].rows.find(entry => entry.label === result.governing.check);
   assert.ok(row && ![STATES.linksRequired, STATES.notRequired].includes(row.status), result.governing.check);
+});
+
+test('drops at edge and corner columns: clipped drop, Fig. 6.15/6.20 perimeters by hand', () => {
+  const edge = calculateDesign(EXAMPLES.find(item => item.id === 'edge-drop').input);
+  assert.equal(edge.head.extents.xMax, 250);
+  const [inner, outer] = edge.head.sections;
+  close(inner.u1, 500 + 2 * 500 + Math.PI * 720, 1e-3); // c2 + 2c1 + π·2d_H
+  close(outer.u1, 2400 + 2 * 1450 + Math.PI * 420, 1e-3); // drop 1450 × 2400 flush with the edge
+  const corner = calculateDesign(EXAMPLES.find(item => item.id === 'corner-drop').input);
+  close(corner.head.sections[0].u1, 1000 + (Math.PI / 2) * 720, 1e-3);
+  close(corner.head.sections[1].u1, 2900 + (Math.PI / 2) * 420, 1e-3);
+  assert.ok(corner.layout.layers.every(layer => layer.offset <= 950 - 25));
+  // A drop reaching an edge the column is set back from is not covered.
+  const setBack = structuredClone(EXAMPLES.find(item => item.id === 'edge-drop').input);
+  setBack.slab.xMax = 600;
+  setBack.column.position = 'internal';
+  assert.equal(calculateDesign(setBack).status, STATES.unsupportedGeometry);
 });

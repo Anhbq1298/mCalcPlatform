@@ -4,6 +4,8 @@
 import { createDocument, define, num, R, unit } from './worksheet-doc.mjs';
 import { planSvg } from './plan-view.mjs';
 import { sectionSvg } from './section-view.mjs';
+import { signSvg } from './sign-view.mjs';
+import { stressSvg } from './stress-view.mjs';
 import { esc } from './svg.mjs';
 import { LINK_SHAPES } from './layout.mjs';
 import { STATES } from './inputs.mjs';
@@ -73,10 +75,13 @@ export function buildWorksheet(full, { pageHeight, pageGap, designName = 'Punchi
 
   doc.heading('Drawings', 2);
   doc.image(planSvg(full, { width: 640, height: 600 }), 640, 600);
+  doc.image(signSvg(full, { width: 640, height: 260 }), 640, 260);
   for (const axis of ['x', 'y']) {
     const section = sectionSvg(full, { width: 640, axis });
     doc.image(section, 640, Number(/height="(\d+(?:\.\d+)?)"/.exec(section)?.[1] ?? 330));
   }
+  const stress = stressSvg(full, { width: 640 });
+  if (stress) doc.image(stress, 640, Number(/height="(\d+(?:\.\d+)?)"/.exec(stress)?.[1] ?? 300));
   if (layers.length) {
     doc.heading('Link layer schedule', 3);
     doc.table([
@@ -242,7 +247,11 @@ function detailing(doc, result, layers) {
 function headSection(doc, full) {
   const head = full.head;
   const lH = head.lH.map(value => value.toFixed(0)).join(' / ');
-  doc.text(`Drop panel ${full.input.head.shape === 'circular' ? 'Ø' + full.input.head.diameter : full.input.head.lx + ' × ' + full.input.head.ly} mm, h_H = ${head.hH} mm below the slab, l_H = ${lH} mm.`, 12);
+  doc.text(`Drop panel ${full.input.head.shape === 'circular' ? 'Ø' + full.input.head.diameter : full.input.head.lx + ' × ' + full.input.head.ly} mm${head.edge ? ' (clipped to the slab edge)' : ''}, h_H = ${head.hH} mm below the slab, l_H = ${lH} mm.`, 12);
+  if (head.kind === 'small' && !head.rcont) {
+    doc.text(`l_H ≤ 2h_H at an edge or corner column: only the slab section is checked, at 2d from the drop outline clipped to the slab (d = ${head.d.toFixed(1)} mm). EN 1992-1-1 gives Eq. 6.33–6.35 for internal columns only; this geometric extension is described in Help.`, 12);
+    return;
+  }
   if (head.kind === 'small') {
     doc.text(`l_H ≤ 2h_H (Fig. 6.17): only the section in the slab is checked (§6.4.2(8)), at r_cont = ${head.rcont.r.toFixed(1)} mm from the column centroid (${head.rcont.eq}${head.rcont.l1 ? `, l1 = ${head.rcont.l1}, l2 = ${head.rcont.l2}` : ''}). It is solved as a circular loaded area of diameter 2(r_cont − 2d); the face check uses the column perimeter with the slab d.`, 12);
     return;

@@ -85,3 +85,9 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 #layer-schedule td:nth-last-child(-n + 2) { white-space: normal; text-align: left; min-width: 6.5rem; }
 .help-link { margin-left: auto; font-size: .85rem; color: var(--muted, #56636a); text-decoration: none; border: 1px solid var(--rule); border-radius: 4px; padding: .15rem .6rem; }
 .help-link:hover { color: inherit; }
+.example-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; margin: .4rem 0; }
+.example-card { display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: .35rem .25rem; border: 1px solid var(--rule); border-radius: 6px; background: #fff; font-size: .78rem; cursor: pointer; }
+.example-card[aria-pressed="true"] { border-color: #2b3a8c; background: #eef1fb; }
+.example-variants { display: flex; flex-wrap: wrap; gap: .3rem; margin: .2rem 0 .4rem; }
+.example-variant { border: 1px solid var(--rule); border-radius: 999px; background: #fff; padding: .15rem .55rem; font-size: .76rem; cursor: pointer; }
+.example-variant[aria-pressed="true"] { border-color: #2b3a8c; background: #eef1fb; }

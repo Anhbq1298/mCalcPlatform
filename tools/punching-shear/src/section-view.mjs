@@ -25,10 +25,16 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const face = column.shape === 'circular' ? column.diameter / 2 : (alongY ? column.cy : column.cx) / 2;
   const head = result.head;
   const hH = head ? head.hH : 0;
-  const lH = head ? (alongY ? head.lH.at(-1) : head.lH[0]) : 0;
-  const u1Offset = head?.kind === 'small' ? head.rcont.r - face : result.u1Offset ?? 2 * d;
-  const extOffset = head?.kind === 'large' ? lH + 2 * head.d : null;
-  const reach = Math.max(u1Offset, aOut, extOffset ?? 0, lH, ...layers.map(layer => layer.offset), 0);
+  // Drop extent from the column centre on the + and − side of the section axis (clipped to the slab).
+  const posEnd = head ? (alongY ? head.extents.yMax : head.extents.xMax) : face;
+  const negEnd = head ? -(alongY ? head.extents.yMin : head.extents.xMin) : face;
+  const lH = posEnd - face;
+  const lHneg = negEnd - face;
+  const slabOnly = head && (head.kind === 'large' ? !head.inner : !head.rcont); // no section around the column
+  const u1Offset = slabOnly ? null : head?.kind === 'small' ? head.rcont.r - face : result.u1Offset ?? 2 * d;
+  const extOffset = head && (head.kind === 'large' || !head.rcont) ? lH + 2 * head.d : null;
+  const extOffsetNeg = extOffset !== null ? lHneg + 2 * head.d : null;
+  const reach = Math.max(u1Offset ?? 0, aOut, extOffset ?? 0, extOffsetNeg ?? 0, lH, lHneg, ...layers.map(layer => layer.offset), 0);
 
   // Distance from the column centre to the slab boundary along the local section axis.
   const theta = ((column.rotation || 0) * Math.PI) / 180 + (alongY ? Math.PI / 2 : 0);
@@ -52,8 +58,8 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const stub0 = Math.min(300, 1.2 * h);
   const rows = [];
   if (layers.length) rows.push(['chain']);
-  if (head?.kind === 'small') rows.push(['r', u1Offset, `r_cont = ${head.rcont.r.toFixed(0)}`, -face]);
-  else if (d > 0 && !(head?.kind === 'large' && !head.inner)) rows.push(['r', u1Offset, `${head?.kind === 'large' ? '2d_H' : '2d'} = ${u1Offset.toFixed(0)}`, 0]);
+  if (head?.kind === 'small' && head.rcont) rows.push(['r', u1Offset, `r_cont = ${head.rcont.r.toFixed(0)}`, -face]);
+  else if (d > 0 && u1Offset !== null) rows.push(['r', u1Offset, `${head?.kind === 'large' ? '2d_H' : '2d'} = ${u1Offset.toFixed(0)}`, 0]);
   if (head) rows.push(['r', lH, `l_H = ${lH.toFixed(0)}`, 0]);
   if (extOffset !== null) rows.push(['r', extOffset, `l_H + 2d = ${extOffset.toFixed(0)}`, 0]);
   if (aOut > 0) rows.push(['r', aOut, `a_out = ${aOut.toFixed(0)}`, 0]);
@@ -72,7 +78,7 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const drawHeight = height - legendHeight;
   const X = t => padL + (t - left) * scale;
   const Z = z => topPad + (zTop - z) * scale;
-  const soffit = t => (head && Math.abs(t) <= face + lH + 1e-9 ? -hH : 0);
+  const soffit = t => (head && t <= posEnd + 1e-9 && t >= -negEnd - 1e-9 ? -hH : 0);
   const parts = [`<defs><pattern id="sec-concrete" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="white"/><line x1="0" y1="0" x2="0" y2="7" stroke="#9aa0a6" stroke-width=".5"/></pattern></defs>`];
 
   // Grid (100 / 500 mm) in model space.
@@ -84,8 +90,8 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
 
   // Concrete: one monolithic body (slab, drop, column stubs). Boundaries are stroked separately so
   // that no line crosses the column–drop joint; cut ends get break lines.
-  const dropEnd = Math.min(face + lH, right);
-  const dropEndL = Math.min(face + lH, -left); // drop edge on the other side
+  const dropEnd = Math.min(posEnd, right);
+  const dropEndL = Math.min(negEnd, -left); // drop edge on the other side
   const leftSoffit = soffit(left);
   const P = (t, z) => n(X(t)) + ' ' + n(Z(z));
   const body = [[left, h], [-face, h], [-face, zTop], [face, zTop], [face, h], [right, h], [right, 0]];
@@ -125,8 +131,8 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const bottomBar = t => soffit(t) + cover + 6;
   const zb = cover + 6;
   const zbDrop = -hH + cover + 6;
-  const xDropBar = Math.min(face + lH - cover - 6, right);
-  const xDropBarL = -Math.min(face + lH - cover - 6, -left);
+  const xDropBar = Math.min(posEnd - cover - 6, right);
+  const xDropBarL = -Math.min(negEnd - cover - 6, -left);
   const profile = head
     ? [[right - 3 / scale, zb], [xDropBar, zb], [xDropBar, zbDrop], [xDropBarL, zbDrop], ...(dropEndL < -left ? [[xDropBarL, zb], [left + 3 / scale, zb]] : [])]
     : [[right - 3 / scale, zb], [left + 3 / scale, zb]];
@@ -159,20 +165,21 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
 
   // Control sections: vertical markers with labels staggered over two rows.
   const markers = [];
-  if (d > 0 && !(head?.kind === 'large' && !head.inner)) markers.push([u1Offset, head?.kind === 'large' ? 'u1,int' : 'u1', DASH.u1]);
-  if (extOffset !== null) markers.push([extOffset, 'u1,ext', DASH.ext]);
+  if (d > 0 && u1Offset !== null) markers.push([u1Offset, head?.kind === 'large' ? 'u1,int' : 'u1', DASH.u1]);
+  if (extOffset !== null) markers.push([extOffset, 'u1,ext', DASH.ext, extOffsetNeg]);
   if (aOut > 0) markers.push([aOut, 'u_out,ef', DASH.uout]);
   markers.sort((m1, m2) => m1[0] - m2[0]);
   let lastEnd = -Infinity;
   let row = 1;
-  for (const [offset, text, dash] of markers) {
+  for (const [offset, text, dash, negOffset = offset] of markers) {
     const t = face + offset;
+    const tn = face + negOffset;
     const x = X(t);
     row = x < lastEnd + 4 ? 1 - row : 0;
     const y = Z(h) - 10 - row * 15;
     if (t <= right) parts.push(`<line x1="${n(x)}" y1="${n(y + 3)}" x2="${n(x)}" y2="${n(Z(soffit(t)) + 8)}" stroke="${COLORS.ink}" stroke-width=".9" stroke-dasharray="${dash}"/><text class="label" x="${n(x + 3)}" y="${n(y)}">${esc(text)}</text>`);
     lastEnd = Math.max(lastEnd, x + 3 + text.length * 6.6);
-    if (-t >= left) parts.push(`<line x1="${n(X(-t))}" y1="${n(y + 3)}" x2="${n(X(-t))}" y2="${n(Z(soffit(-t)) + 8)}" stroke="${COLORS.ink}" stroke-width=".9" stroke-dasharray="${dash}"/><text class="label" x="${n(X(-t) - 3)}" y="${n(y)}" text-anchor="end">${esc(text)}</text>`);
+    if (-tn >= left) parts.push(`<line x1="${n(X(-tn))}" y1="${n(y + 3)}" x2="${n(X(-tn))}" y2="${n(Z(soffit(-tn)) + 8)}" stroke="${COLORS.ink}" stroke-width=".9" stroke-dasharray="${dash}"/><text class="label" x="${n(X(-tn) - 3)}" y="${n(y)}" text-anchor="end">${esc(text)}</text>`);
   }
 
   // Depth dimensions: slab thickness at a slab end with a plain soffit; drop depth and total depth

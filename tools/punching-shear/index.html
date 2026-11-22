@@ -14,8 +14,10 @@
   <main class="column-layout punching-layout">
     <form id="punching-inputs" aria-label="Punching shear inputs">
       <fieldset id="examples-anchor">
-        <legend>Examples</legend>
-        <label><span>Load a worked case</span><select id="example" aria-label="Load a worked case"><option value="">Choose…</option></select></label>
+        <legend>Calculation case</legend>
+        <label><span>Start from</span><select id="case-mode" aria-label="Start from"><option value="custom">Custom input</option><option value="cards">Worked case</option></select></label>
+        <div id="example-cards" class="example-cards" role="group" aria-label="Worked cases" hidden></div>
+        <div id="example-variants" class="example-variants" role="group" aria-label="Variants" hidden></div>
         <p id="example-note" class="table-caption"></p>
       </fieldset>
       <div id="openings-anchor">
@@ -42,10 +44,14 @@
       <h2 id="plan-title">Plan</h2>
       <div id="plan-view" class="drawing" role="img" aria-label="Plan of column, control perimeters and links"></div>
       <p id="selection-info">Select a link in the plan to inspect it.</p>
+      <h2 class="detail-title">Loading and sign convention</h2>
+      <div id="sign-view" class="drawing" role="img" aria-label="Loading plan and sign convention"></div>
       <h2 class="detail-title">Section A–A (local x)</h2>
       <div id="section-view" class="drawing" role="img" aria-label="Section A–A along the local x-axis"></div>
       <h2 class="detail-title">Section B–B (local y)</h2>
       <div id="section-view-b" class="drawing" role="img" aria-label="Section B–B along the local y-axis"></div>
+      <h2 class="detail-title">Shear stress along the control perimeters</h2>
+      <div id="stress-view" class="drawing" role="img" aria-label="Shear stress along u0, u1 and u_out"></div>
       <h2 class="detail-title">Link layer schedule</h2>
       <div class="schedule-wrap">
         <table id="layer-schedule" class="column-summary-table">

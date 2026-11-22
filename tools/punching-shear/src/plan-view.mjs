@@ -33,7 +33,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
   const layers = result.layout?.layers ?? [];
   const aOut = result.envelope?.uOut ? result.envelope.aOut : 0;
   const ext = head?.kind === 'large' && head.inner ? head.sections.find(item => item.id === 'ext') : null;
-  const outerOnly = head?.kind === 'large' && !head.inner;
+  const outerOnly = (head?.kind === 'large' && !head.inner) || (head?.kind === 'small' && !head.rcont);
   const headReach = head ? Math.max(...head.lH) + 2 * head.d : 0;
   const reach = Math.max(u1Offset, aOut, headReach, ...layers.map(layer => layer.offset), 0);
   const legendHeight = 40;
@@ -91,7 +91,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
   if (d > 0) {
     parts.push(perimeter(u1Offset, COLORS.u1, DASH.u1, 1.3));
     const u1Label = toGlobal(pathColumn, pointAt(pathColumn, u1Offset, firstEffective(model, u1Offset, head?.kind === 'small' ? 0.1 : 0.3)));
-    const name = outerOnly ? 'u1,ext (2d from drop)' : head?.kind === 'large' ? 'u1,int (d_H)' : head?.kind === 'small' ? `u1 at r_cont (${head.rcont.eq})` : 'u1 (2d)';
+    const name = outerOnly || (head?.kind === 'small' && !head.rcont) ? 'u1,ext (2d from drop)' : head?.kind === 'large' ? 'u1,int (d_H)' : head?.kind === 'small' ? `u1 at r_cont (${head.rcont.eq})` : 'u1 (2d)';
     parts.push(`<text class="label" x="${n(view.x(u1Label.x) + 4)}" y="${n(view.y(u1Label.y) - 5)}">${esc(name)}</text>`);
   }
   for (const [index, layer] of layers.entries()) {
@@ -185,7 +185,8 @@ function keyValues({ d, u1Offset, aOut, layers, head }) {
     const radial = [...new Set(layers.slice(1).map((layer, i) => (layer.offset - layers[i].offset).toFixed(0)))];
     if (radial.length) out.push(`s_r = ${radial.join(' / ')}`);
   }
-  if (head?.kind === 'small') out.push(`r_cont = ${head.rcont.r.toFixed(0)}`);
+  if (head?.kind === 'small' && head.rcont) out.push(`r_cont = ${head.rcont.r.toFixed(0)}`);
+  else if (head?.kind === 'small') out.push(`2d = ${(2 * head.d).toFixed(0)} from drop`);
   else if (d > 0 && !(head?.kind === 'large' && !head.inner)) out.push(`${head?.kind === 'large' ? '2d_H' : '2d'} = ${u1Offset.toFixed(0)}`);
   if (head) out.push(`l_H = ${head.lH.map(v => v.toFixed(0)).join(' / ')}`);
   if (head?.kind === 'large') out.push(`l_H + 2d = ${(head.lMin + 2 * head.d).toFixed(0)}`);

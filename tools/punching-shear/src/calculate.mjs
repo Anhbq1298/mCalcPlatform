@@ -88,10 +88,16 @@ export function calculate(rawInput, options = {}) {
   const limitIssues = [];
   const linkLimit = options.linkLimit;
   let layoutOut = envelope.aOut;
-  if (Number.isFinite(linkLimit) && needing.length && envelope.aOut - P.outerK * d > linkLimit) {
+  const limitNotes = [];
+  if (Number.isFinite(linkLimit) && needing.length) {
+    // Layers sit on a grid first + k·s_r; keep the last one inside the drop.
     const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
-    layoutOut = first + Math.max(0, Math.floor((linkLimit - first) / ctx.envelopeSr + 1e-9)) * ctx.envelopeSr + P.outerK * d;
-    limitIssues.push({ state: STATES.confirm, message: `u_out,ef with d_H lies ${envelope.aOut.toFixed(0)} mm from the column face, beyond the drop. Links are kept inside the drop (outermost layer ≤ ${linkLimit.toFixed(0)} mm) and the slab beyond the drop edge is covered by the check at u1,ext. This follows §6.4.2(9) but the layout rule is an interpretation.` });
+    const sr = ctx.envelopeSr;
+    const lastNeeded = first + Math.max(0, Math.ceil((envelope.aOut - P.outerK * d - first) / sr - 1e-9)) * sr;
+    if (lastNeeded > linkLimit + 1e-9) {
+      layoutOut = first + Math.max(0, Math.floor((linkLimit - first) / sr + 1e-9)) * sr + P.outerK * d;
+      limitNotes.push(`u_out,ef with d_H lies ${envelope.aOut.toFixed(0)} mm from the column face, beyond the drop. Links are kept inside the drop (outermost layer ≤ ${linkLimit.toFixed(0)} mm); the slab beyond the drop edge is covered by the check at u1,ext (see Help).`);
+    }
   }
 
   let layout;
@@ -113,7 +119,7 @@ export function calculate(rawInput, options = {}) {
   ctx.layoutOut = layoutOut;
   const results = demands.map(item => loadResult(ctx, item, layout, summary, links, detailing));
 
-  const notes = [...geometry.notes];
+  const notes = [...geometry.notes, ...limitNotes];
   const capped = results.filter(entry => entry.rows.some(item => (item.id === 'max' || item.id === 'kmax') && item.status === STATES.fail));
   if (capped.length) notes.unshift(`${capped.map(entry => entry.name).join(', ')}: v_Ed exceeds v_Rd,max or the upper limit with links. Adding links cannot resolve this; increase the slab depth, column size or concrete strength.`);
   const governing = results.reduce((best, entry) => (entry.ur > best.ur ? entry : best), results[0]);

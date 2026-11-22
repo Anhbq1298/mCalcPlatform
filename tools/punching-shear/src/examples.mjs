@@ -1,4 +1,4 @@
-// Twelve worked cases covering the scope of the tool. Each is a partial input merged over the
+// Worked cases covering the scope of the tool, grouped below into six cards. Each is a partial input merged over the
 // defaults by restoreInputs. `expect` is the overall status the case is built to show; the unit
 // tests assert it so that a change in engineering behaviour is noticed.
 const confirmed = { beta: { method: 'simplified', confirmed: true, userValue: 1.15 } };
@@ -6,7 +6,7 @@ const engaged = { reinforcement: { mode: 'auto', diameter: 10, shape: 'single', 
 const slab = (h, d, extra = {}) => ({ slab: { h, depthMode: 'explicit', dx: d + 5, dy: d - 5, cover: 25, xMin: -6000, xMax: 6000, yMin: -6000, yMax: 6000, ...extra } });
 const head = values => ({ head: { enabled: true, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, depth: 150, ...values } });
 
-export const EXAMPLES = [
+const CASES = [
   {
     id: 'internal-plain', title: '1 · Internal column, no links', expect: 'Pass',
     note: 'v_Ed ≤ v_Rd,c at u1; only the face check applies.',
@@ -71,6 +71,38 @@ export const EXAMPLES = [
       reinforcement: { mode: 'provided', diameter: 10, shape: 'single', legGap: 100, anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true }, layers: [{ offset: 80, diameter: 8, shape: 'single', links: 8, start: 0, omitted: [] }, { offset: 235, diameter: 8, shape: 'single', links: 8, start: 0, omitted: [] }] },
     },
   },
+  {
+    id: 'edge-drop', title: 'Edge column with drop', expect: 'Pass',
+    note: 'Drop clipped at the slab edge. Inside: edge column with d_H (Fig. 6.15); outside: the clipped drop as an edge loaded area at 2d. Geometric extension, see Help.',
+    input: { ...confirmed, ...engaged, ...slab(250, 210, { xMax: 250 }), ...head({ lx: 2400, ly: 2400, depth: 150 }), beta: { method: 'simplified', confirmed: true, userValue: 1.4 }, column: { shape: 'rectangular', position: 'edge', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 600, Mx: 0, My: 0 }] },
+  },
+  {
+    id: 'corner-drop', title: 'Corner column with drop', expect: 'Pass',
+    note: 'Drop clipped at both slab edges. Inside: corner column with d_H (Fig. 6.20); outside: the clipped drop as a corner loaded area at 2d.',
+    input: { ...confirmed, ...engaged, ...slab(250, 210, { xMax: 250, yMax: 250 }), ...head({ lx: 2400, ly: 2400, depth: 150 }), beta: { method: 'simplified', confirmed: true, userValue: 1.5 }, column: { shape: 'rectangular', position: 'corner', cx: 500, cy: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 300, Mx: 0, My: 0 }] },
+  },
 ];
 
+const byId = Object.fromEntries(CASES.map(item => [item.id, item]));
+const variant = (id, label) => ({ ...byId[id], label });
+
+// Six cards: interior, edge and corner, each without and with a drop. The first variant loads when
+// the card is picked; the others cover circular columns, openings, prestress, the Singapore profile,
+// a failing provided layout, Fig. 6.17 and circular heads.
+export const EXAMPLE_CARDS = [
+  { id: 'interior', title: 'Interior', position: 'internal', drop: false, variants: [
+    variant('internal-links', 'Auto links (CSI geometry)'), variant('internal-plain', 'No links needed'), variant('circular-moment', 'Circular column, β from moments'),
+    variant('opening', 'Opening within 6d'), variant('two-openings', 'Two openings'), variant('prestressed-sg', 'Post-tensioned, SG NA'), variant('provided-fail', 'Provided layout (fails)'),
+  ] },
+  { id: 'edge', title: 'Edge', position: 'edge', drop: false, variants: [variant('edge', 'β from moments')] },
+  { id: 'corner', title: 'Corner', position: 'corner', drop: false, variants: [variant('corner', 'Simplified β = 1.5')] },
+  { id: 'interior-drop', title: 'Interior + drop', position: 'internal', drop: true, variants: [
+    variant('drop-large', 'l_H > 2h_H, links in the drop'), variant('drop-small', 'l_H ≤ 2h_H (Fig. 6.17)'), variant('drop-circular', 'Circular column and head'),
+  ] },
+  { id: 'edge-drop', title: 'Edge + drop', position: 'edge', drop: true, variants: [variant('edge-drop', 'Drop clipped at the edge')] },
+  { id: 'corner-drop', title: 'Corner + drop', position: 'corner', drop: true, variants: [variant('corner-drop', 'Drop clipped at both edges')] },
+];
+
+// Every variant once, for tests and lookup.
+export const EXAMPLES = EXAMPLE_CARDS.flatMap(card => card.variants.map(item => ({ ...item, card: card.id })));
 export const exampleById = id => EXAMPLES.find(item => item.id === id);

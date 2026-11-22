@@ -43,7 +43,7 @@ test('worksheet report is a valid Canvas document with drawings, schedule and li
   const doc = buildWorksheet(result, { pageHeight: 1123, pageGap: 48, designName: 'PS-01' });
   assert.equal(doc.format, 'calccanvas');
   assert.equal(new Set(doc.shapes.map(shape => shape.id)).size, doc.shapes.length);
-  assert.equal(doc.shapes.filter(shape => shape.type === 'image').length, 3); // plan, sections A–A and B–B
+  assert.equal(doc.shapes.filter(shape => shape.type === 'image').length, 5); // plan, loading, sections A–A and B–B, stress
   assert.ok(doc.shapes.some(shape => shape.type === 'table'));
   for (const shape of doc.shapes) {
     const page = Math.floor(shape.y / (1123 + 48));

@@ -2,7 +2,10 @@ import '../../../apps/column-summary.css';
 import { registerPage } from '../../../apps/tool-page.mjs';
 import { A4, PAGE_GAP } from '../../../../src/export/pageGeometry.ts';
 import { calculateDesign as calculate } from './head.mjs';
-import { EXAMPLES, exampleById } from './examples.mjs';
+import { EXAMPLE_CARDS } from './examples.mjs';
+import { cardIcon } from './example-icons.mjs';
+import { signSvg } from './sign-view.mjs';
+import { stressSvg } from './stress-view.mjs';
 import { buildForm } from './form.mjs';
 import { htmlSubscripts } from './subscript.mjs';
 import { LINK_DIAMETERS, newDefaults, restoreInputs } from './inputs.mjs';
@@ -56,17 +59,45 @@ const refreshLayers = mountTable(layerTableHost, {
   onChange: () => schedule(), addLabel: '+ Layer', removeLabel: '− Layer', rowLabel: index => 'L' + (index + 1),
 });
 
-const exampleSelect = byId('example');
-exampleSelect.append(...EXAMPLES.map(item => new Option(item.title, item.id)));
-exampleSelect.addEventListener('input', () => {
-  const example = exampleById(exampleSelect.value);
-  if (!example) return;
-  state = restoreInputs(example.input);
-  byId('example-note').textContent = example.note;
+// Calculation case: worked cases appear as cards only when "Worked case" is chosen.
+let activeCard = null;
+let activeVariant = null;
+function loadVariant(item) {
+  state = restoreInputs(item.input);
+  activeVariant = item.id;
+  byId('example-note').textContent = item.note;
   selected = null;
+  renderCards();
   refresh();
   recalculate();
-});
+}
+function renderCards() {
+  const show = byId('case-mode').value === 'cards';
+  byId('example-cards').hidden = !show;
+  byId('example-variants').hidden = !show || !activeCard || activeCard.variants.length < 2;
+  if (!show) return;
+  byId('example-cards').replaceChildren(...EXAMPLE_CARDS.map(card => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'example-card';
+    button.setAttribute('aria-pressed', String(card === activeCard));
+    button.innerHTML = cardIcon(card) + `<span>${card.title}</span>`;
+    button.addEventListener('click', () => { activeCard = card; loadVariant(card.variants[0]); });
+    return button;
+  }));
+  if (activeCard) byId('example-variants').replaceChildren(...activeCard.variants.map(item => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'example-variant';
+    chip.dataset.example = item.id;
+    chip.setAttribute('aria-pressed', String(activeVariant === item.id));
+    chip.textContent = item.label;
+    chip.addEventListener('click', () => loadVariant(item));
+    return chip;
+  }));
+  htmlSubscripts(byId('example-variants'));
+}
+byId('case-mode').addEventListener('input', renderCards);
 byId('load-type').addEventListener('input', event => { state.loadType = event.target.value; schedule(); });
 byId('combination').addEventListener('input', render);
 byId('copy-layout').addEventListener('click', () => {
@@ -142,6 +173,8 @@ function render() {
   renderBasis(byId('code-basis'), result.profile);
   const drawable = Boolean(result.section);
   byId('plan-view').innerHTML = drawable ? planSvg(result, { selected }) : '';
+  byId('sign-view').innerHTML = drawable ? signSvg(result) : '';
+  byId('stress-view').innerHTML = drawable && result.loads?.length ? stressSvg(result, { load: result.loads.find(item => item.name === byId('combination').value) }) : '';
   byId('section-view').innerHTML = drawable ? sectionSvg(result, { axis: 'x' }) : '';
   byId('section-view-b').innerHTML = drawable ? sectionSvg(result, { axis: 'y' }) : '';
   const link = result.layout?.links.find(entry => entry.id === selected);
@@ -152,7 +185,7 @@ function render() {
     : 'Select a link in the plan to inspect it.';
   byId('omit-link').disabled = !(link && state.reinforcement.mode === 'provided');
   byId('restore-links').disabled = !(state.reinforcement.mode === 'provided' && (link || /^L\d+$/.test(selected ?? '')));
-  for (const id of ['column-check-summary', 'design-status', 'messages', 'checks', 'code-basis', 'layer-schedule', 'selection-info', 'example-note']) htmlSubscripts(byId(id));
+  for (const id of ['column-check-summary', 'design-status', 'messages', 'checks', 'code-basis', 'layer-schedule', 'selection-info', 'example-note', 'example-variants']) htmlSubscripts(byId(id));
 }
 
 form.addEventListener('submit', event => event.preventDefault());
