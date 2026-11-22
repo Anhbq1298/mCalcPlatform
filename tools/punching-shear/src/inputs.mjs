@@ -10,17 +10,28 @@ export const STATES = {
   incomplete: 'Incomplete input',
   unsupportedGeometry: 'Unsupported geometry',
   unsupportedLoading: 'Unsupported loading',
-  notVerified: 'Not verified',
-  confirm: 'Requires confirmation',
+  // Shown as Fail: outside what the tool can demonstrate (reason in the row detail and in Help).
+  notVerified: 'Fail',
+  confirm: 'Fail',
   notRequired: 'Not required',
   linksRequired: 'Links required',
 };
 
+// Basis of the reference cases and published benchmarks (CEN values, entered d = 218, simplified β
+// awaiting the §6.4.3(6) tick): the defaults before the Singapore / moment-β / bar-derived d defaults.
+export function cenDefaults() {
+  const input = newDefaults();
+  input.code = { ...input.code, profile: 'cen' };
+  input.slab = { ...input.slab, depthMode: 'explicit', dx: 218, dy: 218 };
+  input.beta = { method: 'simplified', confirmed: false, userValue: 1.15 };
+  return input;
+}
+
 export function newDefaults() {
   return {
-    code: { edition: 'EN 1992-1-1:2004 + AC:2010 + A1:2014', profile: 'cen', naConfirmed: false },
+    code: { edition: 'EN 1992-1-1:2004 + AC:2010 + A1:2014', profile: 'sg', naConfirmed: false },
     column: { shape: 'rectangular', position: 'internal', cx: 300, cy: 900, diameter: 500, rotation: 0, x: 0, y: 0 },
-    slab: { h: 250, depthMode: 'explicit', dx: 218, dy: 218, cover: 25, xMin: -4000, xMax: 4000, yMin: -4000, yMax: 4000 },
+    slab: { h: 250, depthMode: 'bars', dx: 218, dy: 218, cover: 25, xMin: -4000, xMax: 4000, yMin: -4000, yMax: 4000 },
     materials: { fck: 30, fyk: 500 },
     prestress: { sigmaX: 0, sigmaY: 0 },
     flexure: { phiX: 16, sX: 150, phiY: 16, sY: 150, outer: 'x', areaMode: 'bars' },
@@ -28,7 +39,7 @@ export function newDefaults() {
     openings: [],
     loadType: 'net',
     loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
-    beta: { method: 'simplified', confirmed: false, userValue: 1.15 },
+    beta: { method: 'moment', confirmed: false, userValue: 1.15 },
     reinforcement: {
       mode: 'auto', arrangement: 'grid', sr: 150, st: 150, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
       anchorage: { type: 'hook', mandrelFactor: 4, extension: 75, engaged: false },
@@ -148,6 +159,10 @@ export function validateGeometry(input) {
   } else issues.push({ state: STATES.unsupportedGeometry, message: 'Select a rectangular or circular column.' });
   if (![column.rotation, column.x, column.y].every(finite)) issues.push({ state: STATES.incomplete, message: 'Enter the column centre and rotation.' });
   if (!positive(slab.h)) issues.push({ state: STATES.incomplete, message: 'Enter the slab thickness.' });
+  // Entered effective depths must fit in the slab: d ≤ h − c − φ/2 (otherwise h would not govern d).
+  if (slab.depthMode !== 'bars' && positive(slab.h) && [slab.dx, slab.dy].some(value => !(value > 0) || value > slab.h - (slab.cover ?? 0) + 1e-9)) {
+    issues.push({ state: STATES.incomplete, message: `Effective depths d_x, d_y must be positive and ≤ h − c = ${(slab.h - (slab.cover ?? 0)).toFixed(0)} mm; or derive them from the cover and bars.` });
+  }
   if (slab.depthMode === 'bars' && (!positive(slab.cover) || !positive(flexure.phiX) || !positive(flexure.phiY))) {
     issues.push({ state: STATES.incomplete, message: 'Enter the cover and flexural bar diameters to derive the effective depths.' });
   }

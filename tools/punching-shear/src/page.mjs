@@ -19,7 +19,6 @@ import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import './style.css';
-import { installAbout } from './about.mjs';
 
 const byId = id => document.getElementById(id);
 const form = byId('punching-inputs');
@@ -130,17 +129,18 @@ for (const tab of tabs) tab.addEventListener('click', () => {
 });
 byId('load-type').addEventListener('input', event => { state.loadType = event.target.value; schedule(); });
 byId('combination').addEventListener('input', render);
-// Auto arrangement: run the automatic design and write it into the arrangement table as rows.
-byId('copy-layout').addEventListener('click', () => {
+// Switching to the custom layout with an empty table starts from the current auto arrangement, one row
+// per layer, so the engineer edits a layout that already works.
+function prefillCustom() {
+  if (state.reinforcement.mode !== 'provided' || state.reinforcement.groups?.length) return false;
   const auto = calculate({ ...state, reinforcement: { ...state.reinforcement, mode: 'auto' } });
   const layers = auto.layout?.layers ?? [];
-  if (!layers.length) { status.textContent = auto.layout?.reason ?? 'Auto arrangement: no links required.'; return; }
+  if (!layers.length) return false;
   state.reinforcement.groups = layersToGroups(layers, auto.layout.summary);
   state.reinforcement.omitted = {};
-  state.reinforcement.mode = 'provided';
-  refresh();
-  schedule();
-});
+  refreshLayers();
+  return true;
+}
 byId('omit-link').addEventListener('click', () => {
   const link = result?.layout?.links.find(entry => entry.id === selected);
   if (!link || state.reinforcement.mode !== 'provided') return;
@@ -171,13 +171,17 @@ function refresh() {
   refreshLoads();
   refreshLayers();
   byId('load-type').value = state.loadType;
-  const provided = state.reinforcement.mode === 'provided';
-  layerTableHost.hidden = byId('arrangement-caption').hidden = !provided;
+  showLayout();
+}
 
-  byId('omit-link').hidden = byId('restore-links').hidden = !provided;
+// The custom layout table (and its link editing buttons) shows only in custom mode.
+function showLayout() {
+  byId('layers-anchor').hidden = state.reinforcement.mode !== 'provided';
 }
 
 function schedule() {
+  prefillCustom();
+  showLayout();
   clearTimeout(debounce);
   status.textContent = 'Updating checks…';
   debounce = setTimeout(recalculate, 120);
@@ -246,5 +250,3 @@ registerPage('punching-shear', {
     return buildWorksheet(result, { pageHeight: A4.h, pageGap: PAGE_GAP, designName: document.title });
   },
 });
-
-installAbout(document.getElementById('about-button'), document.getElementById('about-dialog'));

@@ -11,8 +11,8 @@ const TOL = 1e-6; // mm
 export function betaFor(ctx, load) {
   const { input, position, d, u1, u1Star, shadows } = ctx;
   const method = input.beta.method;
-  if (method === 'simplified') return { value: BETA_SIMPLIFIED[position.kind], method: `§6.4.3(6) simplified value for ${position.kind} columns, conditions confirmed by the user` };
-  if (method === 'user') return { value: input.beta.userValue, method: 'User-defined value; not calculated or independently verified by the tool' };
+  if (method === 'simplified') return { value: BETA_SIMPLIFIED[position.kind], method: `§6.4.3(6) simplified value for ${position.kind} columns (braced, spans ≤ 25 %, ticked by the user)` };
+  if (method === 'user') return { value: input.beta.userValue, method: 'User-defined value (not calculated by the tool)' };
   const ex = (load.My / load.V) * 1000;
   const ey = (load.Mx / load.V) * 1000;
   if (position.kind === 'internal') {

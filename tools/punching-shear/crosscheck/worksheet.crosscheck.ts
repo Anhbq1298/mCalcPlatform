@@ -7,7 +7,7 @@ import { A4, PAGE_GAP } from '../../../vendor/calccanvas/src/export/pageGeometry
 import { calculate } from '../src/calculate.mjs';
 import { exampleById } from '../src/examples.mjs';
 import { calculateDesign } from '../src/head.mjs';
-import { newDefaults } from '../src/inputs.mjs';
+import { cenDefaults } from '../src/inputs.mjs';
 import { buildWorksheet } from '../src/worksheet.mjs';
 
 function evaluate(result) {
@@ -36,7 +36,7 @@ const si = value => value?.number;
 
 function cases() {
   const list = [];
-  const add = (name, edit) => { const input = newDefaults(); input.beta.confirmed = true; edit(input); list.push([name, input]); };
+  const add = (name, edit) => { const input = cenDefaults(); input.beta.confirmed = true; edit(input); list.push([name, input]); };
   add('CSI geometry, simplified β, k_max exceeded', () => {});
   add('auto layout, single legs', input => { input.loads = [{ name: 'A', V: 800, Mx: 0, My: 0 }]; });
   add('uniaxial moment, rectangular', input => { input.beta = { method: 'moment' }; input.loads = [{ name: 'A', V: 700, Mx: 0, My: 110 }, { name: 'B', V: 650, Mx: 90, My: 0 }]; });

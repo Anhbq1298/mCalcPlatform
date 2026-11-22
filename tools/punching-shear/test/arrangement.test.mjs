@@ -4,7 +4,7 @@ import { arcLengthAt, arrangedLayers, faceGaps, outerPerimeterEf } from '../src/
 import { layerSummary, buildLinks } from '../src/layout.mjs';
 import { calculate } from '../src/calculate.mjs';
 import { pointAt } from '../src/geometry.mjs';
-import { newDefaults, restoreInputs } from '../src/inputs.mjs';
+import { cenDefaults, newDefaults, restoreInputs } from '../src/inputs.mjs';
 
 const column = { shape: 'rectangular', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 };
 const model = { column, slab: null, openings: [], shadows: [] };
@@ -49,7 +49,7 @@ test('orthogonal grid: ring points on the rectangle at the offset, grid lines �
 });
 
 test('no link outside the slab: grid at an edge column keeps only points inside', () => {
-  const input = newDefaults();
+  const input = cenDefaults();
   Object.assign(input.column, { position: 'edge', cx: 400, cy: 400, x: 0, y: 0 });
   input.slab.xMax = 200;
   input.beta = { method: 'simplified', confirmed: true, userValue: 1.4 };
@@ -97,7 +97,7 @@ test('u_out,ef (Fig. 6.22): Σ min(L_i, 2d) + 2π·1.5d', () => {
 
 test('required vs effective outer perimeter: same u_out,req, different u_out,ef per arrangement', () => {
   const run = arrangement => {
-    const input = newDefaults();
+    const input = cenDefaults();
     input.beta.confirmed = true;
     input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }];
     input.reinforcement.arrangement = arrangement;
@@ -111,7 +111,7 @@ test('required vs effective outer perimeter: same u_out,req, different u_out,ef 
 });
 
 test('cruciform reaches u_out,req by widening the arms, not by longer rails', () => {
-  const input = newDefaults();
+  const input = cenDefaults();
   input.beta.confirmed = true;
   input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }];
   input.reinforcement.arrangement = 'cruciform';
@@ -137,7 +137,7 @@ test('u_out,ef matches Ancon Shearfix EC2 manual Example 16.1 (cruciform, publis
 });
 
 test('auto arrangement: s_r capped at 0.75d with a note; rails added until Eq. 6.52 A_sw is met', async () => {
-  const thin = newDefaults();
+  const thin = cenDefaults();
   Object.assign(thin.slab, { h: 200, dx: 164, dy: 164 });
   thin.beta.confirmed = true;
   thin.loads = [{ name: 'U', V: 450, Mx: 0, My: 0 }];

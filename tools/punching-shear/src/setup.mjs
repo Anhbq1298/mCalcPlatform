@@ -74,7 +74,7 @@ export function geometryLimits(ctx, reach) {
   if (ctx.res.fckShear < input.materials.fck) notes.push(`f_ck = ${ctx.res.fckShear} MPa used for shear strength (C_max = C50/60, NA 3.1.2(2)P).`);
   if (ctx.res.sigmaCp !== 0) notes.push(`σ_cp = ${ctx.res.sigmaCp.toFixed(2)} MPa included in Eq. 6.47 with k1 = 0.1.`);
   if (ctx.profile.needsConfirmation && input.code?.naConfirmed !== true) {
-    issues.push({ state: STATES.notVerified, message: `${ctx.profile.label}: values come from secondary transcriptions of the National Annex. Confirm them against the NA text to remove this status.` });
+    issues.push({ state: STATES.incomplete, message: `${ctx.profile.label}: tick "UK NA values checked" (values from secondary sources, see Help).` });
   }
   if (ctx.res.vRdc <= 0) issues.push({ state: STATES.unsupportedLoading, message: 'In-plane tension makes v_Rd,c non-positive; this is outside the scope of Eq. 6.47.' });
   return { issues, notes };

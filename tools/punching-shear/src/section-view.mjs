@@ -283,7 +283,7 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const y0 = legendY + 18;
   parts.push(`<line x1="0" y1="${n(drawHeight)}" x2="${width}" y2="${n(drawHeight)}" stroke="${COLORS.rule}"/>` + symbols
     + valueLines.map((line, i) => `<text class="small" x="14" y="${n(y0 + 15 * i)}">${esc(line)}</text>`).join('')
-    + `<text class="small" x="14" y="${n(y0 + 15 * valueLines.length)}">Section ${name} (local ${axis}) · legs at their offsets · hook anchorage requires detailing confirmation (§8.5).</text>`
+    + `<text class="small" x="14" y="${n(y0 + 15 * valueLines.length)}">Section ${name} (local ${axis}) · legs at their offsets · hook anchorage per §8.5 (§8.5).</text>`
     + `<text class="small" x="14" y="${n(y0 + 15 + 15 * valueLines.length)}">Distances in mm from the column face.</text>`);
   return svgDocument(width, height, `Punching shear section ${name}`, parts.join(''));
 }
