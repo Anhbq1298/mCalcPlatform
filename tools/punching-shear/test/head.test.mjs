@@ -189,3 +189,69 @@ test('tangential spacing s_t sets the link count per layer; Auto arrangement rou
   provided.layout.summary.forEach((layer, i) => assert.ok(layer.physicalLinks >= auto.layout.summary[i].physicalLinks, layer.id));
   assert.equal(provided.status, auto.status);
 });
+
+test('drop at edge and corner columns: β outside the drop is capped at the column β, so the drop never needs more links than no drop', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const steel = r => r.layout.links.reduce((s, l) => s + l.legs.length * Math.PI * l.diameter ** 2 / 4, 0);
+  for (const [position, V, Mx, My] of [['edge', 500, 60, -20], ['corner', 260, -30, -30]]) for (const arrangement of ['grid', 'radial']) {
+    const input = newDefaults();
+    input.column = { ...input.column, cx: 400, cy: 400, position, x: 3800, y: position === 'corner' ? 3800 : 0 };
+    input.reinforcement = { ...input.reinforcement, enabled: true, arrangement };
+    input.loads = [{ name: 'U', V, Mx, My }];
+    const flat = calculateDesign(input);
+    const drop = calculateDesign({ ...input, head: { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 } });
+    assert.equal(drop.status, 'Pass');
+    assert.ok(steel(drop) < steel(flat), `${position} ${arrangement}: drop ${steel(drop)} ≥ flat ${steel(flat)}`);
+  }
+});
+
+test('radial arrangement in a drop: with the option ticked, radial lines continue to the drop edge (detailing links)', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  input.column = { ...input.column, cx: 400, cy: 400 };
+  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'radial', dropFill: true };
+  input.loads = [{ name: 'U', V: 1500, Mx: 20, My: 40 }];
+  const result = calculateDesign(input);
+  assert.equal(result.status, 'Pass');
+  const fill = result.layout.links.filter(link => link.edge);
+  assert.ok(fill.length > 0);
+  const edge = 1000 - input.slab.cover; // drop half-width less cover, local to the column centre
+  assert.ok(fill.every(link => Math.abs(link.position.x) <= edge + 1e-6 && Math.abs(link.position.y) <= edge + 1e-6));
+  assert.ok(Math.max(...fill.map(link => Math.max(Math.abs(link.position.x), Math.abs(link.position.y)))) >= edge - 1e-6);
+});
+
+test('links out to the drop edge are an option, off by default', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  assert.equal(input.reinforcement.dropFill, false);
+  input.code = { ...input.code, profile: 'cen' }; // outside the SG compact link zone
+  input.column = { ...input.column, cx: 400, cy: 400 };
+  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.loads = [{ name: 'U', V: 1200, Mx: 20, My: 40 }];
+  for (const arrangement of ['grid', 'radial']) {
+    const off = calculateDesign({ ...input, reinforcement: { ...input.reinforcement, enabled: true, arrangement } });
+    const on = calculateDesign({ ...input, reinforcement: { ...input.reinforcement, enabled: true, arrangement, dropFill: true } });
+    assert.equal(off.status, 'Pass');
+    assert.equal(off.layout.links.filter(link => link.edge).length, 0);
+    assert.ok(on.layout.links.length > off.layout.links.length, arrangement);
+  }
+});
+
+test('hint: the smallest drop that needs no links in the slab around it', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  input.column = { ...input.column, cx: 400, cy: 400 };
+  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.reinforcement = { ...input.reinforcement, enabled: true };
+  input.loads = [{ name: 'U', V: 1500, Mx: 20, My: 40 }];
+  const note = calculateDesign(input).notes.find(n => n.startsWith('Links are needed in the slab around the drop'));
+  const [, lx, ly] = note.match(/(\d+) × (\d+)/).map(Number);
+  const ext = l => calculateDesign({ ...input, head: { ...input.head, lx: l, ly: l } }).loads[0].rows.find(r => r.id === 'ext-concrete').ur;
+  assert.equal(lx, ly);
+  assert.ok(ext(lx) <= 1 && ext(lx - 50) > 1, `${lx}: ${ext(lx)}, ${ext(lx - 50)}`);
+});

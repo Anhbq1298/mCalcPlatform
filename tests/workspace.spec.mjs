@@ -453,7 +453,7 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   const schedule = page.locator('#layer-schedule tbody tr');
   await expect(schedule).toHaveCount(2); // Singapore compact link zone.
   await page.getByRole('tab', { name: 'Compare layouts' }).click();
-  await expect(page.locator('#layout-comparison tbody tr')).toHaveCount(3);
+  await expect(page.locator('#layout-comparison tbody tr')).toHaveCount(2); // grid and radial
   await page.getByRole('tab', { name: 'Plan' }).click();
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
   const linkCount = await page.locator('#plan-view [data-link]').count();
@@ -497,7 +497,7 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   const plan = await page.locator('#plan-view svg').boundingBox();
   expect(plan.x + plan.width).toBeLessThanOrEqual(375);
   await page.getByRole('tab', { name: 'Compare layouts' }).click();
-  await expect(page.locator('#layout-comparison tbody tr')).toHaveCount(3);
+  await expect(page.locator('#layout-comparison tbody tr')).toHaveCount(2); // grid and radial
   expect(await page.locator('#layout-comparison').evaluate(node => getComputedStyle(node).overflowX)).toBe('auto');
   await page.getByRole('tab', { name: 'Plan' }).click();
   await page.setViewportSize(viewport);

@@ -30,7 +30,7 @@ let result = null;
 let selected = null;
 let debounce;
 
-const anchors = { Openings: byId('openings-anchor'), 'Design actions': byId('loads-anchor'), 'Punching reinforcement': byId('layers-anchor') };
+const anchors = { Openings: byId('openings-anchor'), 'Design actions': byId('loads-anchor'), Reinforcement: byId('layers-anchor') };
 const refreshForm = buildForm(form, anchors, () => state, () => schedule());
 refreshForm.open('Column');
 byId('show-all-inputs').addEventListener('input', event => refreshForm.showAll(event.target.checked));

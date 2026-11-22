@@ -35,7 +35,20 @@ export function sectionModulusCircular(diameter, d) {
 }
 
 // Straight and arc pieces of the path at offset r, starting at the middle of the +x side, anticlockwise.
+// The pieces are read-only and cached: the auto arrangement search evaluates the same paths many times.
+const PIECES = new Map();
 function pieces(column, r) {
+  const key = `${column.shape}|${column.cx}|${column.cy}|${column.diameter}|${r}`;
+  let list = PIECES.get(key);
+  if (!list) {
+    if (PIECES.size > 20000) PIECES.clear();
+    list = Object.freeze(buildPieces(column, r));
+    PIECES.set(key, list);
+  }
+  return list;
+}
+
+function buildPieces(column, r) {
   if (column.shape === 'circular') {
     const R = column.diameter / 2 + r;
     return [{ kind: 'arc', cx: 0, cy: 0, R, from: 0, to: 2 * Math.PI, length: 2 * Math.PI * R }];
@@ -53,10 +66,17 @@ function pieces(column, r) {
 
 export const pathPieces = (column, r) => pieces(column, r);
 
+const TOTALS = new WeakMap();
+function totalLength(list) {
+  let total = TOTALS.get(list);
+  if (total === undefined) TOTALS.set(list, (total = list.reduce((sum, piece) => sum + piece.length, 0)));
+  return total;
+}
+
 // Local point and unit tangent at arc length s along the path at offset r.
 export function pointAt(column, r, s) {
   const list = pieces(column, r);
-  const total = list.reduce((sum, piece) => sum + piece.length, 0);
+  const total = totalLength(list);
   let rest = ((s % total) + total) % total;
   for (const piece of list) {
     if (rest <= piece.length || piece === list[list.length - 1]) {

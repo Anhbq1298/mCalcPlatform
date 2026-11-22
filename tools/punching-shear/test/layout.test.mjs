@@ -103,7 +103,7 @@ test('starting a custom layout preserves the auto positions and outer lengths fo
   const { CASES } = await import('../src/examples.mjs');
   const { layersToGroups } = await import('../src/inputs.mjs');
   const input = CASES.find(entry => entry.id === 'internal-links').input;
-  for (const arrangement of ['grid', 'radial', 'cruciform']) {
+  for (const arrangement of ['grid', 'radial']) {
     const auto = calculate({ ...input, reinforcement: { ...input.reinforcement, arrangement } });
     const groups = layersToGroups(auto.layout.layers, auto.layout.summary);
     const custom = calculate({ ...input, reinforcement: { ...input.reinforcement, mode: 'provided', groups } });

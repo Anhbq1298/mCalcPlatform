@@ -188,7 +188,7 @@ export function renderArrangementComparison(host, result, input, calculate) {
   }
   let comparisons = comparisonCache.get(result);
   if (!comparisons) {
-    comparisons = [['grid', 'Orthogonal grid'], ['radial', 'Radial rails'], ['cruciform', 'Cruciform rails']]
+    comparisons = [['grid', 'Grid arrangement'], ['radial', 'Radial arrangement']]
       .map(([arrangement, label]) => [label, calculate({ ...input, reinforcement: { ...input.reinforcement, mode: 'auto', arrangement } })]);
     comparisonCache.set(result, comparisons);
   }
@@ -196,7 +196,7 @@ export function renderArrangementComparison(host, result, input, calculate) {
   const table = document.createElement('table');
   table.className = 'column-summary-table';
   const header = table.createTHead().insertRow();
-  for (const label of ['Arrangement', 'Status', 'Links', 'Governing s_t', 'u_out,req (mm)', 'u_out,ef (mm)', 'Combination']) {
+  for (const label of ['Arrangement', 'Status', 'Links', 'ΣA_sw (mm²)', 'Governing s_t', 'u_out,req (mm)', 'u_out,ef (mm)', 'Combination']) {
     const th = document.createElement('th');
     th.scope = 'col';
     th.textContent = label;
@@ -207,7 +207,8 @@ export function renderArrangementComparison(host, result, input, calculate) {
     const governing = design.loads.find(load => load.id === design.governing?.loadId);
     const tangential = governing?.rows.find(check => check.id === 'tangential');
     const row = body.insertRow();
-    for (const value of [label, design.status, design.layout?.links.length ?? '—',
+    const steel = (design.layout?.links ?? []).reduce((sum, link) => sum + (link.legs?.length ?? 1) * Math.PI * link.diameter ** 2 / 4, 0);
+    for (const value of [label, design.status, design.layout?.links.length ?? '—', design.layout?.links.length ? fmt(steel, 0) : '—',
       tangential ? `${fmt(tangential.demand, 0)} / ${fmt(tangential.resistance, 0)} mm` : '—',
       fmt(design.envelope?.uOut, 0), fmt(design.layout?.outerEf?.u, 0), design.governing?.load ?? '—']) {
       row.insertCell().textContent = value;

@@ -233,7 +233,7 @@ function detailing(doc, result, layers) {
   }
   if (layers.length > 1) doc.math('Radial spacing', R`s_{r}\le0.75d`, { displayUnit: 'mm', mode: 'auto' });
   doc.text(result.layout?.outerEf
-    ? `Tangential spacing is measured along each layer between consecutive effective legs${result.layout.arrangement === 'cruciform' ? ' on the same column face' : ''}: ≤ 1.5d inside u1; outside u1 gaps > 2d are excluded from u_out,ef (Fig. 6.22 B) and Eq. 9.11 uses s_t ≤ 2d. Minimum leg area from Eq. 9.11 with α = 90°.`
+    ? `Tangential spacing is measured along each layer between consecutive effective legs: ≤ 1.5d inside u1; outside u1 gaps > 2d are excluded from u_out,ef (Fig. 6.22 B) and Eq. 9.11 uses s_t ≤ 2d. Minimum leg area from Eq. 9.11 with α = 90°.`
     : `Tangential spacing is measured along each layer between consecutive effective legs: ≤ 1.5d inside u1, ≤ 2d outside. Minimum leg area from Eq. 9.11 with α = 90°.`, 12);
   const check = result.loads.find(load => load.layoutCheck)?.layoutCheck ?? result.loads.find(load => load.ext?.layoutCheck)?.ext.layoutCheck;
   layers.forEach((layer, i) => {

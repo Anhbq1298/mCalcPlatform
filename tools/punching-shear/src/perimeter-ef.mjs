@@ -1,4 +1,4 @@
-// Fig. 6.22 effective outer perimeter and the cruciform face-gap filter (used by the auto arrangements).
+// Fig. 6.22 effective outer perimeter and the face-gap filter (used by the auto arrangements).
 import { pathPieces } from './geometry.mjs';
 
 // Effective outer perimeter of Fig. 6.22 (internal column, no openings): the path 1.5d outside the
@@ -21,7 +21,7 @@ export function outerPerimeterEf(points, d, outerK = 1.5) {
   };
 }
 
-// Cruciform layers: keep only the gaps between rails on the same column face (both ends on one straight
+// Cruciform layers: keep only the gaps between lines on the same column face (both ends on one straight
 // piece of the path); the gaps around the column corners are covered by u_out,ef (Fig. 6.22 B).
 export function faceGaps(column, offset, tangential) {
   const lines = [];

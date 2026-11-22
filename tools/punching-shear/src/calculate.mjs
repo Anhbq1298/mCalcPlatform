@@ -4,11 +4,12 @@ import { shearDemand } from './demand.mjs';
 import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
-import { arcLengthAt, arrangedLayers, faceGaps, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
-import { toLocal } from './geometry.mjs';
-import { dropFillPoints, ringGaps } from './grid-thin.mjs';
+import { arcLengthAt, arrangedLayers, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
+import { optimise } from './optimise.mjs';
+import { dropFillPoints, openGaps, radialDropFillPoints, ringGaps } from './grid-thin.mjs';
+import { toGlobal, toLocal } from './geometry.mjs';
+import { exclusion, offsetForLength } from './perimeters.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
-import { offsetForLength } from './perimeters.mjs';
 import { profileFor } from './profile.mjs';
 import { CODE_PARAMETERS as P, outerPerimeterLength, requiredAswPerPerimeter } from './resistance.mjs';
 import { checkLayout, row } from './reinforcement-checks.mjs';
@@ -24,7 +25,7 @@ function normaliseLoads(loads = []) {
 }
 
 function demandFor(ctx, load) {
-  const beta = betaFor(ctx, load);
+  const beta = capBeta(betaFor(ctx, load), ctx.betaCap?.get(load.name));
   if (!Number.isFinite(beta.value)) return { load, beta, unsupported: true };
   const { d, u0, u1, res, model } = ctx;
   const vEd0 = shearDemand({ V: load.V, beta: beta.value, u: u0, d: ctx.faceD });
@@ -34,6 +35,13 @@ function demandFor(ctx, load) {
   const aOut = offsetForLength(model, uOut, (m, r) => m.intervalsAt(r));
   const aswReq = required ? requiredAswPerPerimeter({ vEd: vEd1, vRdc: res.vRdc, u1, sr: ctx.envelopeSr, fywdEf: ctx.fywdEf }) : 0;
   return { load, beta, vEd0, vEd1, required, uOut, aOut, aswReq };
+}
+
+// Slab around a drop: β is not larger than the column connection's β (head.mjs, see Help). With the drop
+// as the loaded area, u1/u1* grows with the drop size although the moment transferred does not.
+function capBeta(beta, cap) {
+  if (!(Number.isFinite(cap) && Number.isFinite(beta.value)) || beta.value <= cap + 1e-9) return beta;
+  return { ...beta, value: cap, method: `β of the column connection (${cap.toFixed(3)}), smaller than ${beta.value.toFixed(3)} by ${beta.method} with the drop as the loaded area (tool rule, see Help)`, uncapped: beta.value };
 }
 
 function loadResult(ctx, item, layout, summary, links, detailing) {
@@ -80,27 +88,14 @@ export function calculate(rawInput, options = {}) {
   const profile = profileFor(input.code?.profile);
   if (issues.length) return { status: worstState(issues.map(item => item.state)), issues, notes: [], profile, loads: [], input };
   const ctx = createContext(input, options);
+  ctx.betaCap = options.betaCap ?? null;
   const blocking = positionIssues(input, ctx.position);
   if (blocking.length) return { status: worstState(blocking.map(item => item.state)), issues: blocking, notes: [], profile, loads: [], input, position: ctx.position };
 
   const { d, model } = ctx;
   const { materials, reinforcement } = input;
-  // Auto s_r: try the radial spacings the arrangement allows and keep the one with the fewest links that
-  // passes (else the lowest UR). On the bar grid s_r is a whole multiple of the bar spacing.
-  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && reinforcement.srAuto !== false && !options.srFixed) {
-    // The entered s_r is the user's upper limit (constraint); the code limit is 0.75d.
-    const limit = Math.min(Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5, reinforcement.sr > 0 ? reinforcement.sr : Infinity);
-    const bars = gridOnBars(input, d);
-    const candidates = bars.on
-      ? Array.from({ length: Math.max(1, Math.floor(limit / bars.spacing + 1e-9)) }, (_, k) => (k + 1) * bars.spacing)
-      : [...new Set([limit, ...Array.from({ length: 8 }, (_, k) => Math.floor((limit - 25 * (k + 1)) / 25) * 25).filter(v => v >= Math.max(50, Math.min(0.4 * d, limit)))])];
-    if (!candidates.length) candidates.push(limit);
-    const trials = candidates.map(sr => calculate({ ...input, reinforcement: { ...reinforcement, sr, srAuto: false } }, { ...options, srFixed: true }));
-    const score = r => [r.status === STATES.pass ? 0 : 1, r.status === STATES.pass ? (r.layout?.links?.length ?? 0) : (r.governing?.ur ?? Infinity)];
-    const best = trials.reduce((a, b) => { const [sa, va] = score(a); const [sb, vb] = score(b); return sb < sa || (sb === sa && vb < va) ? b : a; });
-    if (best.envelope?.sr && best.layout?.layers?.length) best.notes = [`Auto s_r = ${best.envelope.sr} mm (fewest links that pass among ${candidates.join(', ')} mm).`, ...(best.notes ?? [])];
-    return best;
-  }
+  // Auto arrangement: the user's bar Ø and maximum spacings are constraints; see optimise.mjs.
+  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && !options.srFixed) return optimise(calculate, input, options, d);
   // Radial spacing for the required A_sw (Eq. 6.52) and the layer grid: the auto arrangement's s_r, else
   // the recommended 0.75d rounded down to 5 mm.
   const srLimit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
@@ -141,19 +136,21 @@ export function calculate(rawInput, options = {}) {
   else if (reinforcement.enabled === false) layout = { mode: 'none', layers: [], reason: 'No punching reinforcement: tick "Provide punching reinforcement" to add shear links.' };
   else if (reinforcement.mode === 'auto') {
     const type = reinforcement.arrangement ?? 'grid';
-    // Inside a drop the links run out to the drop edge: the last perimeter lies within one s_r of the
-    // drop limit (l_H,min − c), so the outer zone of the drop is reinforced up to the depth change.
-    const dropEdgeOut = !ctx.compactOuterZone && Number.isFinite(linkLimit) && needing.length
+    // Optional (reinforcement.dropFill, off by default): inside a drop the links run out to the drop edge;
+    // the last perimeter lies within one s_r of the drop limit (l_H,min − c). Detailing, not required by EC2.
+    const dropEdgeOut = !ctx.compactOuterZone && Number.isFinite(linkLimit) && needing.length && reinforcement.dropFill
       ? Math.max(layoutOut, linkLimit - ctx.envelopeSr + 1e-6 + P.outerK * d)
       : layoutOut;
     const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
     // Fig. 6.22 (u_out,ef from the outer links) for internal columns without openings or a drop limit;
     // elsewhere the outer perimeter stays the clipped path at a_out and s_t ≤ 2d outside u1 is a check.
-    const fig622 = ctx.position?.kind === 'internal' && !(input.openings?.length) && !Number.isFinite(linkLimit);
+    // Not in the SG compact link zone (a_out < 3d): there the links stay within 1.5d and the zone replaces the
+    // outer-perimeter check (SG NA 6.4.5(4)), so u_out,ef is not built from the links.
+    const fig622 = !ctx.compactOuterZone && ctx.position?.kind === 'internal' && !(input.openings?.length) && !Number.isFinite(linkLimit);
     const uReq = fig622 ? envelope.uOut : null;
     const generated = !needing.length
       ? { layers: [], reason: 'No punching reinforcement required.' }
-      : arrangedLayers({ model, d, aOut: ctx.compactOuterZone ? 0 : dropEdgeOut, maxOffset: ctx.compactOuterZone ? Math.min(linkLimit ?? Infinity, 1.5 * d) : Infinity, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
+      : arrangedLayers({ model, d, aOut: ctx.compactOuterZone ? 0 : dropEdgeOut, maxOffset: ctx.compactOuterZone ? Math.min(linkLimit ?? Infinity, 1.5 * d) : Infinity, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, extra: reinforcement.extra ?? 0, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
     layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
     if (generated.note) limitNotes.push(generated.note);
     if (srNote && needing.length) limitNotes.push(srNote);
@@ -162,33 +159,37 @@ export function calculate(rawInput, options = {}) {
     const arrangement = layers[0]?.arrangement;
     const placed = layers.length && layers.every(layer => layer.points && layer.arrangement === arrangement);
     layout = { mode: 'provided', arrangement: placed ? arrangement : null, layers, reason: null,
-      fig622: Boolean(placed && ctx.position.kind === 'internal' && !input.openings.length && !Number.isFinite(linkLimit)) };
+      fig622: Boolean(placed && !ctx.compactOuterZone && ctx.position.kind === 'internal' && !input.openings.length && !Number.isFinite(linkLimit)) };
   }
   const detailing = layout.layers.length ? detailingChecks({ slab: input.slab, anchorage: reinforcement.anchorage, diameters: layout.layers.map(layer => layer.diameter) }) : null;
   model.anchorageState = detailing?.status;
   const base = options.layerBase ?? 0;
   const links = buildLinks(model, layout.layers, layout.mode === 'auto' ? 'auto' : 'user', base);
   const summary = layerSummary(model, layout.layers, links, base);
-  // Drop: grid links out to the drop edge beyond the last ring (detailing; not counted in the checks).
-  if (!ctx.compactOuterZone && layout.mode === 'auto' && layout.arrangement === 'grid' && options.dropBox && layout.layers.length) {
-    const fill = dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox, d, widen: reinforcement.thin !== false });
+  // Drop, optional (dropFill): links out to the drop edge beyond the last perimeter (detailing; not counted) —
+  // on the grid lines for the grid, along every radial line for the radial arrangement.
+  if (!ctx.compactOuterZone && layout.mode === 'auto' && reinforcement.dropFill && options.dropBox && layout.layers.length) {
+    const fill = (layout.arrangement === 'grid'
+      ? dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox, d, widen: reinforcement.thin !== false })
+      : radialDropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox }))
+      .filter(p => !exclusion(model, toGlobal(model.column, p)));
     const last = layout.layers.at(-1);
     const edge = { ...last, id: 'E', points: fill.map(p => ({ ...p, s: arcLengthAt(model.column, last.offset, p) })), omitted: [] };
     if (fill.length) links.push(...buildLinks(model, [edge], 'auto', base).map(link => ({ ...link, layerId: 'E', layerIndex: -1, edge: true })));
     layout.edgeLinks = fill.length;
   }
   layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
-  if (layout.arrangement === 'cruciform') summary.forEach(layer => { layer.tangential = faceGaps(model.column, layer.offset, layer.tangential); });
-  // Grid rings (closed, internal column): s_t as straight distances between neighbouring links.
-  if (layout.arrangement === 'grid' && layout.fig622) summary.forEach((layer, i) => {
-    if (layout.layers[i].shape === 'single') layer.tangential = ringGaps(links.filter(link => link.layerId === layer.id).flatMap(link => link.legs.filter(leg => leg.effective).map(leg => toLocal(model.column, leg))));
+  // Grid rings: s_t as straight distances between neighbouring effective legs (the ring is a rectangle;
+  // projecting its corner links onto the rounded path would understate the gaps); a ring cut by a slab edge
+  // or an opening shadow skips the cut. Two-leg links keep the path measure.
+  const legsOf = id => links.filter(link => link.layerId === id).flatMap(link => link.legs.filter(leg => leg.effective).map(leg => ({ ...toLocal(model.column, leg), s: leg.s })));
+  if (layout.arrangement === 'grid') summary.forEach((layer, i) => {
+    if (layout.layers[i].shape !== 'single') return;
+    const at = model.intervalsAt(layout.layers[i].offset);
+    const legs = legsOf(layer.id);
+    layer.tangential = at.intervals.every(item => item.closed) ? ringGaps(legs) : openGaps(legs, at);
   });
-  if (layout.fig622 && layout.layers.length) {
-    const outer = summary.at(-1);
-    const points = links.filter(link => link.layerId === outer.id)
-      .flatMap(link => link.legs.filter(leg => leg.effective).map(leg => toLocal(model.column, leg)));
-    layout.outerEf = outerPerimeterEf(points, d, P.outerK);
-  }
+  if (layout.fig622 && layout.layers.length) layout.outerEf = outerPerimeterEf(legsOf(summary.at(-1).id), d, P.outerK);
   const geometry = geometryLimits(ctx, Math.max(2 * d, envelope.aOut, ...layout.layers.map(layer => layer.offset)));
   if (Number.isFinite(linkLimit)) layout.layers.forEach((layer, index) => {
     if (layer.offset > linkLimit + 1e-9) limitIssues.push({ state: STATES.fail, message: `Layer ${layer.id ?? 'L' + (base + index + 1)} at ${layer.offset} mm lies outside the drop (links must stay within ${linkLimit.toFixed(0)} mm of the column face).` });

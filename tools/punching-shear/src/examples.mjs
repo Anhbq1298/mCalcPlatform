@@ -25,7 +25,7 @@ const CASE_LIST = [
   },
   {
     id: 'circular-moment', title: '3 · Circular column, β from moments (Eq. 6.42)', expect: 'Pass',
-    note: 'Resultant eccentricity of both moments; links on radial rails.',
+    note: 'Resultant eccentricity of both moments; links on radial lines.',
     input: { ...engaged, reinforcement: { ...engaged.reinforcement, arrangement: 'radial' }, beta: { method: 'moment', confirmed: false, userValue: 1.15 }, ...slab(280, 240), column: { shape: 'circular', position: 'internal', diameter: 500, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1570, asy: 1570, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 850, Mx: 40, My: 60 }] },
   },
   {

@@ -96,6 +96,29 @@ const deeper = (input, hH) => {
 };
 const asColumn = (input, size) => ({ ...input, column: { ...input.column, ...size }, openings: [] });
 
+// Hint: the smallest drop (same depth, both plan sizes grown by the same amount, in 50 mm steps) for which
+// the slab around it needs no links, with the β cap of the column connection. Null when it already needs
+// none or no size within 20 m does. Bisection on the plan growth; each step is one unreinforced check.
+function dropForNoLinks(input, betaCap) {
+  const grown = delta => ({ ...input, head: { ...input.head, lx: input.head.lx + delta, ly: input.head.ly + delta, diameter: input.head.diameter + delta } });
+  const needs = delta => {
+    const inp = grown(delta);
+    const geo = headGeometry(inp);
+    const e = geo.extents;
+    const size = geo.circular ? { diameter: inp.head.diameter }
+      : { cx: e.xMax - e.xMin, cy: e.yMax - e.yMin, x: inp.column.x + (e.xMax + e.xMin) / 2, y: inp.column.y + (e.yMax + e.yMin) / 2 };
+    const r = calculate(asColumn({ ...inp, reinforcement: { ...inp.reinforcement, enabled: false } }, size), { betaCap, face: { skip: true } });
+    return !r.loads?.length || r.loads.some(load => load.required);
+  };
+  if (!needs(0)) return null;
+  let lo = 0;
+  let hi = 200;
+  while (needs(hi)) { lo = hi; hi *= 2; if (hi > 20000) return null; }
+  while (hi - lo > 50) { const mid = Math.round((lo + hi) / 100) * 50; if (mid <= lo || mid >= hi) break; if (needs(mid)) lo = mid; else hi = mid; }
+  const head = grown(hi).head;
+  return head.shape === 'circular' ? `Ø${head.diameter.toFixed(0)}` : `${head.lx.toFixed(0)} × ${head.ly.toFixed(0)}`;
+}
+
 // Provided layers by zone, s = distance from the column face. Inside the drop (s ≤ l_H,min − c) they
 // belong to the section with d_H around the column; beyond the drop edge (s > l_H,min) they follow the
 // drop outline at t = s − l_H,min and belong to the slab section around the drop. Layers on the step
@@ -170,6 +193,8 @@ export function calculateDesign(raw, forcedKind = null) {
   if (blocking.length) return { status: worstState(blocking.map(item => item.state)), issues: blocking, notes: [], profile: base.profile, loads: [], input };
 
   const d = base.section.d;
+  // β around the drop is capped at the column connection's β (calculate.mjs capBeta, see Help).
+  const betaCap = new Map((base.loads ?? []).map(load => [load.name, load.beta?.value]));
   const geo0 = headGeometry(input);
   const geo = forcedKind ? { ...geo0, kind: forcedKind } : geo0;
   // β from moments with a drop: column (inside) or drop (outside) as the loaded area, see Help.
@@ -195,6 +220,12 @@ export function calculateDesign(raw, forcedKind = null) {
   const split = provided ? splitLayers(input, geo, inside) : { drop: [], slab: [], issues: [], notes: [] };
   if (input.beta.method === 'moment') split.notes.push('β from moments with a drop uses the column (inside) or the drop (outside) as the loaded area (Eq. 6.39/6.42), see Help.');
   const zone = (layers, layerBase) => (provided ? { layers } : { layerBase });
+  // Links needed around the drop: say how large a drop (same depth) would need none there.
+  const hint = outer => {
+    if (!outer.loads?.some(load => load.required) || input.head.shape === 'circular' && !(input.head.diameter > 0)) return;
+    const size = dropForNoLinks(input, betaCap);
+    if (size) split.notes.push(`Links are needed in the slab around the drop. A drop of ${size} mm (same depth) would need none there (β of the column connection; inside the drop unchanged).`);
+  };
   const issuesOf = [...momentBeta, ...split.issues];
   const extSection = (outer, eq, offset = 2 * d) => ({ id: 'ext', label: 'Slab outside the drop', d, offset, model: outer.model, u1: outer.u1, eq, aOut: outer.envelope?.uOut ? outer.envelope.aOut : 0 });
   const single = (outer, info) => {
@@ -205,7 +236,8 @@ export function calculateDesign(raw, forcedKind = null) {
   if (geo.kind === 'small' && !internal) {
     // Edge/corner: slab section around the clipped drop at 2d (Eq. 6.34/6.35 are for internal columns).
     const face = { u0: base.u0, d, label: 'Maximum punching stress at u0 (slab d, conservative)' };
-    const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
+    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
+    hint(outer);
     return single(outer, { kind: 'small', edge: true, columnModel: base.model, ...geo, d, rcont: null, sections: [extSection(outer, 'Fig. 6.15 (interpretation)')] });
   }
   if (geo.kind === 'small') {
@@ -214,12 +246,12 @@ export function calculateDesign(raw, forcedKind = null) {
     const face = { u0: perimeterAtOffset(input.column, 0), d, label: 'Maximum punching stress at the column face (slab d, conservative)', detail: 'u0 = column perimeter; d of the slab ignores the head depth.' };
     // Circular heads: the equivalent circle is the head itself, so links follow the head outline.
     if (geo.circular) {
-      const outer = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, ...zone(split.slab, 0) });
+      const outer = calculate(sub, { betaCap, face, label: `Slab at r_cont (${rc.eq})`, ...zone(split.slab, 0) });
       return single(outer, { kind: 'small', columnModel: base.model, ...geo, d, rcont: rc, sections: [extSection(outer, rc.eq)] });
     }
     // Rectangular heads: check on the equivalent circle, links on the head outline (head-mapped.mjs).
-    const circle = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, noLinks: 'mapped' });
-    const rect = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, noLinks: 'geometry only' });
+    const circle = calculate(sub, { betaCap, face, label: `Slab at r_cont (${rc.eq})`, noLinks: 'mapped' });
+    const rect = calculate(asColumn(input, dropAsColumn), { betaCap, face: { skip: true }, noLinks: 'geometry only' });
     const info = { kind: 'small', columnModel: base.model, ...geo, d, rcont: rc, mapped: true, sections: [{ ...extSection(circle, rc.eq), model: rect.model ?? circle.model }] };
     if (!circle.loads?.length || !rect.model) return { ...circle, input, head: info };
     const mapped = mappedHeadLinks({ circle, rectModel: rect.model, input, rc, lHalfMin: Math.min(input.head.lx, input.head.ly) / 2, layers: split.slab });
@@ -230,13 +262,15 @@ export function calculateDesign(raw, forcedKind = null) {
   if (!inside) {
     // Only the slab section; the face check uses the column perimeter with d_H (§6.4.2(10)).
     const face = { u0: base.u0, d: dH, label: 'Maximum punching stress at u0 (d_H)' };
-    const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, 0) });
+    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, 0) });
+    hint(outer);
     return single(outer, { kind: 'large', inner: false, columnModel: base.model, edge: !internal, ...geo, d, dH, sections: [extSection(outer, extEq)] });
   }
   const c = input.slab.cover;
   const dropBox = geo.circular ? null : { xMin: geo.extents.xMin + c, xMax: geo.extents.xMax - c, yMin: geo.extents.yMin + c, yMax: geo.extents.yMax - c };
   const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
-  const outer = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
+  const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
+  hint(outer);
   const info = {
     kind: 'large', inner: true, columnModel: base.model, edge: !internal, ...geo, d, dH,
     sections: [{ id: 'int', label: 'Inside the drop', d: dH, offset: 2 * dH, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' }, extSection(outer, extEq)],
