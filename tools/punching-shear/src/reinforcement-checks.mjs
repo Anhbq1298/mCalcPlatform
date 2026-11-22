@@ -57,15 +57,18 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
   rows.push({ ...row('perimeters', '§9.4.3(1)', 'At least two perimeters of link legs', 2, summary.length, summary.length >= 2 ? STATES.pass : STATES.fail, { unit: 'layers', detail: `${summary.length} perimeters provided, 2 required.` }), ur: null });
 
   const first = offsets[0];
-  rows.push(row('first', '§9.4.3(4)', 'First layer ≤ 0.5d from the loaded area', first, P.firstLayerMax * d, null, { unit: 'mm', governing: summary[0].id }));
+  const firstLegs = loadedArea ? links.filter(link => link.layerId === summary[0].id)
+    .flatMap(link => link.legs.filter(leg => leg.effective)) : [];
+  const firstReach = firstLegs.length ? Math.max(...firstLegs.map(leg => distanceToColumn(loadedArea, leg))) : first;
+  rows.push(row('first', '§9.4.3(4)', 'Farthest first-layer leg ≤ 0.5d from the loaded area', firstReach, P.firstLayerMax * d, null, { unit: 'mm', governing: summary[0].id }));
   if (compactOuterZone) {
     const distances = loadedArea ? links.filter(link => !link.edge).flatMap(link => link.legs
       .filter(leg => leg.effective).map(leg => ({ value: distanceToColumn(loadedArea, leg), layer: link.layerId }))) : [];
     const nearest = distances.reduce((best, point) => point.value < best.value ? point : best, { value: Infinity, layer: summary[0].id });
     const farthest = distances.reduce((best, point) => point.value > best.value ? point : best, { value: 0, layer: summary.at(-1).id });
-    const firstLayer = distances.filter(point => point.layer === summary[0].id).map(point => point.value);
+
     rows.push(row('sg-first-min', 'SG NA 6.4.5(4)', 'Nearest link leg ≥ 0.3d', 0.3 * d, Number.isFinite(nearest.value) ? nearest.value : first, null, { unit: 'mm', governing: nearest.layer }));
-    rows.push(row('sg-first-max', 'SG NA 6.4.5(4)', 'First layer link legs ≤ 0.5d', Math.max(first, ...firstLayer), 0.5 * d, null, { unit: 'mm', governing: summary[0].id }));
+    rows.push(row('sg-first-max', 'SG NA 6.4.5(4)', 'First layer link legs ≤ 0.5d', firstReach, 0.5 * d, null, { unit: 'mm', governing: summary[0].id }));
     rows.push(row('sg-last-max', 'SG NA 6.4.5(4)', 'Farthest link leg ≤ 1.5d', Math.max(outermost, farthest.value), 1.5 * d, null, { unit: 'mm', governing: farthest.layer }));
   } else if (first < P.firstLayerMin * d) {
     rows.push({ ...row('first-min', 'The Concrete Centre guidance', 'First layer < 0.3d (guidance, not a code limit)', P.firstLayerMin * d, first, STATES.pass, { unit: 'mm', warning: true }), ur: null });

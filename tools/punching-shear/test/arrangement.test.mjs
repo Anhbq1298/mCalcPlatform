@@ -3,7 +3,7 @@ import test from 'node:test';
 import { arcLengthAt, arrangedLayers, faceGaps, outerPerimeterEf } from '../src/arrangement.mjs';
 import { layerSummary, buildLinks } from '../src/layout.mjs';
 import { calculate } from '../src/calculate.mjs';
-import { pointAt } from '../src/geometry.mjs';
+import { distanceToColumn, pointAt } from '../src/geometry.mjs';
 import { cenDefaults, newDefaults, restoreInputs } from '../src/inputs.mjs';
 
 const column = { shape: 'rectangular', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 };
@@ -120,7 +120,7 @@ test('cruciform reaches u_out,req by widening the arms, not by longer rails', ()
   const result = calculate(input);
   const outer = result.loads[0].rows.find(row => row.id === 'outer');
   assert.ok(outer.ur <= 1, String(outer.ur));
-  const top = result.layout.layers[0].points.filter(p => p.y > 450).map(p => p.x);
+  const top = result.layout.layers.at(-1).points.filter(p => p.y > 450).map(p => p.x);
   assert.ok(Math.max(...top) > 150 + 1e-6); // rails beside the 300 mm face, outside the column edge
 });
 
@@ -149,7 +149,7 @@ test('auto arrangement: s_r capped at 0.75d with a note; rails added until Eq. 6
   const { CASES } = await import('../src/examples.mjs');
   const { calculateDesign } = await import('../src/head.mjs');
   const input = structuredClone(CASES.find(c => c.id === 'drop-through').input);
-  input.reinforcement = { ...input.reinforcement, mode: 'auto', arrangement: 'cruciform', sr: 150, st: 150 };
+  input.reinforcement = { ...input.reinforcement, mode: 'auto', arrangement: 'cruciform', sr: 145, st: 150 };
   const result = calculateDesign(input);
   assert.ok(result.loads[0].rows.find(row => row.id === 'reinforced').ur <= 1);
 });
@@ -192,7 +192,8 @@ test('rotated column: grid on the bars around the circumscribed rectangle, links
   const xs = [...new Set(result.layout.links.map(link => Math.round(link.position.x * 1e3) / 1e3))].sort((a, b) => a - b);
   const odd = xs.slice(1).map((x, i) => x - xs[i]).filter(step => Math.abs(step - 150) > 1e-3);
   assert.ok(odd.length <= 2, String(odd)); // global bar lines at the bar spacing (closing bar at the centre)
-  assert.equal(result.status, 'Pass');
+  assert.equal(result.status, 'Fail');
+  assert.ok(result.loads[0].rows.some(row => row.id === 'tangential' && row.status === 'Fail'));
 
   input.loads[0].V = 800;
   const compactGrid = calculateDesign(input);
@@ -235,4 +236,18 @@ test('grid lines start at the corners of the first ring and step at exactly s_t'
   assert.equal(xs[0], -(200 + 80));
   const steps = xs.slice(1).map((x, i) => x - xs[i]);
   assert.ok(steps.filter(step => Math.abs(step - 150) > 1e-6).length <= 2, String(steps)); // centre closing gap only
+});
+
+
+test('cruciform draws its wide arms from later layers and checks the actual first-layer legs', () => {
+  const input = newDefaults();
+  input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'cruciform' };
+  const result = calculate(input);
+  const first = result.loads[0].rows.find(row => row.id === 'first');
+  const legs = result.layout.links.filter(link => link.layerId === 'L1').flatMap(link => link.legs);
+  assert.equal(result.status, 'Pass');
+  assert.equal(result.envelope.sr, 125);
+  assert.equal(first.demand, Math.max(...legs.map(leg => distanceToColumn(input.column, leg))));
+  assert.ok(first.demand <= 0.5 * result.section.d);
+  assert.ok(result.layout.layers.at(-1).points.some(p => Math.abs(p.x) > 150 && Math.abs(p.y) > 450));
 });
