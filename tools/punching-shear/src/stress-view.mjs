@@ -1,7 +1,7 @@
 // Shear stress along the control perimeters u0, u1 and u_out (or u1,ext for a drop), drawn as
 // isometric "fences" whose height and colour give v_Ed. Mean stress v = V_Ed/(u·d).
-// With β from moments at an internal column the shape is the plastic distribution behind Eq. 6.39
-// (Fig. 6.19): v(s) = v·(1 + Σ k_i·e_i·u/W_i·sgn(x_i(s))), scaled so that the peak equals β·v.
+// With β from moments at an internal column the moment part is drawn linear about the centroid,
+// scaled to the peak β·v (Eq. 6.39 uses the plastic distribution of Fig. 6.19, same peak)
 // Otherwise (simplified or user β, edge and corner columns) the fence is the uniform envelope β·v.
 // The picture illustrates the check; the check itself uses β·v at each perimeter.
 import { kInternalRect, localEccentricities } from './demand.mjs';
@@ -9,8 +9,8 @@ import { toLocal } from './geometry.mjs';
 import { intervalPolylines } from './perimeters.mjs';
 import { COLORS, DASH, esc, n, svgDocument } from './svg.mjs';
 
-// Sequential single-hue ramp (light → dark orange), magnitude only.
-const RAMP = [[253, 227, 212], [245, 170, 130], [235, 104, 52], [176, 64, 22], [110, 36, 10]];
+// Rainbow contour ramp (blue → cyan → green → yellow → red), as in FE stress plots; magnitude only.
+const RAMP = [[38, 70, 200], [0, 170, 230], [40, 190, 90], [250, 215, 40], [245, 130, 30], [215, 40, 35]];
 function colour(t) {
   const x = Math.min(1, Math.max(0, t)) * (RAMP.length - 1);
   const i = Math.min(RAMP.length - 2, Math.floor(x));
@@ -41,19 +41,23 @@ function factors(paths, load, column, internal, beta) {
   }
   if (!(u > 0)) return uniform();
   cx /= u; cy /= u;
-  let wx = 0;
-  let wy = 0;
+  // Moment part shown as a linear (elastic) distribution about the perimeter centroid,
+  // τ ∝ k·e·x/J with J = ∫x² dl: continuous, zero mean, so the mean stays V/(u·d). It is scaled so
+  // that its peak equals β times the mean, the value the check uses. Eq. 6.39 itself rests on the
+  // plastic (stepped) distribution of Fig. 6.19, which has the same peak; the step is not drawn.
+  let jx = 0;
+  let jy = 0;
   for (const path of paths) for (let i = 1; i < path.length; i += 1) {
     const l = Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
-    wx += l * Math.abs((path[i].x + path[i - 1].x) / 2 - cx);
-    wy += l * Math.abs((path[i].y + path[i - 1].y) / 2 - cy);
+    jx += l * ((path[i].x + path[i - 1].x) / 2 - cx) ** 2;
+    jy += l * ((path[i].y + path[i - 1].y) / 2 - cy) ** 2;
   }
   const circular = column.shape === 'circular';
   const kx = circular ? 0.6 : kInternalRect(column.cx, column.cy);
   const ky = circular ? 0.6 : kInternalRect(column.cy, column.cx);
-  const ax = wx > 0 ? (kx * Math.abs(e1) * u) / wx : 0;
-  const ay = wy > 0 ? (ky * Math.abs(e2) * u) / wy : 0;
-  const shape = p => ax * Math.sign(e1) * Math.sign(p.x - cx || 1) + ay * Math.sign(e2) * Math.sign(p.y - cy || 1);
+  const ax = jx > 0 ? (kx * e1) / jx : 0;
+  const ay = jy > 0 ? (ky * e2) / jy : 0;
+  const shape = p => ax * (p.x - cx) + ay * (p.y - cy);
   const peak = Math.max(...flat.map(shape));
   if (!(peak > 0)) return uniform();
   return paths.map(path => path.map(p => 1 + ((beta - 1) * shape(p)) / peak));
@@ -152,8 +156,12 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
       }
     });
     segments.sort((a, b) => a.depth - b.depth);
+    // Colour per panel, from its v_min (blue) to its v_max (red), so the moment variation shows on
+    // every perimeter; a uniform fence takes the colour of its level on the common scale.
+    const span = panel.vmax - panel.vmin;
+    const tone = v => colour(span > 1e-6 ? (v - panel.vmin) / span : v / vTop);
     for (const seg of segments) {
-      parts.push(`<path d="M${n(seg.b0[0])} ${n(seg.b0[1])}L${n(seg.b1[0])} ${n(seg.b1[1])}L${n(seg.t1[0])} ${n(seg.t1[1])}L${n(seg.t0[0])} ${n(seg.t0[1])}Z" fill="${colour(seg.v / vTop)}" fill-opacity=".78" stroke="${colour(seg.v / vTop)}" stroke-width=".4"/>`);
+      parts.push(`<path d="M${n(seg.b0[0])} ${n(seg.b0[1])}L${n(seg.b1[0])} ${n(seg.b1[1])}L${n(seg.t1[0])} ${n(seg.t1[1])}L${n(seg.t0[0])} ${n(seg.t0[1])}Z" fill="${tone(seg.v)}" fill-opacity=".82" stroke="${tone(seg.v)}" stroke-width=".4"/>`);
       if (seg.tick) parts.push(`<line x1="${n(seg.b0[0])}" y1="${n(seg.b0[1])}" x2="${n(seg.t0[0])}" y2="${n(seg.t0[1])}" stroke="${COLORS.ink}" stroke-width=".35" stroke-opacity=".55"/>`);
       parts.push(`<line x1="${n(seg.t0[0])}" y1="${n(seg.t0[1])}" x2="${n(seg.t1[0])}" y2="${n(seg.t1[1])}" stroke="${COLORS.ink}" stroke-width=".8"/>`);
       parts.push(`<line x1="${n(seg.b0[0])}" y1="${n(seg.b0[1])}" x2="${n(seg.b1[0])}" y2="${n(seg.b1[1])}" stroke="${COLORS.ink}" stroke-width=".5" stroke-dasharray="3 2"/>`);
@@ -175,8 +183,8 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   const lw = Math.min(260, width - 200);
   const stops = Array.from({ length: 11 }, (_, i) => `<stop offset="${i * 10}%" stop-color="${colour(i / 10)}"/>`).join('');
   parts.push(`<defs><linearGradient id="v-ramp">${stops}</linearGradient></defs><rect x="14" y="${ly}" width="${lw}" height="8" fill="url(#v-ramp)"/>`
-    + `<text class="small" x="14" y="${ly + 20}">0</text><text class="small" x="${14 + lw}" y="${ly + 20}" text-anchor="end">${vTop.toFixed(2)} MPa</text>`
-    + `<text class="small" x="${24 + lw}" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · plastic distribution (Fig. 6.19)' : ' · uniform β envelope'}</text>`
-    + `<text class="small" x="${24 + lw}" y="${ly + 22}">Panels not to the same plan scale.</text>`);
+    + `<text class="small" x="14" y="${ly + 20}">v_min of the panel</text><text class="small" x="${14 + lw}" y="${ly + 20}" text-anchor="end">v_max of the panel</text>`
+    + `<text class="small" x="${24 + lw}" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · moment part linear, peak = β·v' : ' · uniform β envelope'}</text>`
+    + `<text class="small" x="${24 + lw}" y="${ly + 22}">Height: one scale for all panels. Panels not to the same plan scale.</text>`);
   return svgDocument(width, height, 'Shear stress along the control perimeters', parts.join(''));
 }
