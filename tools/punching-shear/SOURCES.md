@@ -50,9 +50,8 @@ Scope: internal rectangular (any rotation) and circular columns; rectangular edg
 - Links beyond the drop: the slab section is designed with the drop as the loaded area (Eq. 6.52, 6.54, §9.4.3, d of the slab). Arrangement offsets s are from the column face; s > l_H,min puts a layer on the drop outline at t = s − l_H,min, s ≤ l_H,min − c keeps it in the drop (d_H section); layers on the step are rejected. Interpretation, explained in `help.html`. Rectangular heads with l_H ≤ 2h_H: check on the equivalent circle, links on the head outline, mapped by 16 angular sectors (`head-mapped.mjs`); proposed method, reinforced rows report Not verified until benchmarked.
 - Drop input is the total thickness h_tot; h_H = h_tot − h. Older saves (head.depth) migrate on restore.
 - For 2h_H < l_H < 2(d + h_H) the inner perimeter at 2d_H would leave the head; only the slab section is checked and the face check uses d_H (Tekla: inner perimeter only when it fits).
-- Links are kept inside the drop (outermost layer ≤ l_H − cover). When u_out,ef with d_H lies beyond the drop, the slab beyond the edge is covered by the u1,ext check and the case is flagged.
-- If the slab section outside the head needs links, the result is Unsupported geometry: links outside the head are not implemented.
-- Straddling cases (l_H < 2h_H in one direction, > 2h_H in the other), offset heads, heads at edges or corners, heads with openings, and mixed shapes (circular head on a rectangular column) are reported as unsupported.
+- Links inside the drop stop at l_H,min − c; links beyond the drop are designed in the slab section around the drop. Rectangular heads with l_H ≤ 2h_H take links on the head outline mapped to the equivalent circle (Not verified, `head-mapped.mjs`).
+- Straddling cases (l_H < 2h_H in one direction, > 2h_H in the other), offset heads, heads set back from a slab edge the column is flush with, heads with openings, and mixed shapes (circular head on a rectangular column) are reported as unsupported. Heads at edge and corner columns are clipped to the slab (interpretation, see Help).
 - Moment β with a head uses the column (inside) or the head (outside) as the loaded area; it is flagged because EC2 gives no W1 for heads.
 
 ### Eq. 6.43 interpretation
@@ -61,40 +60,15 @@ EN 1992-1-1 writes β = 1 + 1.8·√((e_y/b_z)² + (e_z/b_y)²), where b_y and b
 
 ## Benchmarks
 
-| Benchmark | Quantity | Published | Tool | Result |
-| --- | --- | --- | --- | --- |
-| CSI SAFE RC-PN-001, 300 × 900, d = 218 | u1 | 5,139.468 mm | 5,139.469 mm | Matches |
-| same | v_Rd,c at ρ = 0.5 %, f_ck 30 | 0.5796 MPa (Singapore-labelled) | 0.5795 MPa | Matches; NA not claimed as verified |
-| same | v_Ed | 1.099 MPa with SAFE β | — | SAFE moment method not implemented; not compared |
-| Dlubal VE 1023, 450 × 450, d = 190 | u1 | 4.188 m | 4.187 m | Matches within rounding |
-| same | v_Ed with β = 1.10, V = 787.3 kN | 1.088 MPa | 1.0886 MPa | Matches |
-| same | Base A_sw per row | 4.98 cm² (German NA) | 5.23 cm² (CEN) | ≈ 5 % difference expected from German NA rules; not an exact test |
-| CSI SAFE RC-PN-001, Singapore-labelled case | v_Ed (β back-calculated from 1.099 MPa), v_Rd,c, D/C | 1.099, 0.5796 MPa, 1.90 | 1.099, 0.5795 MPa, 1.896 | Matches; SG limits 0.5νf_cd = 5.28 MPa and 2v_Rd,c = 1.159 MPa pass |
-| Hand calculation | v_Rd,max at f_ck 30 | — | 4.224 MPa | Matches Eq. 6.53 with 0.4·ν·f_cd |
+Published examples are re-run by `scripts/benchmarks.mjs` and asserted by `test/benchmarks.test.mjs` (same-rule values within the rounding of the published value). The full comparison tables are in `help.html`, section 8.
 
-| Dlubal VE 1028, circular D = 300, d = 210, β = 1.10 | u1 | 3.581 m | 3.581 m | Matches |
-| same | v_Ed | 0.731 MPa | 0.7313 MPa | Matches |
-| same | k, v_Rd,c, v_min | 1.976, 0.585, 0.532 MPa | 1.976, 0.585, 0.532 | Match; v_Rd,max and u_out use German NA rules and are not compared |
+| Benchmark | Same-rule values | Agreement | Different-rule values |
+| --- | --- | --- | --- |
+| CSI SAFE, Eurocode 2-04 RC-PN-001 (CEN NA) | d, u1, k, ρ_l, v_min, v_Rd,c; v_Ed and D/C with the source β | ≤ 0.16 % | v_Ed with the tool β: CSI adds Eq. 6.39 terms of both axes (β = 1.1075), the tool uses Eq. 6.43 (β = 1.0605) |
+| JRC EUR 26566, column B2 | d, u0, v_Ed,0, v_Rd,max, u1, v_Ed,1, k, v_Rd,c, v_min, f_ywd,ef, u_out,ef, a_out | ≤ 1.0 % (v_min printed to two decimals) | s_r rounded to 120 mm, A_sw scales with it; the tool applies k_max (A1:2014) and fails the design |
+| Dlubal VE 1023 (DIN) | u1, v_Ed | ≤ 0.04 % | — |
+| Dlubal VE 1028 (DIN) | d, u1, v_Ed, k, ρ_l, v_Rd,c, v_min | ≤ 0.08 % | 1.4·v_Rd,c and u_out with the required reinforcement (German NA) |
+
+Reference cases (`scripts/verification.mjs`, `test/verification.test.mjs`) cover the geometries without a published example: openings, edge and corner columns, drops at all positions, mapped links. Three of them are recomputed by hand outside the engine.
 
 Edge and corner formulas were checked against the Blueprints (MIT) implementations of Eq. 6.44, 6.45 and 6.46, and Eq. 6.45 was re-derived by integrating ∫|e| dl over the edge perimeter.
-
-## Independent cross-check (`npm run test:punching-canvas`)
-
-The report is a Canvas worksheet whose resistances, β, stresses, a_out and checks are live formulas. The cross-check evaluates it with the Canvas calculation engine and compares the results with the JS solver. Relative tolerance is 1×10⁻⁶ for v_Rd,c, v_Rd,max, u1, f_ywd,ef, β, v_Ed, v_Rd,cs and a_out. Every pass/fail check must agree. Sixteen cases are covered: CSI geometry, auto layout, uniaxial and biaxial moments with rotation, two-leg links, circular column, no links required, a provided layout with detailing failures, bar-derived depth with user β, edge column with e_par, edge with simplified β, corner column, openings with σ_cp and bend anchorage, the UK profile, and the three drop-panel examples (Fig. 6.17, rectangular Fig. 6.18, circular Fig. 6.18). u0, u1*, and every detailing check are also compared.
-
-## Worked examples (`src/examples.mjs`)
-
-Twelve cases are available from the Examples selector and asserted in `test/head.test.mjs`. They cover an internal column without links, auto links on the CSI geometry, a circular column with β from moments, edge and corner columns, one opening and two openings with overlapping shadows, drops for Fig. 6.17 and Fig. 6.18 (rectangular and circular), a post-tensioned slab under the Singapore profile, and a provided layout that fails. The Fig. 6.17 case (400 × 400 column, 1000 × 1000 × 200 drop, d = 210, V = 700 kN) is checked by hand in the test: r_cont = 980 mm, v_Ed = 0.622 MPa, v_Rd,c = 0.634 MPa.
-
-## Test coverage (`npm test`)
-
-Geometry exactness, convergence, offset invariance, rotation and translation invariance, Table 6.1, Eq. 6.39, 6.42 and 6.43, resistances, auto layout, check-provided failures, leg counting and effectiveness, different diameters per layer, slab edges, openings, explicit result states, restore with unknown fields, drawings and the report document. The browser suite (`npm run test:browser`) covers Tool Library launch, input editing, layer add, link selection and omission, combinations, save and reopen, responsive plan, and report generation.
-
-## Limitations before broader production use
-
-- Line-by-line review of the implemented equations against the licensed EN 1992-1-1 text by a second engineer.
-- Edge and corner columns set back from the slab edge, circular columns at edges, and eccentricity toward the slab exterior (Eq. 6.39 with the edge perimeter).
-- EN 1992-1-1 defines no W1 or u1* for perimeters reduced by openings; moment-based β with openings is reported as Not verified.
-- No deduction of loads inside the control perimeter: Eq. 6.48 applies to column bases only. Column bases are not covered.
-- Drop panels: see the list above; no published benchmark with a drop has been reproduced yet.
-- National Annexes other than CEN, Singapore and UK. The Singapore and UK profiles need confirmation against the NA text.

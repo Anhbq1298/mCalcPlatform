@@ -7,7 +7,7 @@
 import { kInternalRect, localEccentricities } from './demand.mjs';
 import { toLocal } from './geometry.mjs';
 import { intervalPolylines } from './perimeters.mjs';
-import { COLORS, esc, n, svgDocument } from './svg.mjs';
+import { COLORS, DASH, esc, n, svgDocument } from './svg.mjs';
 
 // Sequential single-hue ramp (light → dark orange), magnitude only.
 const RAMP = [[253, 227, 212], [245, 170, 130], [235, 104, 52], [176, 64, 22], [110, 36, 10]];
@@ -63,37 +63,55 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   const governing = load ?? result.loads?.reduce((best, item) => (!best || item.ur > best.ur ? item : best), null);
   if (!governing || !result.model) return '';
   const model = result.model;
-  const column = model.column;
   const head = result.head;
+  // Drawing origin = the actual column. With a drop the solved section may use another loaded area
+  // (the drop, or the equivalent circle of Fig. 6.17); u0 is always on the column itself.
+  const ref = head?.columnModel ?? model;
+  const column = ref.column;
   const d = result.section.d;
   const internal = (result.position?.kind ?? 'internal') === 'internal';
   const beta = governing.beta?.value ?? 1;
   const u1Offset = result.u1Offset ?? 2 * d;
+  const onColumn = !head || head.inner; // section solved around the column (plastic shape applies)
+  const reinforced = governing.rows?.find(row => row.id === 'reinforced' && row.resistance);
   const panels = [
-    { name: 'u0', r: 0, u: result.u0, d: result.faceD ?? d, limit: result.vRdMax, limitName: 'v_Rd,max' },
-    { name: head?.kind === 'large' && head.inner ? 'u1,int' : 'u1', r: u1Offset, u: result.u1, d, limit: governing.rows?.find(row => row.id === 'reinforced')?.resistance ?? result.resistance?.vRdc, limitName: governing.rows?.some(row => row.id === 'reinforced' && row.resistance) ? 'v_Rd,cs' : 'v_Rd,c' },
+    { name: 'u0', r: 0, u: result.u0, d: result.faceD ?? d, limit: result.vRdMax, limitName: 'v_Rd,max', m: ref, plastic: true },
+    { name: head?.kind === 'large' && head.inner ? 'u1,int' : head?.rcont ? 'u1 at r_cont' : head ? 'u1 (2d from drop)' : 'u1', r: u1Offset, u: result.u1, d, limit: reinforced?.resistance ?? result.resistance?.vRdc, limitName: reinforced ? 'v_Rd,cs' : 'v_Rd,c', m: model, plastic: onColumn },
   ];
-  if (result.envelope?.uOut && governing.aOut > 0) panels.push({ name: 'u_out,ef', r: governing.aOut, u: model.intervalsAt(governing.aOut).total, d, limit: result.resistance?.vRdc, limitName: 'v_Rd,c' });
-  else if (head?.kind === 'large' && head.inner) {
+  // Third panel: the slab section around the drop when the drop has an inner section (its own u_out
+  // lies in the drop and is not the slab check), else u_out,ef of the solved section.
+  if (head?.kind === 'large' && head.inner) {
     const ext = head.sections.find(item => item.id === 'ext');
     const row = governing.rows?.find(item => item.id === 'ext-concrete');
-    if (ext && row) panels.push({ name: 'u1,ext', r: 2 * head.d, u: ext.u1, d: head.d, limit: row.resistance, limitName: 'v_Rd,c', model: ext.model, demand: row.demand });
+    if (ext && row) panels.push({ name: 'u1,ext', r: 2 * head.d, u: ext.u1, d: head.d, limit: row.resistance, limitName: 'v_Rd,c', m: ext.model, plastic: false });
+  } else if (result.envelope?.uOut && governing.aOut > 0) {
+    panels.push({ name: 'u_out,ef', r: governing.aOut, u: model.intervalsAt(governing.aOut).total, d, limit: result.resistance?.vRdc, limitName: 'v_Rd,c', m: model, plastic: onColumn });
   }
   for (const panel of panels) {
-    const m = panel.model ?? model;
+    const m = panel.m;
     panel.paths = samples(m, panel.r);
     panel.mean = (governing.V * 1000) / (panel.u * panel.d);
-    panel.f = factors(panel.paths, governing, m.column, internal && !panel.model, beta);
+    panel.f = factors(panel.paths, governing, m.column, internal && panel.plastic, beta);
     panel.vmax = panel.mean * Math.max(...panel.f.flat());
     panel.vmin = panel.mean * Math.min(...panel.f.flat());
-    panel.local = panel.model ? (p => ({ x: p.x + (m.column.x - column.x), y: p.y + (m.column.y - column.y) })) : (p => p);
+    const dx = m.column.x - column.x;
+    const dy = m.column.y - column.y;
+    panel.local = p => ({ x: p.x + dx, y: p.y + dy });
   }
+  // Drop outline in column-relative coordinates (clipped at free slab edges).
+  const h = result.input?.head;
+  const dropOutline = head && h?.enabled
+    ? (h.shape === 'circular'
+      ? Array.from({ length: 48 }, (_, i) => ({ x: (h.diameter / 2) * Math.cos((i * Math.PI) / 24), y: (h.diameter / 2) * Math.sin((i * Math.PI) / 24) }))
+      : [{ x: head.extents.xMin, y: head.extents.yMin }, { x: head.extents.xMax, y: head.extents.yMin }, { x: head.extents.xMax, y: head.extents.yMax }, { x: head.extents.xMin, y: head.extents.yMax }])
+    : null;
   // Colour and height follow v_Ed only; each panel is scaled to its own perimeter (plan sizes differ).
   const vTop = Math.max(...panels.map(panel => panel.vmax));
   const cols = panels.length;
   const panelW = width / cols;
   for (const panel of panels) {
-    const reach = Math.max(...panel.paths.flat().map(p => Math.hypot(panel.local(p).x, panel.local(p).y)), 1);
+    const outlineReach = panel.name !== 'u0' && dropOutline ? dropOutline.map(q => Math.hypot(q.x, q.y)) : [];
+    const reach = Math.max(...panel.paths.flat().map(p => Math.hypot(panel.local(p).x, panel.local(p).y)), ...outlineReach, 1);
     panel.s = (panelW * 0.4) / (reach * Math.SQRT2 * Math.cos(Math.PI / 6));
     panel.halfH = reach * Math.SQRT2 * 0.5 * panel.s;
   }
@@ -108,13 +126,19 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   panels.forEach((panel, index) => {
     const ox = panelW * index + panelW / 2;
     const ps = panel.s;
-    const iso = (p, z) => { const q = panel.local(p); return [ox + (q.x + q.y) * cos * ps, baseY + (q.x - q.y) * sin * ps - z * zScale]; };
+    // isoAt: column-relative point; iso: point in the panel's section frame (shifted to the column).
+    const isoAt = (q, z) => [ox + (q.x + q.y) * cos * ps, baseY + (q.x - q.y) * sin * ps - z * zScale];
+    const iso = (p, z) => isoAt(panel.local(p), z);
     // Column footprint and axis.
     const c = column.shape === 'circular' ? null : [[-column.cx / 2, -column.cy / 2], [column.cx / 2, -column.cy / 2], [column.cx / 2, column.cy / 2], [-column.cx / 2, column.cy / 2]];
-    if (c) parts.push(`<path d="M${c.map(([x, y]) => iso({ x, y }, 0).map(n).join(' ')).join('L')}Z" fill="#eceeef" stroke="${COLORS.ink}" stroke-width=".8"/>`);
+    if (c) parts.push(`<path d="M${c.map(([x, y]) => isoAt({ x, y }, 0).map(n).join(' ')).join('L')}Z" fill="#eceeef" stroke="${COLORS.ink}" stroke-width=".8"/>`);
     else {
-      const ring = Array.from({ length: 36 }, (_, i) => iso({ x: (column.diameter / 2) * Math.cos((i * Math.PI) / 18), y: (column.diameter / 2) * Math.sin((i * Math.PI) / 18) }, 0));
+      const ring = Array.from({ length: 36 }, (_, i) => isoAt({ x: (column.diameter / 2) * Math.cos((i * Math.PI) / 18), y: (column.diameter / 2) * Math.sin((i * Math.PI) / 18) }, 0));
       parts.push(`<path d="M${ring.map(p => p.map(n).join(' ')).join('L')}Z" fill="#eceeef" stroke="${COLORS.ink}" stroke-width=".8"/>`);
+    }
+    if (dropOutline && panel.name !== 'u0') {
+      // Drop outline (hidden, below the slab), as on the plan; not on the u0 panel (column scale).
+      parts.push(`<path d="M${dropOutline.map(q => isoAt(q, 0).map(n).join(' ')).join('L')}Z" fill="none" stroke="${COLORS.drop}" stroke-width=".9" stroke-dasharray="${DASH.hidden}"/>`);
     }
     // Fence segments, back to front.
     const segments = [];

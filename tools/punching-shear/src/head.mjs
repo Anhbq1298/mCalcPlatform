@@ -192,7 +192,7 @@ export function calculateDesign(raw) {
     // Edge/corner: slab section around the clipped drop at 2d (Eq. 6.34/6.35 are for internal columns).
     const face = { u0: base.u0, d, label: 'Maximum punching stress at u0 (slab d, conservative)' };
     const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
-    return single(outer, { kind: 'small', edge: true, ...geo, d, rcont: null, sections: [extSection(outer, 'Fig. 6.15 (interpretation)')] });
+    return single(outer, { kind: 'small', edge: true, columnModel: base.model, ...geo, d, rcont: null, sections: [extSection(outer, 'Fig. 6.15 (interpretation)')] });
   }
   if (geo.kind === 'small') {
     const rc = rcontSmall(input, d);
@@ -201,12 +201,12 @@ export function calculateDesign(raw) {
     // Circular heads: the equivalent circle is the head itself, so links follow the head outline.
     if (geo.circular) {
       const outer = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, ...zone(split.slab, 0) });
-      return single(outer, { kind: 'small', ...geo, d, rcont: rc, sections: [extSection(outer, rc.eq)] });
+      return single(outer, { kind: 'small', columnModel: base.model, ...geo, d, rcont: rc, sections: [extSection(outer, rc.eq)] });
     }
     // Rectangular heads: check on the equivalent circle, links on the head outline (head-mapped.mjs).
     const circle = calculate(sub, { face, label: `Slab at r_cont (${rc.eq})`, noLinks: 'mapped' });
     const rect = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, noLinks: 'geometry only' });
-    const info = { kind: 'small', ...geo, d, rcont: rc, mapped: true, sections: [{ ...extSection(circle, rc.eq), model: rect.model ?? circle.model }] };
+    const info = { kind: 'small', columnModel: base.model, ...geo, d, rcont: rc, mapped: true, sections: [{ ...extSection(circle, rc.eq), model: rect.model ?? circle.model }] };
     if (!circle.loads?.length || !rect.model) return { ...circle, input, head: info };
     const mapped = mappedHeadLinks({ circle, rectModel: rect.model, input, rc, lHalfMin: Math.min(input.head.lx, input.head.ly) / 2, layers: split.slab });
     const result = merge({ ...circle, loads: mapped.loads }, null, issuesOf, info, input, combinedLayout(null, { layout: mapped.layout }, geo.lMin), split.notes);
@@ -217,12 +217,12 @@ export function calculateDesign(raw) {
     // Only the slab section; the face check uses the column perimeter with d_H (§6.4.2(10)).
     const face = { u0: base.u0, d: dH, label: 'Maximum punching stress at u0 (d_H)' };
     const outer = calculate(asColumn(input, dropAsColumn), { face, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, 0) });
-    return single(outer, { kind: 'large', inner: false, edge: !internal, ...geo, d, dH, sections: [extSection(outer, extEq)] });
+    return single(outer, { kind: 'large', inner: false, columnModel: base.model, edge: !internal, ...geo, d, dH, sections: [extSection(outer, extEq)] });
   }
   const inner = calculate(deeper(input, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - input.slab.cover, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
   const outer = calculate(asColumn(input, dropAsColumn), { face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
   const info = {
-    kind: 'large', inner: true, edge: !internal, ...geo, d, dH,
+    kind: 'large', inner: true, columnModel: base.model, edge: !internal, ...geo, d, dH,
     sections: [{ id: 'int', label: 'Inside the drop', d: dH, offset: 2 * dH, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' }, extSection(outer, extEq)],
   };
   if (!inner.loads?.length) return { ...inner, input, head: info };

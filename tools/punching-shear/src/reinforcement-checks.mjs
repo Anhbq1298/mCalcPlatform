@@ -44,7 +44,8 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
   rows.push(row('outer', '§6.4.5(4), Eq. 6.54', 'Outer coverage: outermost layer ≥ a_out − 1.5d', Math.max(needed, 0), outermost, null, {
     unit: 'mm', detail: `a_out = ${aOut.toFixed(0)} mm, required ${Math.max(needed, 0).toFixed(0)} mm, provided ${outermost.toFixed(0)} mm`, governing: summary[offsets.indexOf(outermost)].id,
   }));
-  rows.push(row('perimeters', '§9.4.3(1)', 'At least two perimeters of link legs', 2, summary.length, summary.length >= 2 ? STATES.pass : STATES.fail, { unit: 'layers' }));
+  // A count, not a utilisation: pass/fail only, no UR (2/n would read as a spare capacity).
+  rows.push({ ...row('perimeters', '§9.4.3(1)', 'At least two perimeters of link legs', 2, summary.length, summary.length >= 2 ? STATES.pass : STATES.fail, { unit: 'layers', detail: `${summary.length} perimeters provided, 2 required.` }), ur: null });
 
   const first = offsets[0];
   rows.push(row('first', '§9.4.3(4)', 'First layer ≤ 0.5d from the loaded area', first, P.firstLayerMax * d, null, { unit: 'mm', governing: summary[0].id }));
