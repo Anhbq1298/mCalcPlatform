@@ -20,6 +20,8 @@
     table { border-collapse: collapse; width: 100%; font-size: 14px; background: #fff; }
     th, td { border: 1px solid #d6dbd9; padding: 6px 8px; text-align: left; vertical-align: top; }
     th { background: #eef1f0; }
+    h3 { font-size: 16px; margin: 22px 0 2px; }
+    .src { margin: 0 0 6px; font-size: 13px; color: #4a5650; }
     .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
     .code { background: #dcefe3; color: #1b5733; }
     .interp { background: #fbecd2; color: #7a4508; }
@@ -128,15 +130,91 @@
 
   <h2>6 Input: total drop thickness and link arrangement</h2>
   <p>The drop is entered by its total thickness h<sub>tot</sub> (slab plus drop); the projection below the slab is h<sub>H</sub> = h<sub>tot</sub> − h and d<sub>H</sub> = d + h<sub>H</sub>. Designs saved with the older depth input open with h<sub>tot</sub> = h + h<sub>H</sub>.</p>
-  <p>Provided links are entered as rows of n layers at spacing s: row 1 is measured from the column face, each later row adds n layers at its spacing. Every layer of a row has the same bar, shape and tangential spacing s<sub>t</sub> (link centre to centre along the layer); the number of links per layer follows from s<sub>t</sub>: ceil(u / s<sub>t</sub>) on a complete layer, ceil(length / s<sub>t</sub>) on each part of a layer cut by a free edge or an opening, so no gap exceeds s<sub>t</sub> and longer outer layers get more links. Auto arrangement runs the automatic design and writes it into the rows with s<sub>t</sub> = largest designed gap, rounded down to 5 mm; consecutive layers with the same radial spacing merge into one row with the smallest s<sub>t</sub>, so the arrangement never has fewer links than the design. With a drop, the arrangement runs straight across the drop edge: layers inside the drop belong to the section with d<sub>H</sub>, layers beyond it to the section around the drop with d.</p>
+  <p>Provided links are entered one row per layer (L1, L2, …): the radial spacing s from the previous layer (L1 from the column face), the bar, the number of legs and the tangential spacing s<sub>t</sub> (link centre to centre along the layer). The number of links per layer follows from s<sub>t</sub>: ceil(u / s<sub>t</sub>) on a complete layer, ceil(length / s<sub>t</sub>) on each part of a layer cut by a free edge or an opening, so no gap exceeds s<sub>t</sub> and longer outer layers get more links. Auto arrangement runs the automatic design and writes one row per layer with s<sub>t</sub> = the largest designed gap rounded down to 5 mm, so the arrangement never has fewer links than the design. With a drop, the arrangement runs straight across the drop edge: layers inside the drop belong to the section with d<sub>H</sub>, layers beyond it to the section around the drop with d.</p>
 
   <h2>7 Shear stress figure</h2>
-  <p>The stress figure shows v<sub>Ed</sub> along u<sub>0</sub>, u<sub>1</sub> and u<sub>out,ef</sub> (or u<sub>1,ext</sub> for a drop). The mean value is V<sub>Ed</sub>/(u·d). When β comes from moments at an internal column (Eq. 6.39, 6.42 or 6.43) the shape is the plastic distribution behind Eq. 6.39 (Fig. 6.19): a constant part plus k·M/W<sub>1</sub> with the sign of the side, scaled so that the peak equals β times the mean. With the simplified or a user β, and at edge and corner columns, the figure shows the uniform envelope β·V<sub>Ed</sub>/(u·d). The check itself always uses β·V<sub>Ed</sub>/(u·d).</p>
+  <p>The stress figure shows v<sub>Ed</sub> along u<sub>0</sub>, u<sub>1</sub> and u<sub>out,ef</sub> (or u<sub>1,ext</sub> for a drop). The mean value is V<sub>Ed</sub>/(u·d). When β comes from moments at an internal column (Eq. 6.39, 6.42 or 6.43) the fence is the fully plastic distribution of Fig. 6.19 that Eq. 6.39 is derived from: v<sub>Ed</sub>(s) = v<sub>V</sub> ± Σ v<sub>M,i</sub>, with v<sub>V</sub> = V<sub>Ed</sub>/(u·d) and, for each axis, v<sub>M,i</sub> = k·V<sub>Ed</sub>·e<sub>i</sub>/(W<sub>1</sub>·d) added on the side the moment pushes down and removed on the other, a step at the centroid axis. W<sub>1</sub> = ∫|x| dl is taken for the perimeter drawn (Eq. 6.40) and k from Table 6.1; a circular column takes one term about the resultant eccentricity with k = 0.6 (Eq. 6.42). For one moment the peak v<sub>V</sub> + v<sub>M</sub> at u<sub>1</sub> equals β·v<sub>V</sub> of Eq. 6.39. For moments about both axes the tool checks with Eq. 6.43, so the sum of the two plastic terms can differ from β·v<sub>V</sub>; each panel prints both, and the check always uses β·v<sub>V</sub>. Fence height uses one scale for all panels; colour runs from blue at the lowest to red at the highest stress of each panel. With the simplified or a user β, and at edge and corner columns, the figure shows the uniform envelope β·V<sub>Ed</sub>/(u·d). The check itself always uses β·V<sub>Ed</sub>/(u·d).</p>
 
-  <h2>Sources</h2>
+  <h2>8 Benchmarks against published examples</h2>
+  <p>Each published example is entered with its own data and run through the tool. <span class="tag code">Same rule</span> rows must agree within the rounding of the published value (test <code>test/benchmarks.test.mjs</code>); <span class="tag interp">Different rule</span> rows rest on another National Annex, another β method or a pre-A1:2014 text, and the reason is given. Reproduce with <code>node tools/punching-shear/scripts/benchmarks.mjs</code>.</p>
+  <p>Summary: every value computed under the same rule agrees within 0.1 % (v<sub>min</sub> of EUR 26566 within its two-decimal rounding). The differences come from β for biaxial moments (CSI sums Eq. 6.39 over both axes, the tool uses Eq. 6.43), the s<sub>r</sub> rounding to 5 mm, the A1:2014 limit k<sub>max</sub>·v<sub>Rd,c</sub> and the German National Annex in the Dlubal examples. No published example with a column head, an opening or an edge or corner column has been found yet; those parts are checked against hand calculation only (reference cases in <code>scripts/verification.mjs</code>, listed in SOURCES.md).</p>
+  <h3>CSI SAFE, Eurocode 2-04 RC-PN-001 (300 × 900 column, biaxial moments)</h3>
+  <p class="src">Source: <a href="https://docs.csiamerica.com/manuals/safe/Verification/Design%20Verification/Eurocode%202-04/Eurocode%202-04%20RC-PN-001.pdf">CSI, SAFE Software Verification, Example Eurocode 2-04 RC-PN-001, Slab punching shear design (Grid B-2, CEN default NA)</a>. Tool status for this input: Fail.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>d</td><td>mm</td><td>218</td><td>218.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>u<sub>1</sub></td><td>mm</td><td>5139.468</td><td>5139.5</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>k</td><td>—</td><td>1.9578</td><td>1.958</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>ρ<sub>l</sub></td><td>—</td><td>0.004955</td><td>0.004955</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>min</sub></td><td>MPa</td><td>0.525</td><td>0.5252</td><td>0.03 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Rd,c</sub></td><td>MPa</td><td>0.5777</td><td>0.5777</td><td>-0.01 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed</sub></td><td>MPa</td><td>1.099</td><td>1.053</td><td>-4.22 %</td><td><span class="tag interp">Different rule</span> β: the source adds Eq. 6.39 terms of both axes, 1 + M2·u1/(V·W1,2) + M3·u1/(V·W1,3) = 1.1075 with k·M taken from SAFE; the tool uses Eq. 6.43 (SRSS, 1.8 factor) for biaxial moments, β = 1.0605.</td></tr>
+    <tr><td>D/C = v<sub>Ed</sub>/v<sub>Rd,c</sub></td><td>—</td><td>1.9</td><td>1.822</td><td>-4.09 %</td><td><span class="tag interp">Different rule</span> Follows v<sub>Ed</sub> (β basis above).</td></tr>
+  </table>
+  <h3>CSI SAFE RC-PN-001 with the source β</h3>
+  <p class="src">Source: <a href="https://docs.csiamerica.com/manuals/safe/Verification/Design%20Verification/Eurocode%202-04/Eurocode%202-04%20RC-PN-001.pdf">Same CSI example, β = 1.1075 taken from the source as a user value, to compare the downstream stress and D/C</a>. Tool status for this input: Fail.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>v<sub>Ed</sub></td><td>MPa</td><td>1.099</td><td>1.099</td><td>0.03 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>D/C = v<sub>Ed</sub>/v<sub>Rd,c</sub></td><td>—</td><td>1.9</td><td>1.903</td><td>0.16 %</td><td><span class="tag code">Same rule</span></td></tr>
+  </table>
+  <h3>JRC EUR 26566, flat slab column B2 (500 × 500, links)</h3>
+  <p class="src">Source: <a href="https://law.resource.org/pub/eu/eurocode/guidance/1110_WS_EC2.pdf">European Commission JRC, Eurocode 2: Background &amp; Applications — Design of concrete buildings, Worked examples, Report EUR 26566 EN (2014), §3.2.2.3 Punching shear — column B2</a>. Tool status for this input: Fail.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>d</td><td>mm</td><td>164</td><td>164.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>u<sub>0</sub></td><td>mm</td><td>2000</td><td>2000.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed,0</sub> = βV/(u<sub>0</sub> d)</td><td>MPa</td><td>2.47</td><td>2.472</td><td>0.07 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Rd,max</sub></td><td>MPa</td><td>3.6</td><td>3.600</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>u<sub>1</sub></td><td>mm</td><td>4061</td><td>4060.9</td><td>-0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed,1</sub></td><td>MPa</td><td>1.22</td><td>1.217</td><td>-0.22 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>k</td><td>—</td><td>2</td><td>2.000</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Rd,c</sub></td><td>MPa</td><td>0.66</td><td>0.6595</td><td>-0.08 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>min</sub></td><td>MPa</td><td>0.49</td><td>0.4950</td><td>1.02 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>f<sub>ywd,ef</sub></td><td>MPa</td><td>291</td><td>291.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>s<sub>r</sub></td><td>mm</td><td>123</td><td>120.0</td><td>-2.44 %</td><td><span class="tag interp">Different rule</span> The tool rounds 0.75d = 123 mm down to 120 mm.</td></tr>
+    <tr><td>A<sub>sw</sub> per perimeter</td><td>mm²</td><td>830</td><td>806.9</td><td>-2.79 %</td><td><span class="tag interp">Different rule</span> Scales with s<sub>r</sub>: about 830 × 120/123 = 810 mm² (tool 807 with unrounded v<sub>Ed,1</sub>).</td></tr>
+    <tr><td>u<sub>out,ef</sub></td><td>mm</td><td>7490</td><td>7495.9</td><td>0.08 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>a<sub>out</sub> (outer perimeter from the column face)</td><td>mm</td><td>874</td><td>874.7</td><td>0.08 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>Design status</td><td>—</td><td>links OK</td><td>Fail</td><td>—</td><td><span class="tag interp">Different rule</span> v<sub>Ed,1</sub> = 1.22 > k<sub>max</sub>·v<sub>Rd,c</sub> = 1.5 × 0.66 = 0.99 MPa: the A1:2014 limit (§6.4.5(1) Note) makes the tool Fail; the source does not apply it.</td></tr>
+  </table>
+  <h3>Dlubal VE 1023, axis B/2 (450 × 450)</h3>
+  <p class="src">Source: <a href="https://www.dlubal.com/en/downloads-and-information/examples-and-tutorials/verification-examples/001023">Dlubal, RFEM Verification Example 1023 — Punching shear design of a point-supported slab (DIN EN 1992-1-1), axis B/2, analytical solution</a>. Tool status for this input: Fail.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>u<sub>1</sub></td><td>mm</td><td>4188</td><td>4187.6</td><td>-0.01 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed</sub></td><td>MPa</td><td>1.088</td><td>1.088</td><td>0.04 %</td><td><span class="tag code">Same rule</span></td></tr>
+  </table>
+  <h3>Dlubal VE 1028, circular column D = 300</h3>
+  <p class="src">Source: <a href="https://www.dlubal.com/en/downloads-and-information/examples-and-tutorials/verification-examples/001028">Dlubal, RFEM 6 Verification Example 1028 — Punching shear design for central column in flat slab according to EC2 (DIN EN 1992-1-1), analytical solution column</a>. Tool status for this input: Pass.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>d</td><td>mm</td><td>210</td><td>210.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>u<sub>1</sub></td><td>mm</td><td>3581</td><td>3581.4</td><td>0.01 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed</sub></td><td>MPa</td><td>0.731</td><td>0.7313</td><td>0.04 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>k</td><td>—</td><td>1.976</td><td>1.976</td><td>-0.01 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>ρ<sub>l</sub></td><td>—</td><td>0.005</td><td>0.005000</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Rd,c</sub></td><td>MPa</td><td>0.585</td><td>0.5848</td><td>-0.04 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>min</sub></td><td>MPa</td><td>0.532</td><td>0.5324</td><td>0.08 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>Max. resistance with links</td><td>MPa</td><td>0.819</td><td>0.8771</td><td>7.10 %</td><td><span class="tag interp">Different rule</span> DIN NA: 1.4·v<sub>Rd,c</sub>; the tool uses the CEN value k<sub>max</sub> = 1.5 (A1:2014).</td></tr>
+    <tr><td>u<sub>out,ef</sub></td><td>mm</td><td>5372</td><td>4478.9</td><td>-16.63 %</td><td><span class="tag interp">Different rule</span> The source uses v<sub>Rd,c</sub> with the required longitudinal reinforcement (DIN NA, 0.4875 MPa); the tool uses v<sub>Rd,c</sub> of the provided reinforcement (Eq. 6.54).</td></tr>
+  </table>
+
+  <h2>References</h2>
+  <p>Code basis of the tool:</p>
   <ul>
-    <li>EN 1992-1-1:2004 §6.4.2(8)–(11), Figs. 6.17 and 6.18.</li>
-    <li><a href="https://support.tekla.com/doc/tekla-structural-designer/2025/ref_punching_shear_checks_ec2">Tekla Structural Designer: Punching shear checks to EC2</a> (control perimeter outside the drop, and inside it when it fits; the drop outline as an additional loaded perimeter).</li>
+    <li>EN 1992-1-1:2004 + AC:2010 + A1:2014, Eurocode 2: Design of concrete structures — Part 1-1: §6.4 punching (Eq. 6.32–6.54, Figs. 6.12–6.22, Table 6.1), §8.3 and §8.5 (mandrels, link anchorage), §9.3.2 and §9.4.3 (slab and punching detailing). CEN recommended values unless a National Annex profile is chosen.</li>
+    <li>A1:2014, §6.4.5(1) Note: k<sub>max</sub> = 1.5 upper limit with shear reinforcement.</li>
+    <li>NA to SS EN 1992-1-1:2008 + A1:2010 (Singapore) and NA to BS EN 1992-1-1 (UK): profile values taken from secondary sources (SCIA Engineer NA tables; CADS and The Concrete Centre notes). Results with these profiles stay Not verified until the user confirms the values against the Annex.</li>
+    <li>The Concrete Centre guidance: first link perimeter ≥ 0.3d from the loaded area (reported as guidance, Requires confirmation).</li>
+    <li><a href="https://support.tekla.com/doc/tekla-structural-designer/2025/ref_punching_shear_checks_ec2">Tekla Structural Designer: Punching shear checks to EC2</a>: control perimeter outside the drop, and inside it only when it fits; the drop outline as the loaded area of the outer section. Used for rectangular drops and links beyond the drop (interpretation).</li>
+    <li>Blueprints (open source, MIT): implementations of Eq. 6.44–6.46 used to cross-check the edge and corner β formulas.</li>
+  </ul>
+  <p>Published examples used as benchmarks (section 8):</p>
+  <ul>
+    <li><a href="https://docs.csiamerica.com/manuals/safe/Verification/Design%20Verification/Eurocode%202-04/Eurocode%202-04%20RC-PN-001.pdf">CSI, SAFE Software Verification, Example Eurocode 2-04 RC-PN-001</a>.</li>
+    <li><a href="https://law.resource.org/pub/eu/eurocode/guidance/1110_WS_EC2.pdf">European Commission JRC, Eurocode 2: Background &amp; Applications — Design of concrete buildings, Worked examples, EUR 26566 EN (2014)</a>, §3.2.2.3.</li>
+    <li><a href="https://www.dlubal.com/en/downloads-and-information/examples-and-tutorials/verification-examples/001028">Dlubal, Verification Example 1028</a> and <a href="https://www.dlubal.com/en/downloads-and-information/examples-and-tutorials/verification-examples/001023">Verification Example 1023</a> (DIN EN 1992-1-1).</li>
   </ul>
 </main>
 </body>
