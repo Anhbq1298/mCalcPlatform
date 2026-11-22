@@ -123,7 +123,7 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   const halfH = Math.max(...panels.map(panel => panel.halfH));
   const baseY = top + 96 + halfH;
   const textLines = Math.max(...panels.map(panel => 3 + (panel.terms ? 2 * panel.terms.length + 2 : 0)));
-  const height = Math.round(baseY + halfH + 52 + 14 * textLines + 34);
+  const height = Math.round(baseY + halfH + 52 + 14 * textLines + 66);
   const parts = [];
   const cos = Math.cos(Math.PI / 6);
   const sin = Math.sin(Math.PI / 6);
@@ -168,32 +168,71 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     }
     // V_Ed arrow at the column centre.
     const [ax, ay] = iso({ x: 0, y: 0 }, 0);
-    parts.push(`<line x1="${n(ax)}" y1="${n(ay - 70)}" x2="${n(ax)}" y2="${n(ay - 8)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(ax - 4)} ${n(ay - 14)}L${n(ax)} ${n(ay - 4)}L${n(ax + 4)} ${n(ay - 14)}Z" fill="${COLORS.ink}"/><text x="${n(ax + 6)}" y="${n(ay - 60)}">V_Ed</text>`);
+    parts.push(`<line x1="${n(ax)}" y1="${n(ay - 70)}" x2="${n(ax)}" y2="${n(ay - 8)}" stroke="${COLORS.ink}" stroke-width="2"/><path d="M${n(ax - 4)} ${n(ay - 14)}L${n(ax)} ${n(ay - 4)}L${n(ax + 4)} ${n(ay - 14)}Z" fill="${COLORS.ink}"/><text x="${n(ax + 6)}" y="${n(ay - 60)}" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">V_Ed</text>`);
+    // Moment arrows: an arc over the column in the plane of each moment, ending on the side the moment
+    // pushes down (+M_y toward +X, +M_x toward +Y, as on the loading plan), labelled with its value.
+    const rot = ((column.rotation || 0) * Math.PI) / 180;
+    const moments = [
+      { value: governing.My, name: 'M_y', ux: Math.cos(-rot), uy: Math.sin(-rot) },
+      { value: governing.Mx, name: 'M_x', ux: -Math.sin(-rot), uy: Math.cos(-rot) },
+    ].filter(m => Math.abs(m.value) > 1e-9);
+    moments.forEach((m, k) => {
+      // Arc in screen space along the moment's plan direction: fixed size, above the V_Ed arrow foot.
+      const [o0, o1] = isoAt({ x: 0, y: 0 }, 0);
+      const [d0, d1] = isoAt({ x: m.ux * 1000, y: m.uy * 1000 }, 0);
+      const len = Math.hypot(d0 - o0, d1 - o1) || 1;
+      const sgn = Math.sign(m.value);
+      const dx = (sgn * (d0 - o0)) / len;
+      const dy = (sgn * (d1 - o1)) / len;
+      const R = 30 + 10 * k;
+      const lift = 46 + 8 * k;
+      const pts = Array.from({ length: 25 }, (_, q) => {
+        const th = Math.PI * (1 - q / 24); // − side, over the top, to the + side
+        return [o0 + R * Math.cos(th) * dx, o1 + R * Math.cos(th) * dy - lift - 16 * Math.sin(th)];
+      });
+      const [ex, ey] = pts.at(-1);
+      const [px, py] = pts.at(-2);
+      const ang = Math.atan2(ey - py, ex - px);
+      const tip = [[ex, ey], [ex - 7 * Math.cos(ang - 0.45), ey - 7 * Math.sin(ang - 0.45)], [ex - 7 * Math.cos(ang + 0.45), ey - 7 * Math.sin(ang + 0.45)]];
+      const label = `${m.name} = ${Math.abs(m.value).toFixed(0)} kN·m`;
+      parts.push(`<path d="M${pts.map(p => p.map(n).join(' ')).join('L')}" fill="none" stroke="#5b2a86" stroke-width="1.5"/>`
+        + `<path d="M${tip.map(p => p.map(n).join(' ')).join('L')}Z" fill="#5b2a86"/>`
+        + `<text class="small" x="${n(ex + (dx >= 0 ? 6 : -6))}" y="${n(ey + 10)}" text-anchor="${dx >= 0 ? 'start' : 'end'}" fill="#5b2a86" style="fill:#5b2a86" paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round">${label}</text>`);
+    });
     // Labels.
     const tx = panelW * index + 10;
     const ty = baseY + halfH + 22;
     // v_Ed = v_V + v_M: the shear part and, per axis, the moment part of the plastic distribution.
-    const lines = [`v_V = V_Ed/(u·d) = ${panel.mean.toFixed(3)} MPa`];
+    const lines = [`• v_V = V_Ed/(u·d) = ${panel.mean.toFixed(3)} MPa`];
     if (panel.terms) {
       for (const t of panel.terms) {
-        lines.push(`v_M,${t.name} = k·V_Ed·e_${t.name}/(W_1·d) = ${(t.a * panel.mean).toFixed(3)} MPa`);
-        lines.push(`   k ${t.k.toFixed(2)} · e_${t.name} ${Math.abs(t.e).toFixed(0)} mm · W_1 ${(t.W / 1e6).toFixed(2)}·10⁶ mm²`);
+        lines.push(`• v_M,${t.name} = k·V_Ed·e_${t.name}/(W_1·d) = ${(t.a * panel.mean).toFixed(3)} MPa`);
+        lines.push(`    k ${t.k.toFixed(2)} · e_${t.name} ${Math.abs(t.e).toFixed(0)} mm · W_1 ${(t.W / 1e6).toFixed(2)}e6 mm²`);
       }
-      lines.push(`v_max = v_V + Σv_M = ${panel.vmax.toFixed(3)} MPa`);
-      lines.push(`v_min = v_V − Σv_M = ${panel.vmin.toFixed(3)} MPa`);
-      lines.push(`check: β·v_V = ${(beta * panel.mean).toFixed(3)} MPa (β = ${beta.toFixed(3)})`);
-    } else lines.push(`β·v_V = ${panel.vmax.toFixed(3)} MPa (uniform${internal ? '' : ', edge/corner β'})`);
-    if (panel.limit) lines.push(`${panel.limitName} = ${panel.limit.toFixed(3)} MPa`);
+      lines.push(`• v_max = v_V + Σv_M = ${panel.vmax.toFixed(3)} MPa`);
+      lines.push(`• v_min = v_V − Σv_M = ${panel.vmin.toFixed(3)} MPa`);
+      lines.push(`• Check: β·v_V = ${(beta * panel.mean).toFixed(3)} MPa (β = ${beta.toFixed(3)})`);
+    } else lines.push(`• β·v_V = ${panel.vmax.toFixed(3)} MPa (uniform${internal ? '' : ', edge/corner β'})`);
+    if (panel.limit) lines.push(`• ${panel.limitName} = ${panel.limit.toFixed(3)} MPa`);
     parts.push(`<text x="${n(tx)}" y="${top - 12}" style="font-weight:500">${esc(panel.name)} = ${panel.u.toFixed(0)} mm · d = ${panel.d.toFixed(0)}</text>`
-      + lines.map((line, k) => `<text class="small" x="${n(tx)}" y="${n(ty + 14 * k)}">${esc(line)}</text>`).join(''));
+      + lines.map((line, k) => `<text class="small" x="${n(tx + (line.startsWith('    ') ? 14 : 0))}" y="${n(ty + 14 * k)}">${esc(line.trim())}</text>`).join(''));
+    // Colour bar of this panel with its lower and upper limits.
+    const barX = panelW * index + 10;
+    const barW = panelW - 20;
+    const barY = height - 72;
+    const lo = span > 1e-6 ? panel.vmin : 0;
+    const hi = span > 1e-6 ? panel.vmax : vTop;
+    parts.push(`<rect x="${n(barX)}" y="${n(barY)}" width="${n(barW)}" height="7" fill="url(#v-ramp)"/>`
+      + `<text class="small" x="${n(barX)}" y="${n(barY + 19)}">${lo.toFixed(3)}</text>`
+      + `<text class="small" x="${n(barX + barW)}" y="${n(barY + 19)}" text-anchor="end">${hi.toFixed(3)} MPa</text>`);
   });
-  // Colour scale.
+  // Separators between panels.
+  for (let i = 1; i < cols; i += 1) parts.push(`<line x1="${n(panelW * i)}" y1="8" x2="${n(panelW * i)}" y2="${n(height - 46)}" stroke="${COLORS.rule}" stroke-width="1"/>`);
+  // Shared gradient (each panel draws its own bar with its limits) and the caption.
   const ly = height - 34;
-  const lw = Math.min(260, width - 200);
   const stops = Array.from({ length: 11 }, (_, i) => `<stop offset="${i * 10}%" stop-color="${colour(i / 10)}"/>`).join('');
-  parts.push(`<defs><linearGradient id="v-ramp">${stops}</linearGradient></defs><rect x="14" y="${ly}" width="${lw}" height="8" fill="url(#v-ramp)"/>`
-    + `<text class="small" x="14" y="${ly + 20}">v_min of the panel</text><text class="small" x="${14 + lw}" y="${ly + 20}" text-anchor="end">v_max of the panel</text>`
-    + `<text class="small" x="${24 + lw}" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · plastic distribution, Fig. 6.19: v_Ed = v_V ± v_M' : ' · uniform β envelope'}</text>`
-    + `<text class="small" x="${24 + lw}" y="${ly + 22}">Height: one scale for all panels. Panels not to the same plan scale.</text>`);
+  parts.push(`<defs><linearGradient id="v-ramp">${stops}</linearGradient></defs>`
+    + `<text class="small" x="14" y="${ly + 8}">v_Ed · ${esc(governing.name)} · β = ${beta.toFixed(3)}${internal && String(governing.beta?.method ?? '').match(/6\.(39|42|43)/) ? ' · plastic distribution, Fig. 6.19: v_Ed = v_V ± v_M · colour per panel from v_min to v_max' : ' · uniform β envelope'}</text>`
+    + `<text class="small" x="14" y="${ly + 22}">Fence height: one scale for all panels. Panels not to the same plan scale. Moments: +M_y loads the +X side, +M_x the +Y side.</text>`);
   return svgDocument(width, height, 'Shear stress along the control perimeters', parts.join(''));
 }
