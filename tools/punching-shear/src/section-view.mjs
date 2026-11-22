@@ -4,7 +4,7 @@
 // lie in the cutting plane; they are drawn at their offsets. Bottom bars are schematic. Returns an SVG
 // string whose height follows the content (width is fixed).
 import { derivedSection } from './inputs.mjs';
-import { COLORS, DASH, callout, esc, n, svgDocument } from './svg.mjs';
+import { COLORS, DASH, callout, dimensionTo, esc, n, svgDocument } from './svg.mjs';
 
 const BREAK = (x, y0, y1) => {
   const m = (y0 + y1) / 2;
@@ -67,7 +67,7 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   const topPad = 96;
   const bodyHeight = (zTop - zBot) * scale;
   const dimsHeight = 58; // room for the callouts below the column stub
-  const legendHeight = 58;
+  const legendHeight = 74; // up to two lines of values plus two notes
   const height = Math.round(topPad + bodyHeight + dimsHeight + legendHeight);
   const drawHeight = height - legendHeight;
   const X = t => padL + (t - left) * scale;
@@ -175,6 +175,33 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
     if (-t >= left) parts.push(`<line x1="${n(X(-t))}" y1="${n(y + 3)}" x2="${n(X(-t))}" y2="${n(Z(soffit(-t)) + 8)}" stroke="${COLORS.ink}" stroke-width=".9" stroke-dasharray="${dash}"/><text class="label" x="${n(X(-t) - 3)}" y="${n(y)}" text-anchor="end">${esc(text)}</text>`);
   }
 
+  // Depth dimensions: slab thickness at a slab end with a plain soffit; drop depth and total depth
+  // at the drop edges (one each side when both are drawn, stacked otherwise).
+  // Text sits beside the dimension line, or under its lower end (below: true) where the space beside
+  // it is concrete.
+  const vdim = (t, z0, z1, out, text, below = false) => {
+    const x = X(t);
+    const sign = Math.sign(out) || 1;
+    const label = below
+      ? `<text class="dimtext" x="${n(x + out)}" y="${n(Z(z0) + 16)}" text-anchor="${sign > 0 ? 'start' : 'end'}">${esc(text)}</text>`
+      : `<text class="dimtext" x="${n(x + out + 5 * sign)}" y="${n((Z(z0) + Z(z1)) / 2 + 4)}" text-anchor="${sign > 0 ? 'start' : 'end'}">${esc(text)}</text>`;
+    return dimensionTo([x, Z(z0)], [x, Z(z1)], [x + out, Z(z0)], [x + out, Z(z1)], '') + label;
+  };
+  if (!head || dropEnd < right) parts.push(vdim(right, 0, h, 18, `h = ${h}`));
+  else if (dropEndL < -left) parts.push(vdim(left, 0, h, -18, `h = ${h}`));
+  else parts.push(vdim(right, -hH, h, 18, `h + h_H = ${h + hH}`));
+  if (head) {
+    const sides = [[dropEnd, dropEnd < right, 1], [-dropEndL, dropEndL < -left, -1]].filter(([, visible]) => visible);
+    if (sides.length === 2) {
+      parts.push(vdim(sides[0][0], -hH, 0, 16, `h_H = ${hH}`));
+      parts.push(vdim(sides[1][0], -hH, h, -16, `h + h_H = ${h + hH}`, true));
+    } else if (sides.length === 1) {
+      const [t, , sign] = sides[0];
+      parts.push(vdim(t, -hH, 0, 16 * sign, `h_H = ${hH}`));
+      parts.push(vdim(t, -hH, h, 34 * sign, `h + h_H = ${h + hH}`, true));
+    }
+  }
+
   // Key dimensions as text (no dimension lines): layer offsets, control sections, depths.
   const values = [];
   if (layers.length) {
@@ -189,6 +216,13 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
   if (head?.kind === 'large' && head.inner) values.push(`d_H = d + h_H = ${head.dH.toFixed(0)}`);
   // Callouts (45° leaders, QLEADER style). A callout flips to the left when its text would leave
   // the drawing. Landings: links highest, top bars below them, bars under the soffit below the slab.
+  // Values wrap to the drawing width (about 6.3 px per character at 11 px).
+  const valueLines = [];
+  for (const value of values) {
+    const lastLine = valueLines.at(-1);
+    if (lastLine && (lastLine + ' · ' + value).length * 6.3 < width - 28) valueLines[valueLines.length - 1] = lastLine + ' · ' + value;
+    else valueLines.push(value);
+  }
   // Callouts go on the side with more slab (cs = ±1 along the local axis).
   const cs = toEdge(1) >= toEdge(-1) ? 1 : -1;
   const XC = t => X(cs * t);
@@ -220,8 +254,8 @@ export function sectionSvg(result, { width = 640, axis = 'x' } = {}) {
     parts.push(place(XC(tb), Z(bottomBar(cs * tb)), 1, Z(zBot) + 22, [head ? 'DROP / BOTTOM BARS (SCHEMATIC)' : 'BOTTOM BARS (SCHEMATIC)']));
   }
   parts.push(`<line x1="0" y1="${n(drawHeight)}" x2="${width}" y2="${n(drawHeight)}" stroke="${COLORS.rule}"/>`
-    + `<text class="small" x="14" y="${n(drawHeight + 16)}">${esc(values.join(' · '))}</text>`
-    + `<text class="small" x="14" y="${n(drawHeight + 31)}">Section ${name} (local ${axis})${section ? ` · top bars d_x ${section.dx.toFixed(0)}, d_y ${section.dy.toFixed(0)}` : ''} · bottom bars schematic · legs at their offsets.</text>`
-    + `<text class="small" x="14" y="${n(drawHeight + 46)}">Hook anchorage requires detailing confirmation (§8.5). Distances in mm from the column face.</text>`);
+    + valueLines.map((line, i) => `<text class="small" x="14" y="${n(drawHeight + 16 + 15 * i)}">${esc(line)}</text>`).join('')
+    + `<text class="small" x="14" y="${n(drawHeight + 16 + 15 * valueLines.length)}">Section ${name} (local ${axis})${section ? ` · top bars d_x ${section.dx.toFixed(0)}, d_y ${section.dy.toFixed(0)}` : ''} · bottom bars schematic · legs at their offsets.</text>`
+    + `<text class="small" x="14" y="${n(drawHeight + 31 + 15 * valueLines.length)}">Hook anchorage requires detailing confirmation (§8.5). Distances in mm from the column face.</text>`);
   return svgDocument(width, height, `Punching shear section ${name}`, parts.join(''));
 }
