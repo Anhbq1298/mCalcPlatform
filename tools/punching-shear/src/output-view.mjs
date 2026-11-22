@@ -76,7 +76,7 @@ export function renderCompact(panel, result, loadName, selectedId, onSelect) {
   }
   const load = result.loads.find(item => item.name === loadName) ?? result.loads.find(item => item.name === result.governing.load);
   const rows = load.rows.filter(row => Number.isFinite(row.ur) && !INFO.includes(row.status));
-  const governing = rows.reduce((best, row) => (!best || row.ur > best.ur ? row : best), null);
+  const governing = rows.filter(row => row.unit !== 'layers').reduce((best, row) => (!best || row.ur > best.ur ? row : best), null);
   const pick = rows.find(row => row.id === selectedId) ?? governing;
   const tone = status => (status === STATES.pass ? 'pass' : status === STATES.fail ? 'fail' : 'warn');
   const bars = rows.map(row => {
