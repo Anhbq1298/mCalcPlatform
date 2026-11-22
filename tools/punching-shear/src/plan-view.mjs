@@ -136,16 +136,23 @@ export function planSvg(result, { width = 640, height = 600, selected = null, ch
     const name = outerOnly || (head?.kind === 'small' && !head.rcont) ? 'u1,ext (2d from drop)' : head?.kind === 'large' ? 'u1,int (d_H)' : head?.kind === 'small' ? `u1 at r_cont (${head.rcont.eq})` : 'u1 (2d)';
     parts.push(`<text class="label" x="${n(view.x(u1Label.x) + 4)}" y="${n(view.y(u1Label.y) - 5)}">${esc(name)}</text>`);
   }
-  // Layers beyond the drop follow the drop outline (pathOffset from the drop edge).
   for (const [index, layer] of layers.entries()) {
     const m = layer.zone === 'slab' && extModel ? extModel : model;
     const r = layer.pathOffset ?? layer.offset;
     const pc = m?.column ?? pathColumn;
     const active = activeRow?.governing === layer.id;
-    parts.push(perimeter(r, active ? COLORS.governing : COLORS.muted, DASH.layer, active ? 2.5 : 0.6, m));
-    const p = toGlobal(pc, pointAt(pc, r, firstEffective(m, r, 0.42)));
+    // Generated layers use explicit coordinates. Draw a perimeter guide only for links placed on that path.
+    if (!layer.points) parts.push(perimeter(r, active ? COLORS.governing : COLORS.muted, DASH.layer, active ? 2.5 : 0.6, m));
     const zoneEnd = layers[index + 1]?.zone !== layer.zone || layers[index - 1]?.zone !== layer.zone;
-    if (index === 0 || index === layers.length - 1 || zoneEnd) parts.push(`<text class="small" x="${n(view.x(p.x) - 6)}" y="${n(view.y(p.y) - 6)}" text-anchor="end">${esc(layer.id ?? 'L' + (index + 1))}</text>`);
+    if (index === 0 || index === layers.length - 1 || zoneEnd || active || selected === layer.id) {
+      const p = layer.points
+        ? result.layout.links.filter(link => link.layerId === layer.id).reduce((left, link) => {
+          const point = link.position;
+          return !left || point.x < left.x - 1e-6 || (Math.abs(point.x - left.x) <= 1e-6 && Math.abs(point.y - column.y) < Math.abs(left.y - column.y)) ? point : left;
+        }, null)
+        : toGlobal(pc, pointAt(pc, r, firstEffective(m, r, 0.42)));
+      if (p) parts.push(`<text class="small" x="${n(view.x(p.x) - 8)}" y="${n(view.y(p.y) - 6)}" text-anchor="end">${esc(layer.id ?? 'L' + (index + 1))}</text>`);
+    }
   }
   const gapCheck = checkId === 'tangential' || checkId === 'ext-tangential';
   const gov = !checkId || gapCheck ? governingGap(result, load, ext && extModel?.column, gapCheck ? checkId : null) : null;
@@ -167,7 +174,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null, ch
   }
   for (const link of result.layout?.links ?? []) {
     const radius = Math.max(2.4, (link.diameter / 2) * view.scale);
-    const isSelected = selected === link.id || selected === link.layerId;
+    const isSelected = selected === link.id || selected === link.layerId || (!selected && activeRow?.governing === link.layerId);
     let body = '';
     if (link.legs.length === 2) body += `<line x1="${n(view.x(link.legs[0].x))}" y1="${n(view.y(link.legs[0].y))}" x2="${n(view.x(link.legs[1].x))}" y2="${n(view.y(link.legs[1].y))}" stroke="${COLORS.link}" stroke-width="1.6"/>`;
     for (const leg of link.legs) {

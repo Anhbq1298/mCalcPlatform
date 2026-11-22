@@ -182,7 +182,8 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
   // No link is placed where it would be ineffective: outside the slab, in an opening or in its shadow.
   const placeable = (p, index) => {
     const point = toGlobal(column, p);
-    return !exclusion(model, point) && (!Number.isFinite(maxOffset) || distanceToColumn(column, point) <= Math.min(maxOffset, index === 0 ? 0.5 * d : Infinity) + 1e-9);
+    const limit = index === 0 ? Math.min(maxOffset, 0.5 * d) : maxOffset;
+    return !exclusion(model, point) && distanceToColumn(column, point) <= limit + 1e-9;
   };
   const required = Math.max(aOut - outerK * d, first);
   const minCount = Math.max(2, Math.ceil((required - first) / sr - 1e-9) + 1);

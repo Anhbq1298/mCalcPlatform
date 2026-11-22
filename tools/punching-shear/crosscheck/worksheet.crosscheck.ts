@@ -123,7 +123,7 @@ for (const [name, input, solve = calculate] of cases()) {
     if (governing) {
       const byLatex = latex => checks.find(check => check.latex === latex)?.pass;
       const rows = Object.fromEntries(result.loads.find(load => load.layoutCheck).rows.map(row => [row.id, row.status]));
-      expect(byLatex('a_{L1}\\le0.5d'), 'first layer').toBe(rows.first === 'Pass');
+      expect(byLatex('a_{L1.max}\\le0.5d'), 'first layer').toBe(rows.first === 'Pass');
       if (rows.radial !== 'Incomplete input') expect(byLatex('s_{r}\\le0.75d'), 'radial').toBe(rows.radial === 'Pass');
       governing.layerRows.forEach((entry, index) => {
         const j = index + 1;

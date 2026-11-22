@@ -226,7 +226,11 @@ function combination(doc, result, load, i, rect, hasSr) {
 
 function detailing(doc, result, layers) {
   doc.heading(`${4 + result.loads.length} Detailing (§9.4.3)`);
-  doc.math('First layer', R`a_{L1}\le0.5d`, { displayUnit: 'mm', mode: 'auto' });
+  const first = result.loads.flatMap(load => load.rows).find(row => row.id === 'first');
+  if (first) {
+    doc.math('Farthest first-layer leg from the loaded area', define('a_{L1.max}', num(first.demand) + unit.mm), { displayUnit: 'mm', precision: 1 });
+    doc.math('', R`a_{L1.max}\le0.5d`, { displayUnit: 'mm', mode: 'auto' });
+  }
   if (layers.length > 1) doc.math('Radial spacing', R`s_{r}\le0.75d`, { displayUnit: 'mm', mode: 'auto' });
   doc.text(result.layout?.outerEf
     ? `Tangential spacing is measured along each layer between consecutive effective legs${result.layout.arrangement === 'cruciform' ? ' on the same column face' : ''}: ≤ 1.5d inside u1; outside u1 gaps > 2d are excluded from u_out,ef (Fig. 6.22 B) and Eq. 9.11 uses s_t ≤ 2d. Minimum leg area from Eq. 9.11 with α = 90°.`
