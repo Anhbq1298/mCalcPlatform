@@ -98,3 +98,17 @@ test('Help holds the status policy, verification table and handling of open poin
   assert.ok(help.includes('9 Status, verification and how the tool calculates'));
   assert.ok(help.includes('Ancon') && help.includes('JRC') && help.includes('Σ min(L<sub>i</sub>, 2d)'));
 });
+
+test('slab thickness and drop size change the result, the link arrangement and the drawings', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const run = edit => { const input = newDefaults(); input.reinforcement.enabled = true; input.loads = [{ name: 'U', V: 800, Mx: 20, My: 40 }]; edit(input); return calculateDesign(input); };
+  const views = r => [planSvg(r), sectionSvg(r, { axis: 'x' }), sectionSvg(r, { axis: 'y' })];
+  const [thin, thick] = [run(i => { i.slab.h = 220; }), run(i => { i.slab.h = 300; })];
+  assert.ok(thick.section.d > thin.section.d && thick.layout.links.length !== thin.layout.links.length);
+  views(thin).forEach((svg, k) => assert.notEqual(svg, views(thick)[k]));
+  const drop = size => run(i => { i.head = { ...i.head, enabled: true, shape: 'rectangular', lx: size, ly: size, thickness: 400 }; i.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }]; });
+  const [small, large] = [drop(2400), drop(3000)];
+  assert.notEqual(small.layout.links.length, large.layout.links.length);
+  views(small).forEach((svg, k) => assert.notEqual(svg, views(large)[k]));
+});
