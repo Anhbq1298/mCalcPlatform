@@ -496,6 +496,10 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.setViewportSize({ width: 375, height: 812 });
   const plan = await page.locator('#plan-view svg').boundingBox();
   expect(plan.x + plan.width).toBeLessThanOrEqual(375);
+  await page.getByRole('tab', { name: 'Compare layouts' }).click();
+  await expect(page.locator('#layout-comparison tbody tr')).toHaveCount(3);
+  expect(await page.locator('#layout-comparison').evaluate(node => getComputedStyle(node).overflowX)).toBe('auto');
+  await page.getByRole('tab', { name: 'Plan' }).click();
   await page.setViewportSize(viewport);
   await shell.getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
