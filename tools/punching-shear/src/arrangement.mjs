@@ -16,6 +16,7 @@
 // u1 and covers it by the reduced u_out,ef (interpretation, stated in the Help).
 import { pathPieces, toGlobal } from './geometry.mjs';
 import { exclusion } from './perimeters.mjs';
+import { thinGrid } from './grid-thin.mjs';
 
 export const ARRANGEMENTS = {
   grid: 'Orthogonal grid',
@@ -172,7 +173,7 @@ const MAX_RAILS = 80;
 // u_out,ef (§9.4.3(4) and the Note to §6.4.5(4)), at least two perimeters. With uReq (Fig. 6.22 applies)
 // layers are added until the effective outer perimeter reaches the length Eq. 6.54 requires. Radial rails
 // are added in pairs from the entered n_tang (a minimum) until s_t ≤ 1.5d inside u1 and u_out,ef is reached.
-export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0 }) {
+export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500 }) {
   if (!(sr > 0)) return { layers: [], reason: 'Enter a radial spacing s_r > 0.' };
   if (type === 'grid' && !(st > 0)) return { layers: [], reason: 'Enter a grid spacing s_t > 0.' };
   const column = model.column;
@@ -204,6 +205,12 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
       }
       if (trial && !trial.some(layer => !layer.points.length)) layers = trial;
       else reached = false;
+    }
+    // Grid: outer rings at whole multiples of s_t while every limit still holds (see grid-thin.mjs).
+    const legArea1 = (Math.PI * diameter * diameter) / 4; // one leg (Eq. 9.11)
+    if (type === 'grid' && thin && uReq > 0) {
+      layers = thinGrid(layers, { column, d, sr, aswReq, legArea: legArea1 * (shape === 'double' ? 2 : 1), leg: legArea1, gap: layer => pathGap(model, layer),
+        minLeg: (s, g) => (0.08 * Math.sqrt(fck) / fyk) * (s * g) / 1.5 });
     }
     const inside = type !== 'radial' || layers.filter(layer => layer.offset <= 2 * d).every(layer => pathGap(model, layer) <= 1.5 * d + 1e-9);
     // Eq. 6.52: every perimeter carries at least the required A_sw (legs × bar area).
