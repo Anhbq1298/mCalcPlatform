@@ -17,6 +17,27 @@ const shortName = row => SHORT[row.id] ?? (row.id.startsWith('ext-') && SHORT[ro
 const f = (value, digits = 3) => (Number.isFinite(value) ? value.toFixed(digits) : '—');
 const esc = text => String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
+// What the inputs make of the design: position, drop class, openings and where the links went.
+function caseLine(result) {
+  const parts = [{ internal: 'Interior', edge: 'Edge', corner: 'Corner' }[result.input?.column?.position] ?? 'Column'];
+  const head = result.head;
+  if (head?.lH) {
+    const lH = Math.min(...head.lH).toFixed(0);
+    const two = (2 * head.hH).toFixed(0);
+    if (head.kind === 'small') parts.push(`drop l_H = ${lH} ≤ 2h_H = ${two} (Fig. 6.17): one section at ${head.rcont ? 'r_cont' : '2d from the drop'}`);
+    else parts.push(`drop l_H = ${lH} > 2h_H = ${two} (Fig. 6.18): ${head.inner ? 'sections inside (d_H) and outside the drop' : 'section outside the drop only (2d_H > l_H)'}`);
+  }
+  const openings = result.input?.openings?.length ?? 0;
+  if (openings) parts.push(`${openings} opening${openings > 1 ? 's' : ''}`);
+  const layers = result.layout?.layers ?? [];
+  if (!layers.length) parts.push('no links');
+  else {
+    const where = [...new Set(layers.map(layer => layer.zone))].map(zone => (zone === 'drop' ? 'in the drop' : zone === 'slab' ? 'beyond the drop' : null)).filter(Boolean);
+    parts.push(`links ${layers[0].id}–${layers.at(-1).id}${where.length ? ' ' + where.join(' and ') : ''}${head?.mapped ? ', mapped to the equivalent circle' : ''}`);
+  }
+  return parts.join(' · ');
+}
+
 // Working of one check, as lines of text (subscripts are applied afterwards).
 function working(id, row, load, result) {
   const r = result.resistance ?? {};
@@ -55,7 +76,7 @@ export function renderCompact(panel, result, loadName, selectedId, onSelect) {
   }
   const load = result.loads.find(item => item.name === loadName) ?? result.loads.find(item => item.name === result.governing.load);
   const rows = load.rows.filter(row => Number.isFinite(row.ur) && !INFO.includes(row.status));
-  const governing = rows.reduce((best, row) => (!best || row.ur > best.ur ? row : best), null);
+  const governing = rows.filter(row => row.unit !== 'layers').reduce((best, row) => (!best || row.ur > best.ur ? row : best), null);
   const pick = rows.find(row => row.id === selectedId) ?? governing;
   const tone = status => (status === STATES.pass ? 'pass' : status === STATES.fail ? 'fail' : 'warn');
   const bars = rows.map(row => {
@@ -79,6 +100,7 @@ export function renderCompact(panel, result, loadName, selectedId, onSelect) {
   const warnings = load.rows.filter(row => row.warning && row.status !== STATES.pass)
     .map(row => `<p class="compact-warning">⚠ ${esc(row.detail ?? row.label)}</p>`).join('');
   panel.innerHTML = `<div class="compact-head"><span class="compact-ur ${tone(result.status)}">${governing ? governing.ur.toFixed(3) : '—'}</span><span class="compact-status ${tone(result.status)}">${esc(result.status)}</span></div>`
+    + `<p class="compact-case">${esc(caseLine(result))}</p>`
     + `<p class="compact-governing">Governing: ${esc(governing ? shortName(governing) : '—')} · ${esc(load.name)}</p>`
     + `<div class="ur-list" role="list">${bars}</div>${warnings}`
     + `<h3 class="compact-title">Key parameters</h3><div class="key-grid">${keys}</div>`

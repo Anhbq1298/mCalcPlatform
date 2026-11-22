@@ -6,7 +6,7 @@ const engaged = { reinforcement: { mode: 'auto', diameter: 10, shape: 'single', 
 const slab = (h, d, extra = {}) => ({ slab: { h, depthMode: 'explicit', dx: d + 5, dy: d - 5, cover: 25, xMin: -6000, xMax: 6000, yMin: -6000, yMax: 6000, ...extra } });
 const head = values => ({ head: { enabled: true, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400, ...values } });
 
-const CASES = [
+export const CASES = [
   {
     id: 'internal-plain', title: '1 · Internal column, no links', expect: 'Pass',
     note: 'v_Ed ≤ v_Rd,c at u1; only the face check applies.',
@@ -94,27 +94,20 @@ const CASES = [
 ];
 
 const byId = Object.fromEntries(CASES.map(item => [item.id, item]));
-const variant = (id, label) => ({ ...byId[id], label });
 
-// Six cards: interior, edge and corner, each without and with a drop. The first variant loads when
-// the card is picked; the others cover circular columns, openings, prestress, the Singapore profile,
-// a failing provided layout, Fig. 6.17 and circular heads. Drop variants differ by geometry only:
-// where links go (inside or beyond the drop, mapped or not) follows from the layout, not the case.
+// Six cards: interior, edge and corner, each without and with a drop. A card only loads a starting
+// design; everything else (drop geometry class, openings, where links go) follows from the inputs and
+// is reported in the results. The remaining CASES are reference cases for tests.
+const card = (id, title, position, drop, example) => ({ id, title, position, drop, variants: [{ ...byId[example], label: title }] });
 export const EXAMPLE_CARDS = [
-  { id: 'interior', title: 'Interior', position: 'internal', drop: false, variants: [
-    variant('internal-links', 'Auto links (CSI geometry)'), variant('internal-plain', 'No links needed'), variant('circular-moment', 'Circular column, β from moments'),
-    variant('opening', 'Opening within 6d'), variant('two-openings', 'Two openings'), variant('prestressed-sg', 'Post-tensioned, SG NA'), variant('provided-fail', 'Provided layout (fails)'),
-  ] },
-  { id: 'edge', title: 'Edge', position: 'edge', drop: false, variants: [variant('edge', 'β from moments')] },
-  { id: 'corner', title: 'Corner', position: 'corner', drop: false, variants: [variant('corner', 'Simplified β = 1.5')] },
-  { id: 'interior-drop', title: 'Interior + drop', position: 'internal', drop: true, variants: [
-    variant('drop-through', 'l_H > 2h_H (Fig. 6.18)'), variant('drop-small', 'l_H ≤ 2h_H (Fig. 6.17)'), variant('drop-circular', 'Circular column and head'),
-  ] },
-  { id: 'edge-drop', title: 'Edge + drop', position: 'edge', drop: true, variants: [variant('edge-drop', 'Drop clipped at the edge')] },
-  { id: 'corner-drop', title: 'Corner + drop', position: 'corner', drop: true, variants: [variant('corner-drop', 'Drop clipped at both edges')] },
+  card('interior', 'Interior', 'internal', false, 'internal-links'),
+  card('edge', 'Edge', 'edge', false, 'edge'),
+  card('corner', 'Corner', 'corner', false, 'corner'),
+  card('interior-drop', 'Interior + drop', 'internal', true, 'drop-through'),
+  card('edge-drop', 'Edge + drop', 'edge', true, 'edge-drop'),
+  card('corner-drop', 'Corner + drop', 'corner', true, 'corner-drop'),
 ];
 
-// Every variant once, for tests and lookup.
-export const EXAMPLES = EXAMPLE_CARDS.flatMap(card => card.variants.map(item => ({ ...item, card: card.id })));
-// Any case by id, including reference cases kept for tests only (drop-large, drop-small-links).
-export const exampleById = id => EXAMPLES.find(item => item.id === id) ?? byId[id];
+// The card starting designs.
+export const EXAMPLES = EXAMPLE_CARDS.flatMap(item => item.variants.map(entry => ({ ...entry, card: item.id })));
+export const exampleById = id => byId[id];

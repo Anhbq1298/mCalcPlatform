@@ -447,7 +447,9 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await expect(schedule).toHaveCount(4);
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
   await page.getByRole('button', { name: 'Auto arrangement' }).click();
-  await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
+  await expect(page.getByLabel('Links', { exact: true })).toHaveValue('provided');
+  await page.getByRole('button', { name: 'What is s_t?' }).click();
+  await expect(page.locator('.info-note')).toContainText('tangential spacing');
   await page.getByRole('button', { name: 'Link arrangement: add row' }).click();
   await expect(schedule).toHaveCount(5);
   await page.locator('#plan-view [data-link="L2-3"]').click();
@@ -465,7 +467,7 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   const before = await status.textContent();
   await page.reload();
   await expect(shell.getByLabel('Design name')).toHaveValue('PS-01 internal column', { timeout: 45000 });
-  await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
+  await expect(page.getByLabel('Links', { exact: true })).toHaveValue('provided');
   await expect(schedule).toHaveCount(5);
   await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
   await expect(page.getByLabel('2 M_y', { exact: true })).toHaveValue('60');
@@ -497,9 +499,11 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await page.locator('summary', { hasText: 'Drop panel' }).click();
   await expect(page.getByLabel('Include a drop panel (concentric)')).toBeChecked();
   await expect(page.locator('#punching-inputs')).not.toContainText('accepted');
+  await expect(page.locator('#column-check-summary')).toContainText('Fig. 6.18');
+  await expect(page.locator('#column-check-summary')).toContainText('in the drop and beyond the drop');
+  await expect(page.locator('#example-variants')).toBeHidden();
   await page.getByRole('button', { name: 'Interior', exact: true }).click();
-  await page.getByRole('button', { name: 'Provided layout (fails)' }).click();
-  await expect(status).toContainText('Fail');
+  await expect(status).toContainText('Pass');
   await expect(page.locator('#punching-inputs summary math').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Stress' }).click();
   await expect(page.locator('#stress-view svg')).toBeVisible();

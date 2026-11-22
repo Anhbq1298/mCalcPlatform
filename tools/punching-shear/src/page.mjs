@@ -48,19 +48,37 @@ const refreshLoads = mountTable(byId('loads-anchor'), {
 const layerAnchor = byId('layers-anchor');
 const layerTableHost = document.createElement('div');
 layerAnchor.insertBefore(layerTableHost, layerAnchor.querySelector('.layer-buttons:not(.arrangement-head)'));
-// Link arrangement: rows of n layers at spacing s; row 1 is measured from the column face.
+// Link arrangement: one row per layer, radial spacing s from the previous layer (L1 from the column
+// face) and links at tangential spacing s_t along the layer.
 const refreshLayers = mountTable(layerTableHost, {
   caption: 'Link arrangement',
-  columns: [['count', '$n$', number], ['spacing', '$s$ (mm)', number], ['diameter', '$\\phi$', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
-    ['shape', 'Shape', 'select', [{ value: 'single', label: '1-leg' }, { value: 'double', label: '2-leg' }]], ['links', 'Links/layer', number]],
+  columns: [['spacing', 's (mm)', number], ['diameter', 'Ø', 'select', LINK_DIAMETERS.map(value => ({ value, label: String(value) }))],
+    ['shape', 'Legs', 'select', [{ value: 'single', label: '1' }, { value: 'double', label: '2' }]], ['st', 's_t (mm)', number]],
   getRows: () => state.reinforcement.groups,
   newRow: (index, previous) => {
     const d = result?.section?.d ?? 200;
     const step = Math.floor((previous ? 0.75 * d : 0.4 * d) / 5) * 5;
-    return { count: 1, spacing: step, diameter: previous?.diameter ?? 10, shape: previous?.shape ?? 'single', links: previous?.links ?? 16 };
+    return { spacing: step, diameter: previous?.diameter ?? 10, shape: previous?.shape ?? 'single', st: previous?.st ?? Math.floor((1.5 * d) / 5) * 5 };
   },
-  onChange: () => schedule(), addLabel: '+ Row', removeLabel: '− Row', rowLabel: index => String(index + 1),
+  onChange: () => schedule(), addLabel: '+ Layer', removeLabel: '− Layer', rowLabel: index => 'L' + (index + 1),
 });
+for (const cell of layerTableHost.querySelectorAll('thead th')) {
+  if (cell.textContent !== 's_t (mm)') continue;
+  // (i) next to s_t: what the tangential spacing is and its EC2 limits.
+  cell.innerHTML = 's<sub>t</sub> <button type="button" class="info-button" aria-label="What is s_t?" aria-expanded="false">i</button>';
+  const note = document.createElement('p');
+  note.className = 'info-note';
+  note.hidden = true;
+  note.innerHTML = '<b>s<sub>t</sub></b>: tangential spacing, centre to centre of the links along one layer (mm). '
+    + 'Links per layer = layer length / s<sub>t</sub>, rounded up, so outer layers get more links. '
+    + 'EC2 §9.4.3(1): s<sub>t</sub> ≤ 1.5d within 2d of the loaded area, ≤ 2d further out (checked per layer).';
+  layerTableHost.querySelector('table').before(note);
+  const button = cell.querySelector('button');
+  button.addEventListener('click', () => {
+    note.hidden = !note.hidden;
+    button.setAttribute('aria-expanded', String(!note.hidden));
+  });
+}
 
 // Calculation case: worked cases appear as cards only when "Worked case" is chosen.
 let activeCard = null;
@@ -116,7 +134,7 @@ byId('copy-layout').addEventListener('click', () => {
   const auto = calculate({ ...state, reinforcement: { ...state.reinforcement, mode: 'auto' } });
   const layers = auto.layout?.layers ?? [];
   if (!layers.length) { status.textContent = auto.layout?.reason ?? 'Auto arrangement: no links required.'; return; }
-  state.reinforcement.groups = layersToGroups(layers);
+  state.reinforcement.groups = layersToGroups(layers, auto.layout.summary);
   state.reinforcement.omitted = {};
   state.reinforcement.mode = 'provided';
   refresh();

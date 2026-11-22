@@ -1,7 +1,7 @@
 // Drop panels / column heads (§6.4.2(8)–(11)), the example set, and the LaTeX label renderer.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { EXAMPLE_CARDS, EXAMPLES } from '../src/examples.mjs';
+import { CASES, EXAMPLE_CARDS, EXAMPLES } from '../src/examples.mjs';
 import { calculateDesign, rcontSmall } from '../src/head.mjs';
 import { STATES } from '../src/inputs.mjs';
 import { labelText, texToMathML } from '../src/tex.mjs';
@@ -80,10 +80,10 @@ test('unsupported drop configurations are reported, not computed', () => {
   assert.equal(calculateDesign(base({ lx: 300, ly: 1000, depth: 200 })).status, STATES.incomplete); // head smaller than column
 });
 
-test('the six example cards and all their variants give their intended status', () => {
+test('six cards with one starting design each; every reference case gives its intended status', () => {
   assert.equal(EXAMPLE_CARDS.length, 6);
-  assert.equal(EXAMPLES.length, 14);
-  for (const example of EXAMPLES) assert.equal(calculateDesign(example.input).status, example.expect, example.id);
+  assert.equal(EXAMPLES.length, 6);
+  for (const example of CASES) assert.equal(calculateDesign(example.input).status, example.expect, example.id);
 });
 
 test('LaTeX labels render to MathML and plain text', () => {
@@ -102,17 +102,17 @@ test('the governing check of a drop design is never an informational row', async
 });
 
 test('drops at edge and corner columns: clipped drop, Fig. 6.15/6.20 perimeters by hand', () => {
-  const edge = calculateDesign(EXAMPLES.find(item => item.id === 'edge-drop').input);
+  const edge = calculateDesign(CASES.find(item => item.id === 'edge-drop').input);
   assert.equal(edge.head.extents.xMax, 250);
   const [inner, outer] = edge.head.sections;
   close(inner.u1, 500 + 2 * 500 + Math.PI * 720, 1e-3); // c2 + 2c1 + π·2d_H
   close(outer.u1, 2400 + 2 * 1450 + Math.PI * 420, 1e-3); // drop 1450 × 2400 flush with the edge
-  const corner = calculateDesign(EXAMPLES.find(item => item.id === 'corner-drop').input);
+  const corner = calculateDesign(CASES.find(item => item.id === 'corner-drop').input);
   close(corner.head.sections[0].u1, 1000 + (Math.PI / 2) * 720, 1e-3);
   close(corner.head.sections[1].u1, 2900 + (Math.PI / 2) * 420, 1e-3);
   assert.ok(corner.layout.layers.every(layer => layer.offset <= 950 - 25));
   // A drop reaching an edge the column is set back from is not covered.
-  const setBack = structuredClone(EXAMPLES.find(item => item.id === 'edge-drop').input);
+  const setBack = structuredClone(CASES.find(item => item.id === 'edge-drop').input);
   setBack.slab.xMax = 600;
   setBack.column.position = 'internal';
   assert.equal(calculateDesign(setBack).status, STATES.unsupportedGeometry);
@@ -123,7 +123,9 @@ test('spacing groups expand to layers from the column face; old saves migrate', 
   const layers = groupLayers({ groups: [{ count: 1, spacing: 100, diameter: 10, shape: 'single', links: 12 }, { count: 3, spacing: 150, diameter: 10, shape: 'single', links: 16 }], omitted: { L3: [2] } });
   assert.deepEqual(layers.map(layer => layer.offset), [100, 250, 400, 550]);
   assert.deepEqual(layers[2].omitted, [2]);
-  assert.deepEqual(layersToGroups(layers).map(g => [g.count, g.spacing, g.links]), [[1, 100, 12], [3, 150, 16]]);
+  assert.deepEqual(layersToGroups(layers).map(g => [g.spacing, g.links]), [[100, 12], [150, 16], [150, 16], [150, 16]]); // one row per layer; no summary: link counts kept
+  const rows = restoreInputs({ reinforcement: { mode: 'provided', groups: [{ count: 1, spacing: 100, diameter: 10, shape: 'single', st: 200 }, { count: 2, spacing: 150, diameter: 10, shape: 'single', st: 250 }] } }).reinforcement.groups;
+  assert.deepEqual(rows.map(g => [g.spacing, g.st, g.count]), [[100, 200, undefined], [150, 250, undefined], [150, 250, undefined]]);
   const old = restoreInputs({ slab: { h: 260 }, head: { enabled: true, depth: 140 }, reinforcement: { mode: 'provided', layers: [{ offset: 80, diameter: 8, shape: 'single', links: 8, omitted: [1] }, { offset: 235, diameter: 8, shape: 'single', links: 8 }] } });
   assert.equal(old.head.thickness, 400);
   assert.deepEqual(old.reinforcement.groups.map(g => g.spacing), [80, 155]);
@@ -161,4 +163,24 @@ test('rectangular head l_H ≤ 2h_H with links: equivalent-circle check, links o
   const ok = sectorCoverage(legs, [{ id: 'L1' }], { x: 0, y: 0 }, 16 * 78.54)[0];
   assert.ok(Math.abs(ok.ur - 1) < 1e-3);
   assert.equal(sectorCoverage(legs.slice(1), [{ id: 'L1' }], { x: 0, y: 0 }, 100)[0].ur, Infinity);
+});
+
+test('tangential spacing s_t sets the link count per layer; Auto arrangement round-trips to s_t rows', async () => {
+  const { newDefaults, layersToGroups } = await import('../src/inputs.mjs');
+  const { calculate } = await import('../src/calculate.mjs');
+  const { linkCentres } = await import('../src/layout.mjs');
+  // Closed path u = 3000, s_t = 280 → ceil(10.71) = 11 links; open interval 1000 → ceil(3.57) = 4 links.
+  assert.equal(linkCentres({ intervals: [{ s0: 0, s1: 3000, closed: true }], u: 3000, total: 3000 }, 0, 0, 280).length, 11);
+  assert.deepEqual(linkCentres({ intervals: [{ s0: 0, s1: 1000 }], u: 4000, total: 1000 }, 0, 0, 280), [125, 375, 625, 875]);
+  const input = newDefaults();
+  input.beta.confirmed = true;
+  input.reinforcement.anchorage.engaged = true;
+  input.loads = [{ name: 'ULS 1', V: 800, Mx: 0, My: 0 }];
+  const auto = calculate(input);
+  const groups = layersToGroups(auto.layout.layers, auto.layout.summary);
+  assert.ok(groups.every(group => group.st > 0 && group.links === undefined));
+  const provided = calculate({ ...input, reinforcement: { ...input.reinforcement, mode: 'provided', groups, omitted: {} } });
+  // Every rebuilt layer has at least the designed links, every gap within s_t.
+  provided.layout.summary.forEach((layer, i) => assert.ok(layer.physicalLinks >= auto.layout.summary[i].physicalLinks, layer.id));
+  assert.equal(provided.status, auto.status);
 });

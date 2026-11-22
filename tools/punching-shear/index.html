@@ -33,10 +33,11 @@
         <p class="table-caption">Concurrent combinations: V in kN, M in kN·m. The punching force resultant lies at e_x = M_y/V, e_y = M_x/V from the column centroid; enter signs so that e points toward the resultant.</p>
       </div>
       <div id="layers-anchor">
-        <div class="layer-buttons arrangement-head">
-          <button type="button" id="copy-layout" class="primary-action">Auto arrangement</button>
+        <div class="arrangement-head">
+          <span class="card-subhead">Arrangement</span>
+          <button type="button" id="copy-layout" class="primary-action" title="Fill the table from the automatic design">Auto arrangement</button>
         </div>
-        <p class="table-caption" id="arrangement-caption">Link arrangement: n layers at spacing s per row, row 1 measured from the column face (mm). With a drop, layers beyond the drop edge follow the drop outline.</p>
+        <p class="table-caption" id="arrangement-caption">One row per layer: s from the previous layer (L1 from the column face), links at spacing s<sub>t</sub> along the layer.</p>
         <div class="layer-buttons">
           <button type="button" id="omit-link" disabled>Omit selected link</button>
           <button type="button" id="restore-links" disabled>Restore layer</button>

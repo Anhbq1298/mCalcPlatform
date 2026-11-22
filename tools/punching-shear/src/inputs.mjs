@@ -62,6 +62,10 @@ function migrate(saved) {
     r.omitted = Object.fromEntries(r.layers.map((layer, i) => ['L' + (i + 1), layer.omitted || []]).filter(([, list]) => list.length));
     delete r.layers;
   }
+  // Rows of n layers (count) from earlier versions become one row per layer.
+  if (record(r) && Array.isArray(r.groups) && r.groups.some(group => (group.count ?? 1) > 1)) {
+    r.groups = r.groups.flatMap(({ count = 1, ...group }) => Array.from({ length: Math.max(1, count) }, () => ({ ...group })));
+  }
   return saved;
 }
 
@@ -75,28 +79,25 @@ export function groupLayers(reinforcement = {}) {
   const layers = [];
   let offset = 0;
   for (const group of reinforcement.groups || []) {
-    for (let k = 0; k < group.count; k += 1) {
+    for (let k = 0; k < (group.count ?? 1); k += 1) {
       offset += group.spacing;
       const id = 'L' + (layers.length + 1);
-      layers.push({ id, offset, diameter: group.diameter, shape: group.shape, links: group.links, start: 0, omitted: reinforcement.omitted?.[id] ?? [] });
+      layers.push({ id, offset, diameter: group.diameter, shape: group.shape, ...(group.st > 0 ? { st: group.st } : { links: group.links }), start: 0, omitted: reinforcement.omitted?.[id] ?? [] });
     }
   }
   return layers;
 }
 
-// Spacing groups from explicit layers: consecutive layers with the same spacing, bar and shape merge;
-// the merged link count is the largest of the group (never fewer links than designed).
-export function layersToGroups(layers) {
-  const groups = [];
-  layers.forEach((layer, i) => {
+// Arrangement rows from designed layers, one row per layer: radial spacing from the previous layer
+// (row 1 from the column face) and the tangential spacing = largest designed gap rounded down to
+// 5 mm, so the rebuilt layer has at least as many links.
+export function layersToGroups(layers, summary = []) {
+  return layers.map((layer, i) => {
     const spacing = Math.round(layer.offset - (i ? layers[i - 1].offset : 0));
-    const last = groups.at(-1);
-    if (i > 0 && last && last.spacing === spacing && last.diameter === layer.diameter && last.shape === layer.shape && last.zone === layer.zone) {
-      last.count += 1;
-      last.links = Math.max(last.links, layer.links);
-    } else groups.push({ count: 1, spacing, diameter: layer.diameter, shape: layer.shape, links: layer.links, zone: layer.zone });
+    const gap = summary[i]?.tangential?.max;
+    const st = Number.isFinite(gap) && gap > 0 ? Math.max(5, Math.floor(gap / 5 + 1e-9) * 5) : null;
+    return { spacing, diameter: layer.diameter, shape: layer.shape, ...(st !== null ? { st } : { links: layer.links }) };
   });
-  return groups.map(({ zone, ...group }) => group);
 }
 
 const barArea = diameter => (Math.PI * diameter * diameter) / 4;
@@ -191,10 +192,11 @@ export function validateReinforcement(reinforcement = {}) {
     if (!LINK_DIAMETERS.includes(reinforcement.diameter)) issues.push({ state: STATES.incomplete, message: 'Select a link diameter.' });
   } else if (reinforcement.mode === 'provided') {
     const groups = reinforcement.groups || [];
-    if (!groups.length) issues.push({ state: STATES.incomplete, message: 'Add at least one row to the link arrangement, or use Auto arrangement.' });
+    if (!groups.length) issues.push({ state: STATES.incomplete, message: 'Add at least one layer to the link arrangement, or use Auto arrangement.' });
     for (const [index, group] of groups.entries()) {
-      if (!Number.isInteger(group.count) || group.count < 1 || !positive(group.spacing) || !positive(group.diameter) || !Number.isInteger(group.links) || group.links < 1) {
-        issues.push({ state: STATES.incomplete, message: `Arrangement row ${index + 1}: enter a whole number of layers, a spacing, a diameter and a whole number of links per layer.` });
+      const tangential = positive(group.st) || (Number.isInteger(group.links) && group.links >= 1);
+      if (!(group.count === undefined || Number.isInteger(group.count) && group.count >= 1) || !positive(group.spacing) || !positive(group.diameter) || !tangential) {
+        issues.push({ state: STATES.incomplete, message: `Layer L${index + 1}: enter the radial spacing s, a diameter and the tangential spacing s_t.` });
       }
     }
   } else issues.push({ state: STATES.incomplete, message: 'Select a reinforcement mode.' });

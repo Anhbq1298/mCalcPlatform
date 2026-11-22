@@ -137,7 +137,8 @@ function merge(primary, extra, headIssues, headInfo, input, layout, headNotes = 
   const loads = primary.loads.map((load, index) => {
     const other = extra?.loads[index];
     if (!other) return load;
-    const rows = [...load.rows, ...other.rows.map(entry => ({ ...entry, id: 'ext-' + entry.id }))];
+    // Slab-section rows get an unambiguous label so the governing check names the right section.
+    const rows = [...load.rows, ...other.rows.map(entry => ({ ...entry, id: 'ext-' + entry.id, label: /outside the drop/i.test(entry.label) ? entry.label : 'Outside the drop: ' + entry.label }))];
     return { ...load, rows, status: worstState([load.status, other.status]), ur: Math.max(load.ur, other.ur), ext: other };
   });
   const governing = loads.reduce((best, entry) => (entry.ur > best.ur ? entry : best), loads[0]);
@@ -145,7 +146,8 @@ function merge(primary, extra, headIssues, headInfo, input, layout, headNotes = 
   const issues = all.filter((item, index) => all.findIndex(other => other.message === item.message) === index);
   const notes = [...(primary.notes || []), ...(extra?.notes || []).filter(note => !(primary.notes || []).includes(note)), ...headNotes];
   const informational = [STATES.notRequired, STATES.linksRequired];
-  const rowsOf = governing?.rows.filter(entry => entry.ur !== null && Number.isFinite(entry.ur) && !informational.includes(entry.status)) ?? [];
+  // Count checks (unit 'layers') are not utilisations and never govern, as in calculate().
+  const rowsOf = governing?.rows.filter(entry => entry.ur !== null && Number.isFinite(entry.ur) && !informational.includes(entry.status) && entry.unit !== 'layers') ?? [];
   const governingRow = rowsOf.reduce((best, entry) => (!best || entry.ur > best.ur ? entry : best), null);
   return {
     ...primary, loads, issues, notes, input, checkInput: primary.input, head: headInfo, layout,
