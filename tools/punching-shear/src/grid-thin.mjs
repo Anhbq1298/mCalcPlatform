@@ -5,7 +5,7 @@
 //     so u_out,ef keeps its full length (no gap > 2d, Fig. 6.22 A);
 //   - the ring still carries the A_sw of Eq. 6.52;
 //   - one leg still meets Eq. 9.11 with that gap as s_t.
-// The innermost ring keeps the entered s_t; ring corners are always kept. Applied where Fig. 6.22 applies (internal column, no openings or drop).
+// Every ring, the first included, takes the widest multiple the limits allow; ring corners are always kept. Applied where Fig. 6.22 applies (internal column, no openings or drop).
 const near = (a, b) => Math.abs(a - b) < 1e-6;
 
 function thinRing(layer, column, m) {
@@ -33,8 +33,7 @@ function thinRing(layer, column, m) {
 
 export function thinGrid(layers, { column, d, sr, aswReq, legArea, leg, minLeg, gap, maxMultiple = 6 }) {
   let m = 1;
-  return layers.map((layer, index) => {
-    if (index === 0) return { ...layer, multiple: 1 }; // the innermost ring keeps the entered s_t
+  return layers.map(layer => {
     const limit = (layer.offset <= 2 * d ? 1.5 : 2) * d;
     let best = layer.points;
     for (let k = m; k <= maxMultiple; k += 1) {

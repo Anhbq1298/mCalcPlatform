@@ -87,7 +87,7 @@ export const GROUPS = [
     ['reinforcement.srAuto', 'Auto radial spacing $s_r$', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto'],
     ['reinforcement.sr', 'Radial spacing $s_r$ (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.srAuto === false],
     ['reinforcement.st', 'Grid spacing $s_t$ (mm)', 'number', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid' && !onBars(s)],
-    ['reinforcement.thin', 'Wider spacing on outer rings (2s_t, 3s_t …)', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
+    ['reinforcement.thin', 'Wider ring spacing where allowed (2s_t, 3s_t …)', 'checkbox', null, s => on(s) && s.reinforcement.mode === 'auto' && s.reinforcement.arrangement === 'grid'],
     ['@layers', '', 'anchor'],
     ['', 'Link detailing', 'heading', null, on],
     ['reinforcement.anchorage.type', 'Anchorage', 'select', [option('hook', 'Hook (135° or 180°)'), option('bend', 'Bend (90°)')], on],
