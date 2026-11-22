@@ -83,13 +83,28 @@ export function calculate(rawInput, options = {}) {
 
   const { d, model } = ctx;
   const { materials, reinforcement } = input;
+  // Auto s_r: try the radial spacings the arrangement allows and keep the one with the fewest links that
+  // passes (else the lowest UR). On the bar grid s_r is a whole multiple of the bar spacing.
+  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && reinforcement.srAuto !== false && !options.srFixed) {
+    const limit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
+    const bars = gridOnBars(input, d);
+    const candidates = bars.on
+      ? Array.from({ length: Math.max(1, Math.floor(limit / bars.spacing + 1e-9)) }, (_, k) => (k + 1) * bars.spacing)
+      : [...new Set([limit, ...Array.from({ length: 8 }, (_, k) => Math.floor((limit - 25 * (k + 1)) / 25) * 25).filter(v => v >= Math.max(50, 0.4 * d))])];
+    const trials = candidates.map(sr => calculate({ ...input, reinforcement: { ...reinforcement, sr, srAuto: false } }, { ...options, srFixed: true }));
+    const score = r => [r.status === STATES.pass ? 0 : 1, r.status === STATES.pass ? (r.layout?.links?.length ?? 0) : (r.governing?.ur ?? Infinity)];
+    const best = trials.reduce((a, b) => { const [sa, va] = score(a); const [sb, vb] = score(b); return sb < sa || (sb === sa && vb < va) ? b : a; });
+    if (best.envelope?.sr && best.layout?.layers?.length) best.notes = [`Auto s_r = ${best.envelope.sr} mm (fewest links that pass among ${candidates.join(', ')} mm).`, ...(best.notes ?? [])];
+    return best;
+  }
   // Radial spacing for the required A_sw (Eq. 6.52) and the layer grid: the auto arrangement's s_r, else
   // the recommended 0.75d rounded down to 5 mm.
   const srLimit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
   // Auto grid follows the flexural bars: links at bar intersections, s_r = s_t = bar spacing, when the
   // spacing is the same both ways, the column is not rotated and the spacing is within 0.75d.
   const barGrid = gridOnBars(input, d);
-  const sr = barGrid.on ? barGrid.spacing : reinforcement.sr;
+  // On the bar grid the rings stay on bar lines: s_r is rounded down to a whole multiple of the bar spacing.
+  const sr = barGrid.on ? Math.max(1, Math.floor((reinforcement.sr || barGrid.spacing) / barGrid.spacing + 1e-9)) * barGrid.spacing : reinforcement.sr;
   ctx.envelopeSr = reinforcement.mode === 'auto' && sr > 0 ? Math.min(sr, srLimit) : srLimit;
   const srNote = barGrid.note ?? (reinforcement.mode === 'auto' && sr > srLimit + 1e-9
     ? `Auto arrangement: s_r = ${sr} mm exceeds 0.75d = ${(P.radialSpacing * d).toFixed(0)} mm (§9.4.3(1)); ${srLimit} mm used.` : null);

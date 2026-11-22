@@ -206,3 +206,16 @@ test('drop: grid links run out to the drop edge (less cover) on every side; extr
   assert.ok(reach > 1200 - 25 - 150 - 1e-6 && reach <= 1200 - 25 + 1e-6); // within one spacing of the drop edge, inside the cover
   assert.ok(result.layout.summary.every(layer => layer.id !== 'E')); // rings only in the checks
 });
+
+test('auto s_r: the fewest links that pass; on the bar grid s_r is a multiple of the bar spacing', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const run = (arrangement, edit = () => {}) => { const input = newDefaults(); input.reinforcement.enabled = true; input.reinforcement.arrangement = arrangement; input.loads = [{ name: 'U', V: 800, Mx: 20, My: 40 }]; edit(input); return calculateDesign(input); };
+  const fine = run('grid', input => { input.flexure.sX = input.flexure.sY = 75; input.flexure.phiX = input.flexure.phiY = 12; });
+  assert.equal(fine.envelope.sr % 75, 0);
+  assert.ok(fine.envelope.sr <= 0.75 * fine.section.d);
+  const radial = run('radial');
+  const fixed = run('radial', input => { input.reinforcement.srAuto = false; input.reinforcement.sr = 100; });
+  assert.equal(radial.status, 'Pass');
+  assert.ok(radial.layout.links.length <= fixed.layout.links.length);
+  assert.ok(radial.notes.some(note => note.startsWith('Auto s_r')));
+});
