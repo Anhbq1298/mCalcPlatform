@@ -178,3 +178,17 @@ test('auto grid follows the flexural bars: links on bar lines at the bar spacing
   const off = run(input => { input.flexure.sX = 150; input.flexure.sY = 200; });
   assert.ok(off.notes.some(note => note.includes('Grid not on the flexural bars')));
 });
+
+test('rotated column: grid on the bars around the circumscribed rectangle, links on bar lines', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const input = newDefaults();
+  input.reinforcement.enabled = true;
+  input.column.rotation = 30;
+  input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }];
+  const result = calculateDesign(input);
+  assert.equal(result.envelope.sr, 150);
+  const xs = [...new Set(result.layout.links.map(link => Math.round(link.position.x * 1e3) / 1e3))].sort((a, b) => a - b);
+  const odd = xs.slice(1).map((x, i) => x - xs[i]).filter(step => Math.abs(step - 150) > 1e-3);
+  assert.ok(odd.length <= 2, String(odd)); // global bar lines at the bar spacing (closing bar at the centre)
+  assert.equal(result.status, 'Pass');
+});

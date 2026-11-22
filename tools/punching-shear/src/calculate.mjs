@@ -54,7 +54,11 @@ function loadResult(ctx, item, layout, summary, links, detailing) {
   let layoutCheck = null;
   if (required && ctx.options.noLinks) return { ...item, ...load, rows, layoutCheck, status: worstState(rows.map(entry => entry.status)), ur: Math.max(0, ...rows.filter(counts).map(entry => entry.ur)) };
   if (!required) rows.push(row('reinforced', '§6.4.5', 'Punching reinforcement', null, null, STATES.notRequired, { detail: 'v_Ed ≤ v_Rd,c' }));
-  else if (!layout.layers.length) rows.push(row('reinforced', '§6.4.5, Eq. 6.52', 'Reinforced punching resistance at u1', vEd1, 0.75 * res.vRdc, STATES.fail, { unit: 'MPa', detail: layout.reason || 'No links provided.' }));
+  else if (!layout.layers.length) {
+    rows.push(row('reinforced', '§6.4.5, Eq. 6.52', 'Reinforced punching resistance at u1', vEd1, 0.75 * res.vRdc, STATES.fail, { unit: 'MPa', detail: layout.reason || 'No links provided.' }));
+    // The upper limit with links applies whether or not links are placed (and the report shows it).
+    rows.push(row('kmax', ctx.profile.kMaxLabel.includes('UK') ? 'UK NA 6.4.5(3)' : '§6.4.5(1) Note, A1:2014', 'Upper limit with links, ' + ctx.profile.kMaxLabel, vEd1, ctx.profile.kMax * res.vRdc, null, { unit: 'MPa' }));
+  }
   else {
     const { materials } = input;
     const outerEf = layout.outerEf ? { ...layout.outerEf, uReq: ctx.model.intervalsAt(aOut).total } : null;

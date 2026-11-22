@@ -271,7 +271,7 @@ function effectiveOuterLines(segments, r) {
     const n2 = normal(next);
     let a0 = Math.atan2(nrm.y, nrm.x);
     let a1 = Math.atan2(n2.y, n2.x);
-    while (a1 < a0) a1 += 2 * Math.PI;
+    while (a1 < a0 - 1e-9) a1 += 2 * Math.PI; // collinear sides: no arc (not a full turn)
     const steps = Math.max(1, Math.ceil((a1 - a0) / (Math.PI / 24)));
     lines.push(Array.from({ length: steps + 1 }, (_, k) => {
       const a = a0 + ((a1 - a0) * k) / steps;

@@ -96,11 +96,14 @@ function gridLines(half, offsets, st, onBars = false) {
   if (onBars) {
     // Flexural bar lines: symmetric about the column, one bar line at s0 outside each face and then at the
     // bar spacing inward; a closing bar on the centre line where the middle gap would exceed the spacing.
+    // Middle of the column: a centre bar when the two nearest bars are more than s apart; when they would
+    // be closer than s/2 they are replaced by the centre bar, so no bar gap is below s/2 or above 1.25s.
     lines = [];
     let v = inner;
     for (; v > 1e-6; v -= st) lines.push(v, -v);
     const smallest = Math.min(...lines.map(Math.abs));
     if (Math.abs(v) < 1e-6 || 2 * smallest > st + 1e-9) lines.push(0);
+    else if (2 * smallest < st / 2 - 1e-9) lines = [...lines.filter(x => Math.abs(Math.abs(x) - smallest) > 1e-6), 0];
   } else {
     const n = Math.max(1, Math.ceil((2 * inner) / st - 1e-9));
     lines = Array.from({ length: n + 1 }, (_, i) => -inner + (2 * inner * i) / n);
@@ -166,6 +169,18 @@ export function faceGaps(column, offset, tangential) {
 
 const MAX_LAYERS = 60;
 
+// Grid points in column-local coordinates. On the bars with a rotated column, the grid is laid out in the
+// bar (global) axes around the circumscribed rectangle of the column (its two farthest opposite points in
+// each bar direction), then expressed in the column frame; offsets are measured from that rectangle.
+function gridFor(column, offsets, st, k, onBars) {
+  const theta = ((column.rotation || 0) * Math.PI) / 180;
+  if (!onBars || Math.abs(theta) < 1e-9 || column.shape === 'circular') return gridPoints(column, offsets, st, k, onBars);
+  const c = Math.cos(theta);
+  const s = Math.sin(theta);
+  const box = { shape: 'rectangular', cx: Math.abs(column.cx * c) + Math.abs(column.cy * s), cy: Math.abs(column.cx * s) + Math.abs(column.cy * c) };
+  return gridPoints(box, offsets, st, k, true).map(p => ({ x: p.x * c + p.y * s, y: -p.x * s + p.y * c }));
+}
+
 // Whether the auto grid can sit on the flexural bar intersections (s_r = s_t = bar spacing).
 export function gridOnBars(input, d) {
   const r = input.reinforcement ?? {};
@@ -174,8 +189,7 @@ export function gridOnBars(input, d) {
   const spacing = f.sX;
   const why = !(f.sX > 0 && f.sY > 0) ? null
     : Math.abs(f.sX - f.sY) > 1e-6 ? `bar spacings differ (${f.sX} / ${f.sY} mm)`
-      : Math.abs(input.column?.rotation ?? 0) > 1e-9 ? 'the column is rotated to the bars'
-        : spacing > 0.75 * d + 1e-9 ? `the bar spacing ${spacing} mm exceeds 0.75d = ${(0.75 * d).toFixed(0)} mm (§9.4.3(1))` : null;
+      : spacing > 0.75 * d + 1e-9 ? `the bar spacing ${spacing} mm exceeds 0.75d = ${(0.75 * d).toFixed(0)} mm (§9.4.3(1))` : null;
   if (!(spacing > 0)) return { on: false };
   if (why) return { on: false, note: `Grid not on the flexural bars: ${why}; the entered s_r and s_t are used.` };
   return { on: true, spacing };
@@ -213,7 +227,7 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
       const offsets = Array.from({ length: count }, (_, i) => first + i * sr);
       return offsets.map((offset, k) => ({
         offset, diameter, shape, start: 0, omitted: [], arrangement: type,
-        points: (type === 'grid' ? gridPoints(column, offsets, st, k, onBars) : railPoints(column, type, n, offset, d))
+        points: (type === 'grid' ? gridFor(column, offsets, st, k, onBars) : railPoints(column, type, n, offset, d))
           .filter(placeable)
           .map(p => ({ ...p, s: arcLengthAt(column, offset, p) })),
       }));
@@ -234,7 +248,8 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
     }
     // Grid: outer rings at whole multiples of s_t while every limit still holds (see grid-thin.mjs).
     const legArea1 = (Math.PI * diameter * diameter) / 4; // one leg (Eq. 9.11)
-    if (type === 'grid' && thin && uReq > 0) {
+    // Not with a rotated column on the bars: the rings there are rectangles in the bar axes, not the column's.
+    if (type === 'grid' && thin && uReq > 0 && !(onBars && Math.abs(column.rotation || 0) > 1e-9)) {
       layers = thinGrid(layers, { column, d, sr, aswReq, legArea: legArea1 * (shape === 'double' ? 2 : 1), leg: legArea1, gap: layer => pathGap(model, layer),
         minLeg: (s, g) => (0.08 * Math.sqrt(fck) / fyk) * (s * g) / 1.5 });
     }
