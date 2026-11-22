@@ -14,7 +14,7 @@
 // offset (grid points beyond a column corner are projected onto the rounded path). For cruciform rails
 // the gap around a column corner is not a tangential spacing: Fig. 6.22 B shows it larger than 1.5d inside
 // u1 and covers it by the reduced u_out,ef (interpretation, stated in the Help).
-import { pathPieces, toGlobal } from './geometry.mjs';
+import { distanceToColumn, pathPieces, toGlobal } from './geometry.mjs';
 import { exclusion } from './perimeters.mjs';
 import { ringGaps, thinGrid } from './grid-thin.mjs';
 
@@ -174,22 +174,27 @@ const MAX_RAILS = 80;
 // u_out,ef (§9.4.3(4) and the Note to §6.4.5(4)), at least two perimeters. With uReq (Fig. 6.22 applies)
 // layers are added until the effective outer perimeter reaches the length Eq. 6.54 requires. Radial rails
 // are added in pairs from the entered n_tang (a minimum) until s_t ≤ 1.5d inside u1 and u_out,ef is reached.
-export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false }) {
+export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false, maxOffset = Infinity }) {
   if (!(sr > 0)) return { layers: [], reason: 'Enter a radial spacing s_r > 0.' };
   if (type === 'grid' && !(st > 0)) return { layers: [], reason: 'Enter a grid spacing s_t > 0.' };
   const column = model.column;
   if (type === 'cruciform' && column.shape === 'circular') return { layers: [], reason: 'Cruciform rails need a rectangular column; use radial rails or the grid.' };
   // No link is placed where it would be ineffective: outside the slab, in an opening or in its shadow.
-  const placeable = p => !exclusion(model, toGlobal(column, p));
+  const placeable = (p, index) => {
+    const point = toGlobal(column, p);
+    return !exclusion(model, point) && (!Number.isFinite(maxOffset) || distanceToColumn(column, point) <= Math.min(maxOffset, index === 0 ? 0.5 * d : Infinity) + 1e-9);
+  };
   const required = Math.max(aOut - outerK * d, first);
   const minCount = Math.max(2, Math.ceil((required - first) / sr - 1e-9) + 1);
+  const maxCount = Math.min(MAX_LAYERS, Math.floor((maxOffset - first) / sr + 1e-9) + 1);
+  if (minCount > maxCount) return { layers: [], reason: 'The reinforcement zone cannot fit the required layers at this radial spacing.' };
   const place = n => {
     const build = count => {
       const offsets = Array.from({ length: count }, (_, i) => first + i * sr);
       return offsets.map((offset, k) => ({
         offset, diameter, shape, start: 0, omitted: [], arrangement: type,
         points: (type === 'grid' ? gridFor(column, offsets, st, k, onBars) : railPoints(column, type, n, offset, d))
-          .filter(placeable)
+          .filter(point => placeable(point, k))
           .map(p => ({ ...p, s: arcLengthAt(column, offset, p) })),
       }));
     };
@@ -201,7 +206,7 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
       let trial = layers;
       let count = minCount;
       while (outerPerimeterEf(trial.at(-1).points, d, outerK).u < uReq - 1e-6) {
-        if (count >= MAX_LAYERS || trial.some(layer => !layer.points.length)) { trial = null; break; }
+        if (count >= maxCount || trial.some(layer => !layer.points.length)) { trial = null; break; }
         trial = build(++count);
       }
       if (trial && !trial.some(layer => !layer.points.length)) layers = trial;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>mPunchingShear · Help · Drop panels</title>
+  <title>mPunchingShear · Calculation Help</title>
   <style>
     body { margin: 0; background: #f4f6f5; color: #141414; font: 15px/1.6 Roboto, system-ui, sans-serif; }
     main { max-width: 860px; margin: 0 auto; padding: 32px 24px 64px; }
@@ -30,8 +30,11 @@
 </head>
 <body>
 <main>
-  <h1>Drop panels and column heads</h1>
-  <p class="lead">How mPunchingShear places the control perimeters for a slab with a drop panel (EN 1992-1-1 §6.4.2(8)–(11)), and which parts are code rules and which are software interpretation.</p>
+  <h1>mPunchingShear calculation help</h1>
+  <p class="lead">How mPunchingShear checks slab–column connections, places shear links and presents the governing result to EN 1992-1-1:2004.</p>
+  <p><b>Check summary.</b> The summary shows the selected code profile and combination. Select a check to highlight its perimeter or governing link layer on the plan. When concrete resistance is exceeded and no links are provided, the reported utilisation uses the concrete resistance at the basic control perimeter.</p>
+  <p><b>Compare layouts.</b> With links enabled and required in a slab without a drop, compare the orthogonal grid, radial rails and cruciform rails using the current actions and detailing constraints. The table shows link count, tangential spacing, required and effective outer lengths where available, and the governing combination.</p>
+  <p><b>Custom layout.</b> When an empty Custom layout is opened from Auto, the rows start with the calculated link positions. Adjusting a row's tangential spacing redistributes that row evenly along its path. Adjusting a radial spacing rebuilds that row and those beyond it. Select a link in the plan to omit it or restore a layer's links.</p>
 
   <h2>1 Which sections are checked</h2>
   <figure>
@@ -106,7 +109,7 @@
     <figcaption>Inside the drop the effective depth is d_H = d + h_H; in the slab beyond the drop edge it is d. Each control section is where a 26.6° (1 : 2) spread from its loaded area meets the top surface.</figcaption>
   </figure>
 
-  <h2>4 Code rule or interpretation</h2>
+  <h2>4 Drop-panel calculation basis</h2>
   <table>
     <tr><th>Item</th><th>Basis</th><th>Status</th></tr>
     <tr><td>Check only in the slab when l_H ≤ 2h_H; r_cont by Eq. 6.33 (circular) or the lesser of Eq. 6.34 / 6.35 with l1 ≤ l2 (rectangular)</td><td>§6.4.2(8)</td><td><span class="tag code">Code rule</span></td></tr>
@@ -117,15 +120,13 @@
     <tr><td>Face check: column perimeter with d_H (l_H &gt; 2h_H) or with the slab d (l_H ≤ 2h_H, conservative)</td><td>§6.4.5(3), §6.4.2(10)</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Drop at an edge or corner column: the drop is clipped to the slab (flush with the free edges the column is flush with). Inside: the edge or corner column with d_H (Fig. 6.15 / 6.20 perimeters). Outside: the clipped drop as an edge or corner loaded area at 2d. For l_H ≤ 2h_H only the outer section is checked.</td><td>Extension of Figs. 6.15, 6.17, 6.18 and 6.20; EN 1992-1-1 shows heads at internal columns only</td><td><span class="tag interp">Interpretation</span></td></tr>
     <tr><td>Links beyond the drop: the slab section takes the drop as the loaded area and is designed like an ordinary column (Eq. 6.52, 6.54, §9.4.3) with d. A layer at s from the column face lies beyond the drop when s &gt; l<sub>H,min</sub> and follows the drop outline at t = s − l<sub>H,min</sub>; inside the drop a layer needs s ≤ l<sub>H,min</sub> − c. Layers on the step in between are rejected.</td><td>Extension of §6.4.2(9) with §6.4.5; Tekla Structural Designer treats the head as the loaded area for the outer section</td><td><span class="tag interp">Interpretation</span></td></tr>
-    <tr><td>Rectangular head with l<sub>H</sub> ≤ 2h<sub>H</sub> and links: the check stays on the EC2 equivalent circle (r<sub>cont</sub>, Eq. 6.34/6.35); the links are placed on rounded rectangles at t from the actual head outline and mapped to the circle by 16 sectors of 22.5° from the column centroid. Each sector needs A<sub>sw,req</sub>/16 per layer and a leg counts only in its own sector. Coverage of u<sub>out,ef</sub> uses the nearest point of the outermost layer. Eq. 6.52, outer coverage and the sector check are reported by this method, which is not an EC2 rule (see section 9); §9.4.3 detailing is checked on the real link positions. Circular heads need no mapping: links follow the head.</td><td>Proposed method, not EN 1992-1-1; to be benchmarked against a worked example or an accepted method</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Rectangular head with l<sub>H</sub> ≤ 2h<sub>H</sub> and links: the check stays on the EC2 equivalent circle (r<sub>cont</sub>, Eq. 6.34/6.35); the links are placed on rounded rectangles at t from the actual head outline and mapped to the circle by 16 sectors of 22.5° from the column centroid. Each sector needs A<sub>sw,req</sub>/16 per layer and a leg counts only in its own sector. Coverage of u<sub>out,ef</sub> uses the nearest point of the outermost layer. Eq. 6.52, outer coverage and the sector check use this mapping; §9.4.3 detailing is checked on the real link positions. Circular heads need no mapping: links follow the head.</td><td>mPunchingShear sector mapping applied to the EC2 equivalent-circle section</td><td><span class="tag interp">Interpretation</span></td></tr>
   </table>
-  <p>The calculation report states the basis in one line for rectangular drops. The status is not held at “Requires confirmation”.</p>
+  <p>When a rectangular drop straddles <i>l</i><sub>H</sub> = 2<i>h</i><sub>H</sub>, mPunchingShear evaluates the Fig. 6.17 and Fig. 6.18 constructions and reports the governing result. The summary and report name the applicable software method.</p>
 
   <h2>5 Not covered</h2>
   <ul>
     <li>Drops combined with openings, drops offset from the column, circular or rotated columns with a drop at a slab edge, and a drop that reaches an edge the column is set back from.</li>
-    <li>A drop that is under Fig. 6.17 in one direction and Fig. 6.18 in the other (l_H straddles 2h_H).</li>
-    <li>A verified link design around a rectangular column head with l<sub>H</sub> ≤ 2h<sub>H</sub>: the tool places and maps the links, but the result stays Not verified (see table above).</li>
   </ul>
 
   <h2>6 Input: total drop thickness and link arrangement</h2>
@@ -204,11 +205,12 @@
     <tr><td>u<sub>out,ef</sub></td><td>mm</td><td>5372</td><td>4478.9</td><td>-16.63 %</td><td><span class="tag interp">Different rule</span> The source uses v<sub>Rd,c</sub> with the required longitudinal reinforcement (DIN NA, 0.4875 MPa); the tool uses v<sub>Rd,c</sub> of the provided reinforcement (Eq. 6.54).</td></tr>
   </table>
 
-  <p><b>Effective outer perimeter of a cruciform layout.</b> Ancon Shearfix Punching Shear Reinforcement, EC2 Design Manual, Example 16.1 (internal 600 × 400 column, d = 204 mm, outer stud lines 804 and 604 mm wide) gives u<sub>out,ef</sub> = 2(y<sub>sr0</sub> + 2d + 0.75πd + z<sub>sr0</sub> + 2d + 0.75πd) = 6371 mm. The tool's rule Σ min(L<sub>i</sub>, 2d) + 2π·1.5d gives 6371 mm for the same outer studs (test/arrangement.test.mjs), so the interpretation of Fig. 6.22 B agrees with the manufacturer's procedure. Only the perimeter formula is compared: the manual's rail layout (main and secondary rails, 3 studs per rail) and its u<sub>out,req</sub> inputs are not re-run. The manual also notes that more than three studs per rail do not increase u<sub>out,ef</sub>, as found here. No published example checks the radial and grid layouts or drops with arranged links.</p>
-  <h2>9 Status, verification and how the tool calculates</h2>
-  <p><b>Result status.</b> Each check shows Pass or Fail by the tool's own method. Where EN 1992-1-1 gives no rule, the tool applies the method stated here and reports its result; the engineer reviews the method in this Help: mapped links for heads with l<sub>H</sub> ≤ 2h<sub>H</sub>; β from moments with a perimeter reduced by openings or with u1* near openings (unreduced W1 / u1*, stated in a note); the Fig. 6.22 effective perimeter; a drop whose l<sub>H</sub> is ≤ 2h<sub>H</sub> one way and &gt; 2h<sub>H</sub> the other (no EC2 rule) is checked both as Fig. 6.17 and as Fig. 6.18 and the governing result is reported. A provided radial spacing s<sub>r</sub> &gt; 0.75d breaks the code limit of §9.4.3(1) and is a Fail. <i>Incomplete input</i> and <i>Unsupported geometry / loading</i> mean no result. <i>Links required</i> and <i>Not required</i> on the concrete row are information, not a result.</p>
-  <p><b>Defaults.</b> Singapore National Annex values, β from moments (Eq. 6.39–6.46), effective depths derived from h, cover and bar diameters (d = h − c − φ/2 per direction; changing h changes d), orthogonal-grid links with s<sub>r</sub> = s<sub>t</sub> = 150 mm. The simplified β (§6.4.3(6)) needs the braced / spans ≤ 25 % tick. Entered d<sub>x</sub>, d<sub>y</sub> must be ≤ h − c.</p>
-  <h3>Verified against published examples</h3>
+  <p><b>Effective outer perimeter of a cruciform layout.</b> Ancon Shearfix Punching Shear Reinforcement, EC2 Design Manual, Example 16.1 (internal 600 × 400 column, d = 204 mm, outer stud lines 804 and 604 mm wide) gives u<sub>out,ef</sub> = 2(y<sub>sr0</sub> + 2d + 0.75πd + z<sub>sr0</sub> + 2d + 0.75πd) = 6371 mm. The tool's rule Σ min(L<sub>i</sub>, 2d) + 2π·1.5d gives 6371 mm for the same outer studs (test/arrangement.test.mjs), so the interpretation of Fig. 6.22 B agrees with the manufacturer's procedure. Only the perimeter formula is compared: the manual's rail layout (main and secondary rails, 3 studs per rail) and its u<sub>out,req</sub> inputs are not re-run. The manual also notes that more than three studs per rail do not increase u<sub>out,ef</sub>, as found here. </p>
+  <h2>9 How mPunchingShear calculates results</h2>
+  <p><b>Result status.</b> Pass and Fail show the outcome of the applicable checks against the selected design basis. Software methods such as rectangular-head sector mapping are identified alongside the result. Incomplete input and Unsupported geometry or loading identify conditions outside the calculation. Links required indicates that the concrete demand exceeds its resistance.</p>
+  <p><b>Singapore National Annex.</b> The face resistance uses 0.5ν<i>f</i><sub>cd</sub>, and the upper resistance with links uses 2.0<i>v</i><sub>Rd,c</sub>. Where the required outer control perimeter is closer than 3<i>d</i> to the loaded area, place links in the zone from 0.3<i>d</i> to 1.5<i>d</i>, with the first layer no further out than 0.5<i>d</i>. The zone checks use each link leg’s shortest distance to the loaded area, including at corners.</p>
+  <p><b>Defaults.</b> New designs use the Singapore National Annex, β from moments and effective depths derived from the slab thickness, cover and flexural bar layers. Punching links are off when a design starts. When enabled, the default arrangement is an orthogonal grid with spacing inputs of 150 mm.</p>
+  <h3>Benchmark results</h3>
   <table><thead><tr><th>Quantity</th><th>Source</th><th>Agreement</th></tr></thead><tbody>
     <tr><td>v<sub>Rd,c</sub> (Eq. 6.47), k, ρ<sub>l</sub>, v<sub>min</sub> (Eq. 6.3N)</td><td>CSI SAFE RC-PN-001, JRC EUR 26566 B2, Dlubal VE 1028</td><td>≤ 0.1 % (v<sub>min</sub> JRC 1 %, source rounding)</td></tr>
     <tr><td>u0, u1, v<sub>Ed</sub> = βV/(u·d)</td><td>CSI SAFE, JRC B2, Dlubal VE 1023 / 1028</td><td>≤ 0.22 %</td></tr>
@@ -218,16 +220,9 @@
     <tr><td>u<sub>out,ef</sub> of a cruciform layout (Fig. 6.22 B)</td><td>Ancon Shearfix EC2 manual, Example 16.1</td><td>6371 mm, exact</td></tr>
     <tr><td>β (Eq. 6.39 / 6.42 / 6.43), u1 with openings, edge and corner perimeters</td><td>Independent hand formulas (scripts/verification.mjs, unit tests)</td><td>1e-6</td></tr>
   </tbody></table>
-  <h3>Not yet checked against a published source</h3>
-  <ul>
-    <li>u<sub>out,ef</sub> of radial and grid layouts (same rule as the cruciform check) and the comparison of the three arrangements.</li>
-    <li>Drop panels with links (Fig. 6.17 / 6.18) and links beyond the drop; edge and corner columns with links; openings with links (hand checks only).</li>
-    <li>Singapore NA values: accepted by the user; the UK values come from secondary sources.</li>
-    <li>Dlubal VE 1028 v<sub>Rd,cs</sub> and u<sub>out,ef</sub> differ (7 %, 17 %): the source uses the DIN NA. JRC B2 reports "links OK" while the tool fails k<sub>max</sub>·v<sub>Rd,c</sub> (A1:2014 Note), which the source does not apply.</li>
-  </ul>
-  <h3>How open points are handled</h3>
+  <h3>Calculation methods</h3>
   <table><thead><tr><th>Topic</th><th>Handling</th><th>Basis</th></tr></thead><tbody>
-    <tr><td>Outer perimeter</td><td>u<sub>out,req</sub> = βV/(v<sub>Rd,c</sub>·d); u<sub>out,ef</sub> = Σ min(L<sub>i</sub>, 2d) + 2π·1.5d from the outer links (internal columns without openings or a drop); outer links ≥ a<sub>out</sub> − 1.5d.</td><td>Fig. 6.22, interpretation (agrees with Ancon)</td></tr>
+    <tr><td>Outer perimeter</td><td>Eq. 6.54 gives the required length u<sub>out,req</sub> = βV/(v<sub>Rd,c</sub>·d). For layouts using the Fig. 6.22 construction, the effective outer length comes from the outer links as Σ min(L<sub>i</sub>, 2d) + 2π·1.5d. For the standard offset check, the outer links extend to at least a<sub>out</sub> − 1.5d. The Singapore compact link zone uses its own placement limits.</td><td>Fig. 6.22, interpretation (agrees with Ancon)</td></tr>
     <tr><td>Tangential spacing</td><td>≤ 1.5d inside u1; outside u1 a gap &gt; 2d is excluded from u<sub>out,ef</sub>; cruciform corner gaps covered by u<sub>out,ef</sub>.</td><td>§9.4.3(1), interpretation</td></tr>
     <tr><td>Auto arrangement</td><td>s<sub>r</sub> capped at 0.75d; radial and cruciform take the fewest rails meeting s<sub>t</sub>, u<sub>out,ef</sub> and Eq. 6.52.</td><td>Tool procedure</td></tr>
     <tr><td>Eq. 6.52</td><td>Smallest effective A<sub>sw</sub> of any perimeter and the largest s<sub>r</sub>.</td><td>Conservative</td></tr>
@@ -241,8 +236,8 @@
   <ul>
     <li>EN 1992-1-1:2004 + AC:2010 + A1:2014, Eurocode 2: Design of concrete structures — Part 1-1: §6.4 punching (Eq. 6.32–6.54, Figs. 6.12–6.22, Table 6.1), §8.3 and §8.5 (mandrels, link anchorage), §9.3.2 and §9.4.3 (slab and punching detailing). CEN recommended values unless a National Annex profile is chosen.</li>
     <li>A1:2014, §6.4.5(1) Note: k<sub>max</sub> = 1.5 upper limit with shear reinforcement.</li>
-    <li>NA to SS EN 1992-1-1:2008 + A1:2010 (Singapore) and NA to BS EN 1992-1-1 (UK): profile values taken from secondary sources (SCIA Engineer NA tables; CADS and The Concrete Centre notes). Singapore is the default profile; its values were accepted by the user (22 Nov 2026) as matching the SG NA. The UK profile asks for a tick ("UK NA values checked") before giving a result.</li>
-    <li>The Concrete Centre guidance: first link perimeter ≥ 0.3d from the loaded area (reported as guidance, Requires confirmation).</li>
+    <li>Singapore NA to SS EN 1992-1-1:2008, <a href="https://www.singaporestandardseshop.sg/Product/DownloadPdf/297e7a37-b3fe-4ed6-9d14-31c02f553dac?Page=15">Amendment No. 1</a> and <a href="https://www.singaporestandardseshop.sg/Product/GetPdf?fileName=210323181635NA+to+SS+EN+1992-1-1-2008_Amd+2.pdf&amp;pdtid=90a81f90-f2fe-4ae9-a8b5-50c1ae5b89dd">Amendment No. 2</a>: §6.4.5(1), (3) and (4). UK profile references: CADS and The Concrete Centre.</li>
+    <li>The Concrete Centre guidance: first link perimeter ≥ 0.3d from the loaded area (shown as detailing guidance outside the Singapore compact link zone).</li>
     <li><a href="https://support.tekla.com/doc/tekla-structural-designer/2025/ref_punching_shear_checks_ec2">Tekla Structural Designer: Punching shear checks to EC2</a>: control perimeter outside the drop, and inside it only when it fits; the drop outline as the loaded area of the outer section. Used for rectangular drops and links beyond the drop (interpretation).</li>
     <li>Blueprints (open source, MIT): implementations of Eq. 6.44–6.46 used to cross-check the edge and corner β formulas.</li>
     <li>Ancon (Leviat), Shearfix Punching Shear Reinforcement — EC2 Design Manual, Example 16.1 (cruciform u<sub>out,ef</sub>): https://www.ancon.co.uk/downloads/6431/Shearfix_Design_Manual_to_EC2.pdf</li>

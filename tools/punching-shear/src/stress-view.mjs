@@ -86,7 +86,7 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
     const row = governing.rows?.find(item => item.id === 'ext-concrete');
     if (ext && row) panels.push({ name: 'u1,ext', r: 2 * head.d, u: ext.u1, d: head.d, limit: row.resistance, limitName: 'v_Rd,c', m: ext.model, plastic: false });
   } else if (result.envelope?.uOut && governing.aOut > 0) {
-    panels.push({ name: 'u_out,ef', r: governing.aOut, u: model.intervalsAt(governing.aOut).total, d, limit: result.resistance?.vRdc, limitName: 'v_Rd,c', m: model, plastic: onColumn });
+    panels.push({ name: 'u_out,req', r: governing.aOut, u: model.intervalsAt(governing.aOut).total, d, limit: result.resistance?.vRdc, limitName: 'v_Rd,c', m: model, plastic: onColumn });
   }
   for (const panel of panels) {
     const m = panel.m;

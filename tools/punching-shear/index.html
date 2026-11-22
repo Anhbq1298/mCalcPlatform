@@ -46,12 +46,13 @@
     <section class="section-view drawing-views" aria-labelledby="plan-title">
       <h2 id="plan-title" class="visually-hidden">Drawings</h2>
       <div class="drawing-tabs" role="tablist" aria-label="Drawings">
-        <button type="button" role="tab" data-tab="plan" aria-selected="true">Plan</button>
+        <button type="button" id="plan-tab" role="tab" data-tab="plan" aria-selected="true">Plan</button>
         <button type="button" role="tab" data-tab="loading" aria-selected="false">Loading</button>
         <button type="button" role="tab" data-tab="section-a" aria-selected="false">Section A–A</button>
         <button type="button" role="tab" data-tab="section-b" aria-selected="false">Section B–B</button>
         <button type="button" role="tab" data-tab="stress" aria-selected="false">Stress</button>
         <button type="button" role="tab" data-tab="schedule" aria-selected="false">Schedule</button>
+        <button type="button" role="tab" data-tab="compare" aria-selected="false">Compare layouts</button>
       </div>
       <div class="tab-panel" data-panel="plan">
         <div id="plan-view" class="drawing" role="img" aria-label="Plan of column, control perimeters and links"></div>
@@ -77,10 +78,11 @@
           </table>
         </div>
       </div>
+      <div class="tab-panel schedule-wrap" data-panel="compare" id="layout-comparison" hidden></div>
     </section>
     <section class="checks" aria-labelledby="results-title">
       <h2 id="results-title">Check summary</h2>
-      <p id="design-basis">EN 1992-1-1:2004 · CEN recommended values</p>
+      <p id="design-basis"></p>
       <label class="combination-select"><span>Combination</span><select id="combination" aria-label="Combination shown"></select></label>
       <div id="column-check-summary" aria-live="polite"></div>
       <p id="design-status"></p>

@@ -151,8 +151,13 @@ function merge(primary, extra, headIssues, headInfo, input, layout, headNotes = 
   const governingRow = rowsOf.reduce((best, entry) => (!best || entry.ur > best.ur ? entry : best), null);
   return {
     ...primary, loads, issues, notes, input, checkInput: primary.input, head: headInfo, layout,
-    status: worstState([...loads.map(entry => entry.status), ...issues.map(entry => entry.state)]),
-    governing: governing ? { load: governing.name, check: governingRow?.label ?? null, ur: governing.ur } : primary.governing,
+    status: worstState([primary.loads.length ? null : primary.status, extra?.loads.length ? null : extra?.status, ...loads.map(entry => entry.status), ...issues.map(entry => entry.state)]),
+    methods: [
+      ...new Set([...(primary.methods ?? []), ...(extra?.methods ?? [])]),
+      ...(headInfo.mapped && layout.layers.length ? ['Rectangular head: 16-sector mapping to the equivalent circle'] : []),
+      ...(headInfo.edge || (headInfo.kind === 'large' && !headInfo.circular) ? ['Rectangular drop: offset perimeters'] : []),
+    ],
+    governing: governing ? { load: governing.name, loadId: governing.id, check: governingRow?.label ?? null, ur: governing.ur } : primary.governing,
   };
 }
 
@@ -173,11 +178,12 @@ export function calculateDesign(raw, forcedKind = null) {
     // l_H straddles 2h_H (Fig. 6.17 one way, Fig. 6.18 the other): EN 1992-1-1 gives no rule. The tool
     // checks the drop both ways and reports the governing one (worse status, then higher UR); see Help.
     const both = ['small', 'large'].map(kind => calculateDesign(raw, kind));
-    const rank = r => [r.status === STATES.pass ? 0 : 1, r.governing?.ur ?? 0];
-    const worse = both.reduce((a, b) => { const [sa, ua] = rank(a); const [sb, ub] = rank(b); return sb > sa || (sb === sa && ub > ua) ? b : a; });
+    const governingState = worstState(both.map(item => item.status));
+    const worse = both.filter(item => item.status === governingState)
+      .reduce((a, b) => ((b.governing?.ur ?? 0) > (a.governing?.ur ?? 0) ? b : a));
     const which = worse === both[0] ? 'Fig. 6.17 (l_H ≤ 2h_H)' : 'Fig. 6.18 (l_H > 2h_H)';
     const note = `l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm straddles 2h_H = ${(2 * geo.hH).toFixed(0)} mm: the drop is checked as Fig. 6.17 and as Fig. 6.18; ${which} governs (see Help).`;
-    return { ...worse, notes: [note, ...(worse.notes ?? [])] };
+    return { ...worse, methods: [...(worse.methods ?? []), 'Mixed drop: envelope of Fig. 6.17 and Fig. 6.18'], notes: [note, ...(worse.notes ?? [])] };
   }
   const internal = (base.position?.kind ?? 'internal') === 'internal';
   const e = geo.extents;
@@ -218,7 +224,7 @@ export function calculateDesign(raw, forcedKind = null) {
     if (!circle.loads?.length || !rect.model) return { ...circle, input, head: info };
     const mapped = mappedHeadLinks({ circle, rectModel: rect.model, input, rc, lHalfMin: Math.min(input.head.lx, input.head.ly) / 2, layers: split.slab });
     const result = merge({ ...circle, loads: mapped.loads }, null, issuesOf, info, input, combinedLayout(null, { layout: mapped.layout }, geo.lMin), split.notes);
-    return { ...result, detailing: mapped.detailing, mapping: { sectors: mapped.worstSector, tOut: mapped.tOut } };
+    return { ...result, compactOuterZone: mapped.compactOuterZone, detailing: mapped.detailing, mapping: { sectors: mapped.worstSector, tOut: mapped.tOut } };
   }
   const extEq = geo.circular ? 'Eq. 6.36' : internal ? '§6.4.2(9)' : 'Fig. 6.15 (interpretation)';
   if (!inside) {

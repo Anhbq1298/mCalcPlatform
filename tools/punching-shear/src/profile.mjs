@@ -17,7 +17,7 @@ const common = [
 export const PROFILES = {
   cen: {
     id: 'cen', label: 'CEN recommended values', nationalAnnex: 'None selected: CEN recommended values',
-    vRdMaxFactor: 0.4, kMax: 1.5, kMaxLabel: 'k_max·v_Rd,c (§6.4.5(1) Note, A1:2014)', needsConfirmation: false,
+    vRdMaxFactor: 0.4, kMax: 1.5, kMaxLabel: 'k_max·v_Rd,c (§6.4.5(1) Note, A1:2014)', kMaxClause: '§6.4.5(1) Note, A1:2014', needsConfirmation: false,
     parameters: [
       ...common,
       { name: 'v_Rd,max', value: '0.4·ν·f_cd', source: '§6.4.5(3), AC:2010', status: 'Recommended value' },
@@ -26,18 +26,19 @@ export const PROFILES = {
   },
   sg: {
     id: 'sg', label: 'Singapore National Annex', nationalAnnex: 'NA to SS EN 1992-1-1:2008 + A1:2010 (Singapore)',
-    vRdMaxFactor: 0.5, kMax: 2.0, kMaxLabel: 'v_Ed ≤ 2·v_Rd,c at u1 (SG NA 6.4.5(3))', needsConfirmation: false, fckShearCap: 50,
+    vRdMaxFactor: 0.5, kMax: 2.0, kMaxLabel: 'k_max·v_Rd,c (SG NA 6.4.5(1))', kMaxClause: 'SG NA 6.4.5(1), Amendment No. 2', compactOuterZone: true, needsConfirmation: false, fckShearCap: 50,
     parameters: [
       ...common.map(entry => ({ ...entry, status: 'EN value adopted by the SG NA' })),
       { name: 'v_Rd,max', value: '0.5·ν·f_cd', source: 'SG NA 6.4.5(3)', status: 'SG NA (accepted by the user)' },
-      { name: 'Limit at u1', value: '2·v_Rd,c', source: 'SG NA 6.4.5(3)', status: 'SG NA (accepted by the user)' },
+      { name: 'Limit at u1', value: '2·v_Rd,c', source: 'SG NA 6.4.5(1), Amendment No. 2', status: 'SG NA (accepted by the user)' },
+      { name: 'Compact link zone (a_out < 3d)', value: '0.3d to 1.5d; first layer ≤ 0.5d', source: 'SG NA 6.4.5(4), Amendment No. 1', status: 'SG NA' },
       { name: 'C_max for shear', value: 'C50/60 (f_ck ≤ 50 MPa in shear)', source: 'SG NA 3.1.2(2)P', status: 'SG NA (accepted by the user)' },
       { name: 'α_cc for shear', value: 1.0, source: 'SG NA 3.1.6(1)P', status: 'SG NA (accepted by the user)' },
     ],
   },
   uk: {
     id: 'uk', label: 'UK National Annex', nationalAnnex: 'NA to BS EN 1992-1-1 (UK), values from secondary sources',
-    vRdMaxFactor: 0.5, kMax: 2.0, kMaxLabel: 'v_Ed ≤ 2·v_Rd,c at u1 (UK NA 6.4.5(3))', needsConfirmation: true,
+    vRdMaxFactor: 0.5, kMax: 2.0, kMaxLabel: 'v_Ed ≤ 2·v_Rd,c at u1 (UK NA 6.4.5(3))', kMaxClause: 'UK NA 6.4.5(3)', needsConfirmation: true,
     parameters: [
       ...common.map(entry => ({ ...entry, status: 'Assumed equal to CEN (see Help)' })),
       { name: 'v_Rd,max', value: '0.5·ν·f_cd', source: 'UK NA 6.4.5(3)', status: 'Secondary sources (see Help)' },
@@ -54,7 +55,7 @@ export const ASSUMPTIONS = [
   'Eq. 6.52 uses the smallest effective layer A_sw and the largest radial spacing between layers.',
   'Eccentricities e_x = M_y/V_Ed and e_y = M_x/V_Ed give the position of the punching force resultant relative to the column centroid.',
   'Openings within 6d remove the sector between the tangents from the column centre (Fig. 6.14) from every check perimeter and link layer, and from u0 of internal columns.',
-  'Outer perimeters u_out,ef follow the same clipped shape as u1.',
+  'The required outer perimeter follows the control path. Where Fig. 6.22 is used, the effective perimeter is built from the outer links.',
   'Links are assumed to enclose the top and bottom flexural bars (§8.5, §9.4.3); the tool does not check this.',
 ];
 

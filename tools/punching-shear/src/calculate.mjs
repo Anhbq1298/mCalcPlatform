@@ -5,6 +5,7 @@ import { betaFor } from './beta.mjs';
 import { detailingChecks } from './detailing.mjs';
 import { STATES, groupLayers, restoreInputs, validateBeta, validateGeometry, validateLoad, validateMaterials, validateReinforcement } from './inputs.mjs';
 import { arcLengthAt, arrangedLayers, faceGaps, gridOnBars, outerPerimeterEf } from './arrangement.mjs';
+import { toLocal } from './geometry.mjs';
 import { dropFillPoints, ringGaps } from './grid-thin.mjs';
 import { buildLinks, layerSummary } from './layout.mjs';
 import { offsetForLength } from './perimeters.mjs';
@@ -19,7 +20,7 @@ export const worstState = states => ORDER.find(state => states.map(item => (info
 const counts = entry => entry.ur !== null && Number.isFinite(entry.ur) && !informational(entry.status) && entry.unit !== 'layers';
 
 function normaliseLoads(loads = []) {
-  return loads.map((load, index) => ({ name: load.name || 'Combination ' + (index + 1), V: load.V, Mx: load.Mx ?? 0, My: load.My ?? 0 }));
+  return loads.map((load, index) => ({ id: load.id, name: load.name || 'Combination ' + (index + 1), V: load.V, Mx: load.Mx ?? 0, My: load.My ?? 0 }));
 }
 
 function demandFor(ctx, load) {
@@ -45,7 +46,9 @@ function loadResult(ctx, item, layout, summary, links, detailing) {
   const face = ctx.options.face;
   const rows = [
     ...(face?.skip ? [] : [row('max', '§6.4.5(3), Eq. 6.53', face?.label ?? 'Maximum punching stress at u0', vEd0, ctx.vRdMax, null, { unit: 'MPa', detail: face?.detail })]),
-    required && ctx.options.noLinks
+    required && !layout.layers.length && !ctx.options.noLinks
+      ? row('concrete', '§6.4.4(1), Eq. 6.47', 'Concrete punching resistance at u1 (links required)', vEd1, res.vRdc, STATES.fail, { unit: 'MPa', detail: layout.reason || 'No links provided.' })
+      : required && ctx.options.noLinks
       ? row('concrete', '§6.4.4(1), Eq. 6.47', ctx.options.label ? ctx.options.label + ': concrete punching resistance' : 'Concrete punching resistance at u1', vEd1, res.vRdc, STATES.unsupportedGeometry, { unit: 'MPa', detail: ctx.options.noLinks })
       : required
       ? row('concrete', '§6.4.4(1), Eq. 6.47', 'Concrete punching resistance at u1 (links required)', vEd1, res.vRdc, STATES.linksRequired, { unit: 'MPa', detail: 'v_Ed > v_Rd,c: links provide the resistance.' })
@@ -56,14 +59,13 @@ function loadResult(ctx, item, layout, summary, links, detailing) {
   if (required && ctx.options.noLinks) return { ...item, ...load, rows, layoutCheck, status: worstState(rows.map(entry => entry.status)), ur: Math.max(0, ...rows.filter(counts).map(entry => entry.ur)) };
   if (!required) rows.push(row('reinforced', '§6.4.5', 'Punching reinforcement', null, null, STATES.notRequired, { detail: 'v_Ed ≤ v_Rd,c' }));
   else if (!layout.layers.length) {
-    rows.push(row('reinforced', '§6.4.5, Eq. 6.52', 'Reinforced punching resistance at u1', vEd1, 0.75 * res.vRdc, STATES.fail, { unit: 'MPa', detail: layout.reason || 'No links provided.' }));
     // The upper limit with links applies whether or not links are placed (and the report shows it).
-    rows.push(row('kmax', ctx.profile.kMaxLabel.includes('UK') ? 'UK NA 6.4.5(3)' : '§6.4.5(1) Note, A1:2014', 'Upper limit with links, ' + ctx.profile.kMaxLabel, vEd1, ctx.profile.kMax * res.vRdc, null, { unit: 'MPa' }));
+    rows.push(row('kmax', ctx.profile.kMaxClause, 'Upper limit with links, ' + ctx.profile.kMaxLabel, vEd1, ctx.profile.kMax * res.vRdc, null, { unit: 'MPa' }));
   }
   else {
     const { materials } = input;
-    const outerEf = layout.outerEf ? { ...layout.outerEf, uReq: ctx.model.intervalsAt(aOut).total } : null;
-    layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: res.vRdc, vEd: vEd1, u1: ctx.u1, aOut: Math.min(aOut, ctx.layoutOut ?? aOut), summary, links, kMax: ctx.profile.kMax, kMaxLabel: ctx.profile.kMaxLabel, detailing, outerEf });
+    const outerEf = layout.outerEf ? { ...layout.outerEf, uReq: item.uOut } : null;
+    layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: res.vRdc, vEd: vEd1, u1: ctx.u1, aOut: Math.min(aOut, ctx.layoutOut ?? aOut), summary, links, kMax: ctx.profile.kMax, kMaxLabel: ctx.profile.kMaxLabel, kMaxClause: ctx.profile.kMaxClause, detailing, outerEf, compactOuterZone: ctx.compactOuterZone, loadedArea: ctx.model.column });
     rows.push(...layoutCheck.rows);
   }
   return { ...item, ...load, rows, layoutCheck, status: worstState(rows.map(entry => entry.status)), ur: Math.max(0, ...rows.filter(counts).map(entry => entry.ur)) };
@@ -117,12 +119,13 @@ export function calculate(rawInput, options = {}) {
     return { status: issue.state, issues: [issue], notes: [], profile, loads: [], input };
   }
   const envelope = { aswReq: Math.max(0, ...needing.map(item => item.aswReq)), aOut: Math.max(0, ...needing.map(item => item.aOut)), sr: ctx.envelopeSr };
-  envelope.uOut = needing.length ? model.intervalsAt(envelope.aOut).total : null;
+  envelope.uOut = needing.length ? Math.max(...needing.map(item => item.uOut)) : null;
+  ctx.compactOuterZone = Boolean(profile.compactOuterZone && envelope.aOut > 0 && envelope.aOut < 3 * d - 1e-6);
   const limitIssues = [];
   const linkLimit = options.linkLimit;
   let layoutOut = envelope.aOut;
   const limitNotes = [];
-  if (Number.isFinite(linkLimit) && needing.length) {
+  if (!ctx.compactOuterZone && Number.isFinite(linkLimit) && needing.length) {
     // Layers sit on a grid first + k·s_r; keep the last one inside the drop.
     const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
     const sr = ctx.envelopeSr;
@@ -140,28 +143,34 @@ export function calculate(rawInput, options = {}) {
     const type = reinforcement.arrangement ?? 'grid';
     // Inside a drop the links run out to the drop edge: the last perimeter lies within one s_r of the
     // drop limit (l_H,min − c), so the outer zone of the drop is reinforced up to the depth change.
-    const dropEdgeOut = Number.isFinite(linkLimit) && needing.length
+    const dropEdgeOut = !ctx.compactOuterZone && Number.isFinite(linkLimit) && needing.length
       ? Math.max(layoutOut, linkLimit - ctx.envelopeSr + 1e-6 + P.outerK * d)
       : layoutOut;
     const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5 + 1e-9) * 5);
     // Fig. 6.22 (u_out,ef from the outer links) for internal columns without openings or a drop limit;
     // elsewhere the outer perimeter stays the clipped path at a_out and s_t ≤ 2d outside u1 is a check.
     const fig622 = ctx.position?.kind === 'internal' && !(input.openings?.length) && !Number.isFinite(linkLimit);
-    const uReq = fig622 && needing.length ? Math.max(...needing.map(item => model.intervalsAt(item.aOut).total)) : null;
+    const uReq = fig622 ? envelope.uOut : null;
     const generated = !needing.length
       ? { layers: [], reason: 'No punching reinforcement required.' }
-      : arrangedLayers({ model, d, aOut: dropEdgeOut, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
+      : arrangedLayers({ model, d, aOut: ctx.compactOuterZone ? 0 : dropEdgeOut, maxOffset: ctx.compactOuterZone ? Math.min(linkLimit ?? Infinity, 1.5 * d) : Infinity, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, rails: reinforcement.rails, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
     layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
     if (generated.note) limitNotes.push(generated.note);
     if (srNote && needing.length) limitNotes.push(srNote);
-  } else layout = { mode: 'provided', layers: (options.layers ?? groupLayers(reinforcement)).map(layer => ({ omitted: [], ...layer })), reason: null };
+  } else {
+    const layers = (options.layers ?? groupLayers(reinforcement)).map(layer => ({ omitted: [], ...layer }));
+    const arrangement = layers[0]?.arrangement;
+    const placed = layers.length && layers.every(layer => layer.points && layer.arrangement === arrangement);
+    layout = { mode: 'provided', arrangement: placed ? arrangement : null, layers, reason: null,
+      fig622: Boolean(placed && ctx.position.kind === 'internal' && !input.openings.length && !Number.isFinite(linkLimit)) };
+  }
   const detailing = layout.layers.length ? detailingChecks({ slab: input.slab, anchorage: reinforcement.anchorage, diameters: layout.layers.map(layer => layer.diameter) }) : null;
   model.anchorageState = detailing?.status;
   const base = options.layerBase ?? 0;
   const links = buildLinks(model, layout.layers, layout.mode === 'auto' ? 'auto' : 'user', base);
   const summary = layerSummary(model, layout.layers, links, base);
   // Drop: grid links out to the drop edge beyond the last ring (detailing; not counted in the checks).
-  if (layout.mode === 'auto' && layout.arrangement === 'grid' && options.dropBox && layout.layers.length) {
+  if (!ctx.compactOuterZone && layout.mode === 'auto' && layout.arrangement === 'grid' && options.dropBox && layout.layers.length) {
     const fill = dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox, d, widen: reinforcement.thin !== false });
     const last = layout.layers.at(-1);
     const edge = { ...last, id: 'E', points: fill.map(p => ({ ...p, s: arcLengthAt(model.column, last.offset, p) })), omitted: [] };
@@ -171,8 +180,15 @@ export function calculate(rawInput, options = {}) {
   layout.layers = layout.layers.map((layer, i) => ({ ...layer, id: summary[i].id }));
   if (layout.arrangement === 'cruciform') summary.forEach(layer => { layer.tangential = faceGaps(model.column, layer.offset, layer.tangential); });
   // Grid rings (closed, internal column): s_t as straight distances between neighbouring links.
-  if (layout.arrangement === 'grid' && layout.fig622) summary.forEach((layer, i) => { layer.tangential = ringGaps(layout.layers[i].points); });
-  if (layout.fig622 && layout.layers.length) layout.outerEf = outerPerimeterEf(layout.layers.at(-1).points, d, P.outerK);
+  if (layout.arrangement === 'grid' && layout.fig622) summary.forEach((layer, i) => {
+    if (layout.layers[i].shape === 'single') layer.tangential = ringGaps(links.filter(link => link.layerId === layer.id).flatMap(link => link.legs.filter(leg => leg.effective).map(leg => toLocal(model.column, leg))));
+  });
+  if (layout.fig622 && layout.layers.length) {
+    const outer = summary.at(-1);
+    const points = links.filter(link => link.layerId === outer.id)
+      .flatMap(link => link.legs.filter(leg => leg.effective).map(leg => toLocal(model.column, leg)));
+    layout.outerEf = outerPerimeterEf(points, d, P.outerK);
+  }
   const geometry = geometryLimits(ctx, Math.max(2 * d, envelope.aOut, ...layout.layers.map(layer => layer.offset)));
   if (Number.isFinite(linkLimit)) layout.layers.forEach((layer, index) => {
     if (layer.offset > linkLimit + 1e-9) limitIssues.push({ state: STATES.fail, message: `Layer ${layer.id ?? 'L' + (base + index + 1)} at ${layer.offset} mm lies outside the drop (links must stay within ${linkLimit.toFixed(0)} mm of the column face).` });
@@ -198,8 +214,12 @@ export function calculate(rawInput, options = {}) {
     status: worstState([...results.map(entry => entry.status), ...allIssues.map(entry => entry.state)]),
     issues: allIssues, notes, profile: ctx.profile, input, position: ctx.position, shadows: ctx.shadows,
     section: ctx.section, resistance: ctx.res, vRdMax: ctx.vRdMax, fywdEf: ctx.fywdEf, u0: ctx.u0, u1: ctx.u1, u1Star: ctx.u1Star, u1Offset: ctx.u1Offset, faceD: ctx.faceD,
-    envelope, model, loads: results, detailing,
-    governing: { load: governing.name, check: governingRow?.label ?? null, ur: governing.ur },
+    envelope, model, loads: results, detailing, compactOuterZone: ctx.compactOuterZone,
+    methods: [
+      ...(layout.outerEf ? ['Effective outer perimeter from the outer link geometry (Fig. 6.22)'] : []),
+      ...(results.some(entry => entry.beta?.note) ? ['Opening shadows with β from the unreduced moment perimeter'] : []),
+    ],
+    governing: { load: governing.name, loadId: governing.id, check: governingRow?.label ?? null, ur: governing.ur },
     layout: { ...layout, links, summary: layerStatus },
   };
 }

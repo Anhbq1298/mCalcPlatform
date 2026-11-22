@@ -97,3 +97,19 @@ test('auto layout reports a reason when two-leg links cannot fit the layer', () 
   assert.match(result.layout.reason, /No valid link count/);
   assert.equal(result.status, 'Fail');
 });
+
+test('starting a custom layout preserves the auto positions and outer lengths for each arrangement', async () => {
+  const { calculate } = await import('../src/calculate.mjs');
+  const { CASES } = await import('../src/examples.mjs');
+  const { layersToGroups } = await import('../src/inputs.mjs');
+  const input = CASES.find(entry => entry.id === 'internal-links').input;
+  for (const arrangement of ['grid', 'radial', 'cruciform']) {
+    const auto = calculate({ ...input, reinforcement: { ...input.reinforcement, arrangement } });
+    const groups = layersToGroups(auto.layout.layers, auto.layout.summary);
+    const custom = calculate({ ...input, reinforcement: { ...input.reinforcement, mode: 'provided', groups } });
+    assert.equal(custom.status, auto.status);
+    assert.equal(custom.layout.outerEf.u, auto.layout.outerEf.u);
+    assert.deepEqual(custom.layout.links.map(({ id, position, legs }) => ({ id, position, legs })),
+      auto.layout.links.map(({ id, position, legs }) => ({ id, position, legs })));
+  }
+});

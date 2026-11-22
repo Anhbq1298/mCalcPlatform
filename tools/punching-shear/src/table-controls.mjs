@@ -3,7 +3,7 @@
 // contain $…$ LaTeX spans.
 import { labelHtml, labelText } from './tex.mjs';
 
-export function mountTable(container, { caption, columns, getRows, newRow, onChange, minRows = 0, addLabel, removeLabel, rowLabel }) {
+export function mountTable(container, { caption, columns, getRows, newRow, onChange, minRows = 0, addLabel, removeLabel, rowLabel, onEdit }) {
   const table = document.createElement('table');
   table.className = 'layer-table';
   const head = table.createTHead().insertRow();
@@ -46,6 +46,7 @@ export function mountTable(container, { caption, columns, getRows, newRow, onCha
     if (!column) return;
     const rows = getRows();
     rows[index][column[0]] = column[2] === 'number' ? control.valueAsNumber : column[2] === 'select' && typeof column[3][0].value === 'number' ? Number(control.value) : control.value;
+    onEdit?.(index, column[0]);
     onChange();
   });
 

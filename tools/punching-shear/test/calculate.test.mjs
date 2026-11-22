@@ -143,3 +143,15 @@ test('restore keeps unknown fields and fills new defaults', () => {
   assert.deepEqual(restored.extra, { keep: true });
   assert.ok(Array.isArray(restored.loads));
 });
+
+test('duplicate combination names retain separate IDs and select the governing row by ID', async () => {
+  const { newDefaults, restoreInputs } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  input.loads = [300, 900].map(V => ({ name: 'ULS', V, Mx: 0, My: 0 }));
+  const restored = restoreInputs(input);
+  const result = calculate(restored);
+  assert.notEqual(result.loads[0].id, result.loads[1].id);
+  assert.equal(result.governing.loadId, result.loads[1].id);
+  assert.equal(restoreInputs(restored).loads[1].id, result.governing.loadId);
+  assert.equal(result.loads[1].rows.find(row => row.id === 'concrete').ur, result.loads[1].vEd1 / result.resistance.vRdc);
+});

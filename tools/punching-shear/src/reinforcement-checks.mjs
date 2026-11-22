@@ -1,6 +1,7 @@
 // Checks of a link layout against §6.4.5 and §9.4.3 (recommended values).
 // The Eq. 6.52 check conservatively uses the smallest effective A_sw of any layer and the largest
 // radial spacing between consecutive layers.
+import { distanceToColumn } from './geometry.mjs';
 import { STATES } from './inputs.mjs';
 import { CODE_PARAMETERS as P, fywdEffective, minimumLegArea, reinforcedResistance } from './resistance.mjs';
 
@@ -9,7 +10,7 @@ export function row(id, clause, label, demand, resistance, status, extra = {}) {
   return { id, clause, label, demand, resistance, ur, status: status ?? (ur !== null && ur <= 1 + 1e-9 ? STATES.pass : STATES.fail), ...extra };
 }
 
-export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, kMax = P.kMax, kMaxLabel = 'k_max·v_Rd,c', detailing, outerEf = null }) {
+export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, kMax = P.kMax, kMaxLabel = 'k_max·v_Rd,c', kMaxClause = '§6.4.5(1) Note, A1:2014', detailing, outerEf = null, compactOuterZone = false, loadedArea = null }) {
   const rows = [];
   const layerRows = [];
   const fywdEf = fywdEffective(fyk, d);
@@ -37,7 +38,7 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
       unit: 'MPa', detail: ordered ? 'At least two layers are needed to define s_r.' : 'Layer offsets must increase from L1 outward.',
     }));
   }
-  rows.push(row('kmax', kMaxLabel.includes('UK') ? 'UK NA 6.4.5(3)' : '§6.4.5(1) Note, A1:2014', 'Upper limit with links, ' + kMaxLabel, vEd, kMax * vRdc, null, { unit: 'MPa' }));
+  rows.push(row('kmax', kMaxClause, 'Upper limit with links, ' + kMaxLabel, vEd, kMax * vRdc, null, { unit: 'MPa' }));
 
   const outermost = Math.max(...offsets);
   const needed = aOut - P.outerK * d;
@@ -45,18 +46,28 @@ export function checkLayout({ d, fck, fyk, vRdc, vEd, u1, aOut, summary, links, 
     // Fig. 6.22: u_out,ef 1.5d outside the outer links, gaps > 2d counted as 2d; Eq. 6.54 needs βV/(v_Rd,c·d).
     const cut = outerEf.segments.filter(seg => seg.length > 2 * d + 1e-9).length;
     rows.push(row('outer', '§6.4.5(4), Eq. 6.54, Fig. 6.22', 'Outer perimeter u_out,ef ≥ β·V_Ed/(v_Rd,c·d)', outerEf.uReq, outerEf.u, null, {
+      measure: 'perimeter-length',
       unit: 'mm', governing: summary[offsets.indexOf(outermost)].id,
       detail: `u_out,ef = ${outerEf.u.toFixed(0)} mm 1.5d outside ${summary[offsets.indexOf(outermost)].id}${cut ? ` (${cut} gaps > 2d counted as 2d, Fig. 6.22 B; full ${outerEf.full.toFixed(0)} mm)` : ''}, required ${outerEf.uReq.toFixed(0)} mm`,
     }));
-  } else rows.push(row('outer', '§6.4.5(4), Eq. 6.54', 'Outer coverage: outermost layer ≥ a_out − 1.5d', Math.max(needed, 0), outermost, null, {
-    unit: 'mm', detail: `a_out = ${aOut.toFixed(0)} mm, required ${Math.max(needed, 0).toFixed(0)} mm, provided ${outermost.toFixed(0)} mm`, governing: summary[offsets.indexOf(outermost)].id,
+  } else if (!compactOuterZone) rows.push(row('outer', '§6.4.5(4), Eq. 6.54', 'Outer coverage: outermost layer ≥ a_out − 1.5d', Math.max(needed, 0), outermost, null, {
+    measure: 'offset', unit: 'mm', detail: `a_out = ${aOut.toFixed(0)} mm, required ${Math.max(needed, 0).toFixed(0)} mm, provided ${outermost.toFixed(0)} mm`, governing: summary[offsets.indexOf(outermost)].id,
   }));
   // A count, not a utilisation: pass/fail only, no UR (2/n would read as a spare capacity).
   rows.push({ ...row('perimeters', '§9.4.3(1)', 'At least two perimeters of link legs', 2, summary.length, summary.length >= 2 ? STATES.pass : STATES.fail, { unit: 'layers', detail: `${summary.length} perimeters provided, 2 required.` }), ur: null });
 
   const first = offsets[0];
   rows.push(row('first', '§9.4.3(4)', 'First layer ≤ 0.5d from the loaded area', first, P.firstLayerMax * d, null, { unit: 'mm', governing: summary[0].id }));
-  if (first < P.firstLayerMin * d) {
+  if (compactOuterZone) {
+    const distances = loadedArea ? links.filter(link => !link.edge).flatMap(link => link.legs
+      .filter(leg => leg.effective).map(leg => ({ value: distanceToColumn(loadedArea, leg), layer: link.layerId }))) : [];
+    const nearest = distances.reduce((best, point) => point.value < best.value ? point : best, { value: Infinity, layer: summary[0].id });
+    const farthest = distances.reduce((best, point) => point.value > best.value ? point : best, { value: 0, layer: summary.at(-1).id });
+    const firstLayer = distances.filter(point => point.layer === summary[0].id).map(point => point.value);
+    rows.push(row('sg-first-min', 'SG NA 6.4.5(4)', 'Nearest link leg ≥ 0.3d', 0.3 * d, Number.isFinite(nearest.value) ? nearest.value : first, null, { unit: 'mm', governing: nearest.layer }));
+    rows.push(row('sg-first-max', 'SG NA 6.4.5(4)', 'First layer link legs ≤ 0.5d', Math.max(first, ...firstLayer), 0.5 * d, null, { unit: 'mm', governing: summary[0].id }));
+    rows.push(row('sg-last-max', 'SG NA 6.4.5(4)', 'Farthest link leg ≤ 1.5d', Math.max(outermost, farthest.value), 1.5 * d, null, { unit: 'mm', governing: farthest.layer }));
+  } else if (first < P.firstLayerMin * d) {
     rows.push({ ...row('first-min', 'The Concrete Centre guidance', 'First layer < 0.3d (guidance, not a code limit)', P.firstLayerMin * d, first, STATES.pass, { unit: 'mm', warning: true }), ur: null });
   }
   const radialLimit = P.radialSpacing * d;

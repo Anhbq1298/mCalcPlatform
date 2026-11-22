@@ -38,10 +38,11 @@ export function sectorCoverage(links, summary, centre, aswReq, sectors = SECTORS
 // Automatic layout on the head outline: layers at first + k·s_r until the nearest point of the last
 // layer is within 1.5d of u_out,ef on the circle; per layer the smallest link count that meets the
 // tangential spacing, Eq. 9.11, the total A_sw and every sector share.
-function autoMapped({ model, d, aswReq, tOut, fck, fyk, diameter, shape, centre }) {
+function autoMapped({ model, d, aswReq, tOut, fck, fyk, diameter, shape, centre, compactOuterZone }) {
   const first = Math.max(Math.ceil((P.firstLayerMin * d) / 5) * 5, Math.floor((0.4 * d) / 5) * 5);
   const sr = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
-  const count = Math.max(2, Math.ceil((Math.max(tOut - P.outerK * d, first) - first) / sr - 1e-9) + 1);
+  const count = compactOuterZone ? 2 : Math.max(2, Math.ceil((Math.max(tOut - P.outerK * d, first) - first) / sr - 1e-9) + 1);
+  if (!(sr > 0) || (compactOuterZone && first + sr > 1.5 * d + 1e-9)) return { layers: [], reason: 'The reinforcement zone cannot fit two mapped layers.' };
   const perLink = LINK_SHAPES[shape].legs;
   const layers = [];
   for (let i = 0; i < count; i += 1) {
@@ -74,10 +75,11 @@ export function mappedHeadLinks({ circle, rectModel, input, rc, lHalfMin, layers
   // Offset from the head outline of the point of u_out,ef nearest to the head (mid-side, short side).
   const tOut = circle.envelope.aOut > 0 ? rEq + circle.envelope.aOut - lHalfMin : 0;
   const required = circle.loads.some(load => load.required);
+  const compactOuterZone = Boolean(circle.profile.compactOuterZone && tOut > 0 && tOut < 3 * d - 1e-6);
   let layout;
   if (!required) layout = { layers: [], reason: 'No punching reinforcement required.' };
   else if (reinforcement.enabled === false) layout = { layers: [], reason: 'No punching reinforcement: tick "Provide punching reinforcement" to add shear links.' };
-  else if (reinforcement.mode === 'auto') layout = autoMapped({ model: rectModel, d, aswReq, tOut, fck: materials.fck, fyk: materials.fyk, diameter: reinforcement.diameter, shape: reinforcement.shape, centre });
+  else if (reinforcement.mode === 'auto') layout = autoMapped({ model: rectModel, d, aswReq, tOut, fck: materials.fck, fyk: materials.fyk, diameter: reinforcement.diameter, shape: reinforcement.shape, centre, compactOuterZone });
   else layout = { layers: provided.map(layer => ({ omitted: [], ...layer })) };
   const links = buildLinks(rectModel, layout.layers, reinforcement.mode === 'auto' ? 'auto' : 'user');
   const summary = layerSummary(rectModel, layout.layers, links);
@@ -89,11 +91,10 @@ export function mappedHeadLinks({ circle, rectModel, input, rc, lHalfMin, layers
   const loads = circle.loads.map(load => {
     if (!load.required) return load;
     const rows = load.rows.filter(entry => entry.id !== 'concrete');
-    rows.push(row('concrete', '§6.4.4(1), Eq. 6.47', 'Concrete punching resistance at r_cont (links required)', load.vEd1, circle.resistance.vRdc, STATES.linksRequired, { unit: 'MPa' }));
+    rows.push(row('concrete', '§6.4.4(1), Eq. 6.47', 'Concrete punching resistance at r_cont (links required)', load.vEd1, circle.resistance.vRdc, layout.layers.length ? STATES.linksRequired : STATES.fail, { unit: 'MPa', detail: layout.reason }));
     let layoutCheck = null;
-    if (!layout.layers.length) rows.push(row('reinforced', '§6.4.5, Eq. 6.52', 'Reinforced punching resistance at r_cont', load.vEd1, 0.75 * circle.resistance.vRdc, STATES.fail, { unit: 'MPa', detail: layout.reason || 'No links provided.' }));
-    else {
-      layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: circle.resistance.vRdc, vEd: load.vEd1, u1: circle.u1, aOut: tOut, summary, links, kMax: circle.profile.kMax, kMaxLabel: circle.profile.kMaxLabel, detailing });
+    if (layout.layers.length) {
+      layoutCheck = checkLayout({ d, fck: materials.fck, fyk: materials.fyk, vRdc: circle.resistance.vRdc, vEd: load.vEd1, u1: circle.u1, aOut: tOut, summary, links, kMax: circle.profile.kMax, kMaxLabel: circle.profile.kMaxLabel, kMaxClause: circle.profile.kMaxClause, detailing, compactOuterZone, loadedArea: rectModel.column });
       for (const entry of layoutCheck.rows) rows.push(MAPPED.has(entry.id) ? { ...entry, detail: [entry.detail, note].filter(Boolean).join(' ') } : entry);
       const share = load.aswReq / SECTORS;
       const sectorRow = sectorCoverage(links, summary, centre, load.aswReq).reduce((best, entry) => (!best || entry.ur > best.ur ? entry : best), null);
@@ -106,5 +107,5 @@ export function mappedHeadLinks({ circle, rectModel, input, rc, lHalfMin, layers
     const status = [STATES.fail, STATES.notVerified, STATES.confirm].find(state => states.includes(state)) ?? STATES.pass;
     return { ...load, rows, status, ur: Math.max(0, ...counted.map(entry => entry.ur)), layoutCheck: null, ext: { layoutCheck } };
   });
-  return { loads, layout: { mode: reinforcement.mode, reason: layout.reason ?? null, layers: layout.layers, links, summary }, worstSector, detailing, tOut };
+  return { loads, layout: { mode: reinforcement.mode, reason: layout.reason ?? null, layers: layout.layers, links, summary }, worstSector, detailing, tOut, compactOuterZone };
 }

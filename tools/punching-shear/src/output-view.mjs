@@ -13,7 +13,7 @@ const SHORT = {
 };
 const INFO = [STATES.notRequired, STATES.linksRequired];
 // Short name of a check; slab-section rows beyond a drop reuse the base name.
-const shortName = row => SHORT[row.id] ?? (row.id.startsWith('ext-') && SHORT[row.id.slice(4)] ? `Outside drop · ${SHORT[row.id.slice(4)]}` : row.label);
+const shortName = row => (row.id === 'concrete' && row.status === STATES.fail && /links required/.test(row.label) ? 'Links required · concrete at u_1' : null) ?? (row.measure === 'perimeter-length' ? (row.id === 'outer' ? 'Effective outer perimeter' : 'Outside drop · effective outer perimeter') : null) ?? SHORT[row.id] ?? (row.id.startsWith('ext-') && SHORT[row.id.slice(4)] ? `Outside drop · ${SHORT[row.id.slice(4)]}` : row.label);
 const f = (value, digits = 3) => (Number.isFinite(value) ? value.toFixed(digits) : '—');
 const esc = text => String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
@@ -60,7 +60,13 @@ function working(id, row, load, result) {
     case 'kmax':
       return [vEd(result.u1, d).replace('u·d', 'u_1·d'), `limit = k_max·v_Rd,c = ${f(row.resistance / r.vRdc, 2)} × ${f(r.vRdc)} = ${f(row.resistance)} MPa`];
     case 'outer':
-      return [`u_out,ef = β·V_Ed/(v_Rd,c·d) = ${f(beta)} × ${f(V, 1)}×10³ / (${f(r.vRdc)} × ${f(d, 0)}) = ${f(load.uOut, 0)} mm`,
+    case 'ext-outer':
+      if (row.measure === 'perimeter-length') return [
+        `Required length u_out,req = ${f(row.demand, 0)} mm. Effective length u_out,ef = ${f(row.resistance, 0)} mm.`,
+        row.detail,
+      ].filter(Boolean);
+      if (id === 'ext-outer') return [row.detail ?? row.label];
+      return [`u_out,req = β·V_Ed/(v_Rd,c·d) = ${f(beta)} × ${f(V, 1)}×10³ / (${f(r.vRdc)} × ${f(d, 0)}) = ${f(load.uOut, 0)} mm`,
         `a_out = ${f(load.aOut, 0)} mm from the face; outermost layer ≥ a_out − 1.5d = ${f(row.demand, 0)} mm, provided ${f(row.resistance, 0)} mm`];
     case 'ext-concrete':
       return ext ? [vEd(ext.u1, ext.d).replace('u·d', 'u_1,ext·d'), `v_Rd,c with d = ${f(ext.d, 0)} mm = ${f(row.resistance)} MPa`] : [];
@@ -74,7 +80,7 @@ export function renderCompact(panel, result, loadName, selectedId, onSelect) {
     panel.innerHTML = `<p class="compact-empty">${esc(result.issues?.[0]?.message ?? 'Awaiting results')}</p>`;
     return;
   }
-  const load = result.loads.find(item => item.name === loadName) ?? result.loads.find(item => item.name === result.governing.load);
+  const load = result.loads.find(item => item.id === loadName) ?? result.loads.find(item => item.id === result.governing.loadId);
   const rows = load.rows.filter(row => Number.isFinite(row.ur) && !INFO.includes(row.status));
   const governing = rows.filter(row => row.unit !== 'layers').reduce((best, row) => (!best || row.ur > best.ur ? row : best), null);
   const pick = rows.find(row => row.id === selectedId) ?? governing;
@@ -92,15 +98,17 @@ export function renderCompact(panel, result, loadName, selectedId, onSelect) {
     [head?.kind === 'large' && head.inner ? 'd_H' : 'd', `${f(result.section.d, 0)} mm`], ['ρ_l', `${f(r.rho * 100, 2)} %`],
     ['u_0', `${f(result.u0, 0)} mm`], ['u_1', `${f(result.u1, 0)} mm`], ['β', f(load.beta?.value)],
     ['v_Ed', `${f(load.vEd1)} MPa`], ['v_Rd,c', `${f(r.vRdc)} MPa`], ['v_Rd,max', `${f(result.vRdMax)} MPa`],
-    ...(load.aOut > 0 ? [['a_out', `${f(load.aOut, 0)} mm`]] : []),
+    ...(load.required && load.aOut > 0 ? [['u_out,req', `${f(load.uOut, 0)} mm`], ['a_out', `${f(load.aOut, 0)} mm`]] : []),
+    ...(result.layout?.outerEf ? [['u_out,ef', `${f(result.layout.outerEf.u, 0)} mm`]] : []),
     ...(head?.sections?.find(item => item.id === 'ext') ? [['u_1,ext', `${f(head.sections.find(item => item.id === 'ext').u1, 0)} mm`]] : []),
   ].map(([k, v]) => `<div class="key-param"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
+  const methods = result.methods?.map(method => `<p class="compact-case">Software method · ${esc(method)}</p>`).join('') ?? '';
   const lines = pick ? working(pick.id, pick, load, result) : [];
   // Detailing warnings (no UR): shown as a list under the bars.
   const warnings = load.rows.filter(row => row.warning && row.status !== STATES.pass)
     .map(row => `<p class="compact-warning">⚠ ${esc(row.detail ?? row.label)}</p>`).join('');
   panel.innerHTML = `<div class="compact-head"><span class="compact-ur ${tone(result.status)}">${governing ? governing.ur.toFixed(3) : '—'}</span><span class="compact-status ${tone(result.status)}">${esc(result.status)}</span></div>`
-    + `<p class="compact-case">${esc(caseLine(result))}</p>`
+    + `<p class="compact-case">${esc(caseLine(result))}</p>` + methods
     + `<p class="compact-governing">Governing: ${esc(governing ? shortName(governing) : '—')} · ${esc(load.name)}</p>`
     + `<div class="ur-list" role="list">${bars}</div>${warnings}`
     + `<h3 class="compact-title">Key parameters</h3><div class="key-grid">${keys}</div>`

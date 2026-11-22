@@ -435,10 +435,12 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   const status = page.locator('#design-status');
   // Defaults: Singapore NA, β from moments, d from h, cover and bars; a result straight away.
   await expect(page.getByLabel('Parameter set')).toHaveValue('sg');
-  await page.getByLabel('1 V_Ed', { exact: true }).fill('800');
-  // No links by default: links are needed at V = 800 kN, so Fail until the tick.
+  await page.getByLabel('1 V_Ed', { exact: true }).fill('775');
+  // No links by default: links are needed at V = 775 kN, so Fail until the tick.
   await expect(page.getByLabel('Links', { exact: true })).toBeHidden();
   await expect(status).toContainText('Design status: Fail');
+  await expect(page.locator('#design-basis')).toContainText('Singapore National Annex');
+  await expect(page.locator('#column-check-summary')).toContainText('Links required');
   await page.getByLabel('Provide punching reinforcement (shear links)').check();
   await expect(status).toContainText('Design status: Pass');
   await expect(page.locator('#layers-anchor')).toBeHidden(); // custom table only in custom mode
@@ -449,23 +451,32 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await expect(page.locator('#messages')).toContainText('geometry is an internal column');
   await page.getByLabel('Column position').selectOption('internal');
   const schedule = page.locator('#layer-schedule tbody tr');
-  await expect(schedule).toHaveCount(3); // default: orthogonal grid, s_r = 150 mm
+  await expect(schedule).toHaveCount(2); // Singapore compact link zone.
+  await page.getByRole('tab', { name: 'Compare layouts' }).click();
+  await expect(page.locator('#layout-comparison tbody tr')).toHaveCount(3);
+  await page.getByRole('tab', { name: 'Plan' }).click();
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
+  const linkCount = await page.locator('#plan-view [data-link]').count();
   await page.getByLabel('Links', { exact: true }).selectOption('provided');
   await expect(page.locator('#layers-anchor')).toBeVisible();
-  await expect(page.locator('#layers-anchor tbody tr')).toHaveCount(3); // starts from the auto arrangement
+  await expect(page.locator('#layers-anchor tbody tr')).toHaveCount(2);
+  await expect(page.locator('#plan-view [data-link]')).toHaveCount(linkCount);
   await page.getByRole('button', { name: 'What is s_t?' }).click();
   await expect(page.locator('.info-note')).toContainText('tangential spacing');
   await page.getByRole('button', { name: 'Link arrangement: add row' }).click();
-  await expect(schedule).toHaveCount(4);
+  await expect(schedule).toHaveCount(3);
   await page.locator('#plan-view [data-link="L2-3"]').click();
   await expect(page.locator('#selection-info')).toContainText('L2-3');
   await page.getByRole('button', { name: 'Omit selected link' }).click();
   await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Load combinations: add row' }).click();
+  await page.getByLabel('2 Name', { exact: true }).fill('ULS 1');
   await page.getByLabel('2 M_y', { exact: true }).fill('60');
   await page.getByLabel('2 V_Ed', { exact: true }).fill('500');
   await expect(page.locator('#combination option')).toHaveCount(2);
+  await page.locator('#combination').selectOption({ index: 1 });
+  await expect(page.locator('#combination option:checked')).toContainText('row 2');
+  await page.locator('#combination').selectOption({ index: 0 });
   const shell = page.getByRole('navigation', { name: 'Design workspace' });
   await shell.getByLabel('Design name').fill('PS-01 internal column');
   await shell.getByRole('button', { name: 'Save', exact: true }).click();
@@ -474,7 +485,7 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.reload();
   await expect(shell.getByLabel('Design name')).toHaveValue('PS-01 internal column', { timeout: 45000 });
   await expect(page.getByLabel('Links', { exact: true })).toHaveValue('provided');
-  await expect(schedule).toHaveCount(4);
+  await expect(schedule).toHaveCount(3);
   await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
   await expect(page.getByLabel('2 M_y', { exact: true })).toHaveValue('60');
   await expect(status).toHaveText(before);
@@ -485,10 +496,14 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.setViewportSize({ width: 375, height: 812 });
   const plan = await page.locator('#plan-view svg').boundingBox();
   expect(plan.x + plan.width).toBeLessThanOrEqual(375);
+  await page.getByRole('tab', { name: 'Compare layouts' }).click();
+  await expect(page.locator('#layout-comparison tbody tr')).toHaveCount(3);
+  expect(await page.locator('#layout-comparison').evaluate(node => getComputedStyle(node).overflowX)).toBe('auto');
+  await page.getByRole('tab', { name: 'Plan' }).click();
   await page.setViewportSize(viewport);
   await shell.getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
-  await expect(page.getByText('PUNCHING SHEAR CHECK – INTERNAL COLUMN (EC2)').first()).toBeVisible({ timeout: 65000 });
+  await expect(page.getByText('PUNCHING SHEAR CHECK (EC2)').first()).toBeVisible({ timeout: 65000 });
 });
 
 test('loads the punching shear worked cases, including drop panels', async ({ page }) => {

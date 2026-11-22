@@ -30,7 +30,7 @@ export function renderSummary(panel, statusLine, result, loadName) {
     statusLine.dataset.tone = tone(result.status);
     return;
   }
-  const load = result.loads.find(entry => entry.name === loadName) ?? result.loads.find(entry => entry.name === result.governing.load);
+  const load = result.loads.find(entry => entry.id === loadName) ?? result.loads.find(entry => entry.id === result.governing.loadId);
   renderColumnSummary(panel, summaryRows(load));
   statusLine.textContent = `Design status: ${result.status} · governing: ${result.governing.load}, ${result.governing.check ?? '—'}`;
   statusLine.dataset.tone = tone(result.status);
@@ -39,7 +39,7 @@ export function renderSummary(panel, statusLine, result, loadName) {
 export function renderDetails(list, result, loadName) {
   list.replaceChildren();
   if (!result.section) return;
-  const load = result.loads.find(entry => entry.name === loadName) ?? result.loads[0];
+  const load = result.loads.find(entry => entry.id === loadName) ?? result.loads[0];
   const { section, resistance: r } = result;
   if (!load.vEd1) return;
   const entries = [
@@ -51,7 +51,7 @@ export function renderDetails(list, result, loadName) {
     ['k = 1 + √(200/d) ≤ 2', fmt(r.k, 3)],
     ['v_min (Eq. 6.3N)', `${fmt(r.vMin)} MPa`],
     ['v_Rd,c (Eq. 6.47)', `${fmt(r.vRdc)} MPa`],
-    ['v_Rd,max (0.4 ν f_cd)', `${fmt(result.vRdMax)} MPa`],
+    [`v_Rd,max (${result.profile.vRdMaxFactor} ν f_cd)`, `${fmt(result.vRdMax)} MPa`],
     ['u_0, u_1', `${fmt(result.u0, 0)}, ${fmt(result.u1, 0)} mm`],
     ...(result.u1Star ? [['u_1* (Fig. 6.20)', `${fmt(result.u1Star, 0)} mm`]] : []),
     ...(r.sigmaCp ? [['σ_cp (Eq. 6.47)', `${fmt(r.sigmaCp, 2)} MPa`]] : []),
@@ -63,7 +63,9 @@ export function renderDetails(list, result, loadName) {
   if (load.beta.terms?.ePerp !== undefined) entries.push(['e ⊥ edge (interior +), e ∥ edge', `${fmt(load.beta.terms.ePerp, 1)}, ${fmt(load.beta.terms.ePar, 1)} mm`]);
   if (load.beta.terms?.betaCrossed) entries.push(['β, both Eq. 6.43 pairings', `${fmt(load.beta.terms.betaParallel)}, ${fmt(load.beta.terms.betaCrossed)}`]);
   if (load.required) {
-    entries.push(['u_out,ef (Eq. 6.54)', `${fmt(load.uOut, 0)} mm at a_out = ${fmt(load.aOut, 0)} mm`]);
+    entries.push(['u_out,req (Eq. 6.54)', `${fmt(load.uOut, 0)} mm at a_out = ${fmt(load.aOut, 0)} mm`]);
+    const outer = load.rows.find(row => row.id === 'outer' && row.measure === 'perimeter-length');
+    if (outer) entries.push(['u_out,ef (Fig. 6.22)', `${fmt(outer.resistance, 0)} mm`]);
     entries.push(['A_sw required per perimeter', `${fmt(load.aswReq, 0)} mm² at s_r = ${fmt(result.envelope.sr, 0)} mm`]);
   }
   for (const entry of result.detailing?.rows ?? []) entries.push([`${entry.label} (${entry.clause})`, `${entry.status}${entry.detail ? ' · ' + entry.detail : ''}`]);
@@ -171,4 +173,46 @@ export function renderAutoSchedule(host, result) {
   host.innerHTML = `<p class="card-subhead">Auto schedule</p>`
     + `<table class="column-summary-table auto-schedule"><thead><tr><th>Layer</th><th>From face</th><th>s_r</th><th>Links</th><th>Ø</th><th>s_t max</th><th>A_sw</th></tr></thead><tbody>${rows}</tbody></table>`
     + `<p class="table-caption">${total} links${edge ? `, of which ${edge} fill the drop to its edge (detailing)` : ''}. mm, mm². Full checks per layer: Schedule tab.</p>`;
+}
+
+const comparisonCache = new WeakMap();
+
+export function renderArrangementComparison(host, result, input, calculate) {
+  host.replaceChildren();
+  const note = document.createElement('p');
+  note.className = 'table-caption';
+  if (!input.reinforcement.enabled || input.head?.enabled || !result.loads?.some(load => load.required)) {
+    note.textContent = 'Compare layouts for a slab without a drop when punching links are enabled and required.';
+    host.append(note);
+    return;
+  }
+  let comparisons = comparisonCache.get(result);
+  if (!comparisons) {
+    comparisons = [['grid', 'Orthogonal grid'], ['radial', 'Radial rails'], ['cruciform', 'Cruciform rails']]
+      .map(([arrangement, label]) => [label, calculate({ ...input, reinforcement: { ...input.reinforcement, mode: 'auto', arrangement } })]);
+    comparisonCache.set(result, comparisons);
+  }
+  note.textContent = 'All arrangements use the current geometry, actions, link size and spacing limits.';
+  const table = document.createElement('table');
+  table.className = 'column-summary-table';
+  const header = table.createTHead().insertRow();
+  for (const label of ['Arrangement', 'Status', 'Links', 'Governing s_t', 'u_out,req (mm)', 'u_out,ef (mm)', 'Combination']) {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.textContent = label;
+    header.append(th);
+  }
+  const body = table.createTBody();
+  for (const [label, design] of comparisons) {
+    const governing = design.loads.find(load => load.id === design.governing?.loadId);
+    const tangential = governing?.rows.find(check => check.id === 'tangential');
+    const row = body.insertRow();
+    for (const value of [label, design.status, design.layout?.links.length ?? '—',
+      tangential ? `${fmt(tangential.demand, 0)} / ${fmt(tangential.resistance, 0)} mm` : '—',
+      fmt(design.envelope?.uOut, 0), fmt(design.layout?.outerEf?.u, 0), design.governing?.load ?? '—']) {
+      row.insertCell().textContent = value;
+    }
+    if (design.layout?.reason) row.cells[1].title = design.layout.reason;
+  }
+  host.append(note, table);
 }
