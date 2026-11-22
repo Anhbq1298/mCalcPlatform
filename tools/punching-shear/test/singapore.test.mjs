@@ -64,3 +64,29 @@ test('slab thickness drives the effective depth and the result (default bar-deri
   bad.slab.h = 200; // entered d = 218 > h − c
   assert.equal(calculate(bad).status, 'Incomplete input');
 });
+
+test('SG compact zone governs auto and provided layouts below the 3d boundary', async () => {
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  input.reinforcement.enabled = true;
+  input.loads[0].V = 775;
+  const auto = calculate(input);
+  assert.equal(auto.compactOuterZone, true);
+  assert.equal(auto.status, 'Pass');
+  assert.deepEqual(auto.layout.layers.map(layer => layer.offset), [80, 230]);
+  assert.ok(auto.loads[0].rows.some(row => row.id === 'sg-last-max' && row.resistance === 313.5));
+
+  input.reinforcement.mode = 'provided';
+  input.reinforcement.groups = [80, 150, 150].map(spacing => ({ spacing, st: 100, diameter: 10, shape: 'single' }));
+  const provided = calculate(input);
+  assert.equal(provided.loads[0].rows.find(row => row.id === 'sg-last-max').status, 'Fail');
+
+  const { d } = auto.section;
+  const VAtBoundary = auto.model.intervalsAt(3 * d).total * auto.resistance.vRdc * d / 1000;
+  input.loads[0].V = VAtBoundary - 0.001;
+  assert.equal(calculate(input).compactOuterZone, true);
+  input.loads[0].V = VAtBoundary;
+  assert.equal(calculate(input).compactOuterZone, false);
+  input.loads[0].V = VAtBoundary + 0.001;
+  assert.equal(calculate(input).compactOuterZone, false);
+});

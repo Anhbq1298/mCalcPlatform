@@ -92,10 +92,10 @@ test('stress figure: plastic distribution, one moment → peak v_V + v_M at u1 e
   assert.ok(Math.abs(vmax[1] - check[1]) <= 0.0011, `${vmax[1]} vs ${check[1]}`);
 });
 
-test('Help holds the status policy, verification table and handling of open points', async () => {
+test('Help explains calculation methods and retains benchmark references', async () => {
   const { readFileSync } = await import('node:fs');
   const help = readFileSync(new URL('../help.html', import.meta.url), 'utf8');
-  assert.ok(help.includes('9 Status, verification and how the tool calculates'));
+  assert.ok(help.includes('9 How mPunchingShear calculates results'));
   assert.ok(help.includes('Ancon') && help.includes('JRC') && help.includes('Σ min(L<sub>i</sub>, 2d)'));
 });
 

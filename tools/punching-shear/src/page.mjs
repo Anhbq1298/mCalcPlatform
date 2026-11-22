@@ -11,7 +11,7 @@ import { htmlSubscripts } from './subscript.mjs';
 import { LINK_DIAMETERS, layersToGroups, newDefaults, restoreInputs } from './inputs.mjs';
 import { planSvg } from './plan-view.mjs';
 import { renderCompact } from './output-view.mjs';
-import { renderAutoSchedule, renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
+import { renderArrangementComparison, renderAutoSchedule, renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
 import { sectionSvg } from './section-view.mjs';
 import { mountTable } from './table-controls.mjs';
 import { buildWorksheet } from './worksheet.mjs';
@@ -42,7 +42,7 @@ const refreshOpenings = mountTable(byId('openings-anchor'), {
 });
 const refreshLoads = mountTable(byId('loads-anchor'), {
   caption: 'Load combinations', columns: [['name', 'Name', 'text'], ['V', '$V_{Ed}$', number], ['Mx', '$M_x$', number], ['My', '$M_y$', number]],
-  getRows: () => state.loads, newRow: index => ({ name: 'ULS ' + (index + 1), V: 0, Mx: 0, My: 0 }), onChange: () => schedule(), minRows: 1,
+  getRows: () => state.loads, newRow: index => ({ id: crypto.randomUUID(), name: 'ULS ' + (index + 1), V: 0, Mx: 0, My: 0 }), onChange: () => schedule(), minRows: 1,
   addLabel: '+ Combination', removeLabel: '− Combination', rowLabel: index => String(index + 1),
 });
 const layerAnchor = byId('layers-anchor');
@@ -64,6 +64,13 @@ const refreshLayers = mountTable(layerTableHost, {
     const d = result?.section?.d ?? 200;
     const step = Math.floor((previous ? 0.75 * d : 0.4 * d) / 5) * 5;
     return { spacing: step, diameter: previous?.diameter ?? 10, shape: previous?.shape ?? 'single', st: previous?.st ?? Math.floor((1.5 * d) / 5) * 5 };
+  },
+  onEdit: (index, key) => {
+    const groups = state.reinforcement.groups;
+    if (key === 'st' || key === 'spacing') {
+      const affected = key === 'spacing' ? groups.slice(index) : [groups[index]];
+      for (const group of affected) { delete group.points; delete group.arrangement; }
+    }
   },
   onChange: () => schedule(), addLabel: '+ Layer', removeLabel: '− Layer', rowLabel: index => 'L' + (index + 1),
 });
@@ -131,6 +138,7 @@ const tabs = [...document.querySelectorAll('.drawing-tabs [role="tab"]')];
 for (const tab of tabs) tab.addEventListener('click', () => {
   for (const other of tabs) other.setAttribute('aria-selected', String(other === tab));
   for (const panel of document.querySelectorAll('.tab-panel')) panel.hidden = panel.dataset.panel !== tab.dataset.tab;
+  if (tab.dataset.tab === 'compare') render();
 });
 byId('load-type').addEventListener('input', event => { state.loadType = event.target.value; schedule(); });
 byId('combination').addEventListener('input', render);
@@ -199,27 +207,37 @@ function recalculate() {
     status.textContent = result.status + (Number.isFinite(result.governing?.ur) ? ` · UR ${result.governing.ur.toFixed(2)}` : '');
     status.dataset.tone = result.status === 'Pass' ? 'pass' : result.status === 'Fail' ? 'fail' : 'warn';
   } catch (error) {
-    result = null;
+    result = { status: 'Calculation error', loads: [], issues: [{ state: 'Calculation error', message: error.message }], profile: result?.profile };
     status.textContent = 'Calculation error: ' + error.message;
+    status.dataset.tone = 'fail';
   }
   render();
 }
 
 function render() {
   if (!result) return;
-  const names = result.loads.map(load => load.name);
   const current = combination.value;
-  combination.replaceChildren(...names.map(name => new Option(name + (name === result.governing?.load ? ' (governing)' : ''), name)));
-  combination.value = names.includes(current) ? current : result.governing?.load ?? '';
+  const duplicate = name => result.loads.filter(load => load.name === name).length > 1;
+  combination.replaceChildren(...result.loads.map((load, index) => new Option(
+    load.name + (duplicate(load.name) ? ` (row ${index + 1})` : '') + (load.id === result.governing?.loadId ? ' (governing)' : ''), load.id,
+  )));
+  combination.value = result.loads.some(load => load.id === current) ? current : result.governing?.loadId ?? '';
+  byId('design-basis').textContent = result.profile ? `EN 1992-1-1:2004 · ${result.profile.label}` : '';
   renderSummary(document.createElement('div'), byId('design-status'), result, combination.value);
-  renderCompact(byId('column-check-summary'), result, combination.value, selectedCheck, id => { selectedCheck = id; render(); });
+  renderCompact(byId('column-check-summary'), result, combination.value, selectedCheck, id => { selectedCheck = id; byId('plan-tab').click(); render(); });
   renderMessages(byId('messages'), result);
   renderDetails(byId('checks'), result, combination.value);
-  renderBasis(byId('code-basis'), result.profile);
+  if (result.profile) renderBasis(byId('code-basis'), result.profile);
+  else byId('code-basis').replaceChildren();
+  const comparisonHost = byId('layout-comparison');
+  if (!comparisonHost.closest('[hidden]')) {
+    renderArrangementComparison(comparisonHost, result, state, calculate);
+    htmlSubscripts(comparisonHost);
+  }
   const drawable = Boolean(result.section);
-  byId('plan-view').innerHTML = drawable ? planSvg(result, { selected }) : '';
+  byId('plan-view').innerHTML = drawable ? planSvg(result, { selected, checkId: selectedCheck, loadId: combination.value }) : '';
   byId('sign-view').innerHTML = drawable ? signSvg(result) : '';
-  byId('stress-view').innerHTML = drawable && result.loads?.length ? stressSvg(result, { load: result.loads.find(item => item.name === byId('combination').value) }) : '';
+  byId('stress-view').innerHTML = drawable && result.loads?.length ? stressSvg(result, { load: result.loads.find(item => item.id === combination.value) }) : '';
   byId('section-view').innerHTML = drawable ? sectionSvg(result, { axis: 'x' }) : '';
   byId('section-view-b').innerHTML = drawable ? sectionSvg(result, { axis: 'y' }) : '';
   const link = result.layout?.links.find(entry => entry.id === selected);

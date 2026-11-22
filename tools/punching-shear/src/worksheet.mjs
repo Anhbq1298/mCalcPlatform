@@ -17,9 +17,10 @@ export function buildWorksheet(full, { pageHeight, pageGap, designName = 'Punchi
   const { input } = result;
   const { column } = input;
   const rect = column.shape === 'rectangular';
-  doc.heading('PUNCHING SHEAR CHECK – INTERNAL COLUMN (EC2)', 1);
+  doc.heading('PUNCHING SHEAR CHECK (EC2)', 1);
   doc.text(`Design: ${esc(designName)}. ${esc(result.profile.standard)}. ${esc(result.profile.nationalAnnex)}.`);
   doc.text(`Design status: <b>${esc(result.status)}</b>. Governing: ${esc(result.governing?.load ?? '—')}, ${esc(result.governing?.check ?? '—')}, UR = ${result.governing?.ur?.toFixed(3) ?? '—'}.`);
+  for (const method of result.methods ?? []) doc.text('Software method · ' + esc(method), 12);
   for (const issue of result.issues) doc.text(`${esc(issue.state)}: ${esc(issue.message)}`, 12);
   for (const note of result.notes) doc.text(esc(note), 12);
   if (!result.section) return doc.finish();
@@ -202,18 +203,22 @@ function combination(doc, result, load, i, rect, hasSr) {
   }
   doc.text('v_Ed > v_Rd,c: punching reinforcement required (§6.4.5).', 12);
   doc.math('Upper limit with links', R`v_{Ed1.${i}}\le k_{max}v_{Rd.c}`, { displayUnit: 'MPa', mode: 'auto' });
-  const ef = result.layout?.outerEf;
-  doc.math(ef ? 'u_out,req (Eq. 6.54)' : 'u_out,ef (Eq. 6.54)', define(`u_{out.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{v_{Rd.c}d}`), { displayUnit: 'mm', precision: 0 });
-  doc.math(result.shadows?.length ? 'Offset of u_out,ef (measured by the tool)' : 'Offset of u_out,ef from the face', define(`a_{out.${i}}`, outerOffset(result, i, rect)), { displayUnit: 'mm', precision: 0 });
+  const ef = load.rows.find(row => row.id === 'outer' && row.measure === 'perimeter-length');
+  doc.math('u_out,req (Eq. 6.54)', define(`u_{out.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{v_{Rd.c}d}`), { displayUnit: 'mm', precision: 0 });
+  doc.math(result.shadows?.length ? 'Offset of u_out,req (measured by the tool)' : 'Offset of u_out,req from the face', define(`a_{out.${i}}`, outerOffset(result, i, rect)), { displayUnit: 'mm', precision: 0 });
   if (hasSr) {
     doc.math('v_Rd,cs (Eq. 6.52)', define(`v_{Rd.cs.${i}}`, R`0.75v_{Rd.c}+1.5\frac{d}{s_{r}}\frac{A_{sw}f_{ywd.ef}}{u_{1}d}`), { displayUnit: 'MPa' });
     doc.math('', R`v_{Ed1.${i}}\le v_{Rd.cs.${i}}`, { displayUnit: 'MPa', mode: 'auto' });
     const last = result.layout.summary.length;
     if (ef) {
       // Fig. 6.22: perimeter 1.5d outside the outer links, gaps > 2d counted as 2d (tool value).
-      doc.math('u_out,ef 1.5d outside the outer links, Σmin(L_i, 2d) + 2π·1.5d (Fig. 6.22)', define(`u_{out.ef.${i}}`, num(ef.u) + unit.mm), { displayUnit: 'mm', precision: 0 });
+      doc.math('u_out,ef 1.5d outside the outer links, Σmin(L_i, 2d) + 2π·1.5d (Fig. 6.22)', define(`u_{out.ef.${i}}`, num(ef.resistance) + unit.mm), { displayUnit: 'mm', precision: 0 });
       doc.math('Outer perimeter (§6.4.5(4))', R`u_{out.ef.${i}}\ge u_{out.${i}}`, { displayUnit: 'mm', mode: 'auto' });
-    } else doc.math('Outer coverage (§6.4.5(4))', R`a_{L${last}}\ge a_{out.${i}}-1.5d`, { displayUnit: 'mm', mode: 'auto' });
+    } else if (!result.compactOuterZone) doc.math('Outer coverage (§6.4.5(4))', R`a_{L${last}}\ge a_{out.${i}}-1.5d`, { displayUnit: 'mm', mode: 'auto' });
+    if (result.compactOuterZone) {
+      doc.math('SG NA §6.4.5(4): first layer', R`0.3d\le a_{L1}`, { displayUnit: 'mm', mode: 'auto' });
+      doc.math('SG NA §6.4.5(4): last layer', R`a_{L${last}}\le1.5d`, { displayUnit: 'mm', mode: 'auto' });
+    }
   }
 }
 

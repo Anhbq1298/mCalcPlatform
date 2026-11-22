@@ -15,32 +15,38 @@ function firstEffective(model, r, fraction = 0) {
 }
 
 // Worst tangential gap of the governing combination, in the section (column or drop) that owns it.
-function governingGap(result, extColumn) {
-  const load = result.loads?.find(entry => entry.name === result.governing?.load);
+function governingGap(result, load, extColumn, checkId) {
   const rows = [
     ...(load?.layoutCheck?.layerRows ?? []).map(entry => ({ ...entry, column: result.model?.column })),
     ...(load?.ext?.layoutCheck?.layerRows ?? []).map(entry => ({ ...entry, column: extColumn })),
-  ].filter(entry => entry.column);
+  ].filter(entry => entry.column && entry.layer.tangential.gaps.length
+    && (!checkId || checkId.startsWith('ext-') === (entry.column === extColumn)));
   const worst = rows.reduce((best, entry) => (!best || (entry.tangential.ur ?? 0) > (best.tangential.ur ?? 0) ? entry : best), null);
   if (!worst) return null;
   const gap = worst.layer.tangential.gaps.reduce((a, b) => (b.length > a.length ? b : a));
   return { layer: worst.layer, gap, column: worst.column, fails: worst.tangential.status === 'Fail' };
 }
 
-export function planSvg(result, { width = 640, height = 600, selected = null } = {}) {
+export function planSvg(result, { width = 640, height = 600, selected = null, checkId = null, loadId = null } = {}) {
   const input = result.input;
+  const load = result.loads?.find(entry => entry.id === (loadId ?? result.governing?.loadId));
+  const activeRow = load?.rows.find(row => row.id === checkId);
+  const selectedCheck = (id, outer = false) => checkId === (outer ? 'ext-' : '') + id;
+  const stroke = (id, color, outer = false) => selectedCheck(id, outer) ? COLORS.governing : color;
+  const basicSelected = ['concrete', 'reinforced', 'kmax'].some(id => selectedCheck(id));
+  const extSelected = ['concrete', 'reinforced', 'kmax'].some(id => selectedCheck(id, true));
   const column = input.column;
   const pathColumn = result.model?.column ?? column; // loaded area of the solved section
   const head = result.head;
   const d = result.section?.d ?? 0;
   const u1Offset = result.u1Offset ?? 2 * d;
   const layers = result.layout?.layers ?? [];
-  const aOut = result.envelope?.uOut ? result.envelope.aOut : 0;
+  const aOut = Math.max(0, (loadId ? load?.required && load.aOut : result.envelope?.aOut) || 0);
   const ext = head?.kind === 'large' && head.inner ? head.sections.find(item => item.id === 'ext') : null;
   const outerOnly = (head?.kind === 'large' && !head.inner) || (head?.kind === 'small' && !head.rcont);
   const extSection = head?.sections?.find(item => item.id === 'ext');
   const extModel = extSection?.model ?? null; // the drop as the loaded area
-  const extOut = ext && extSection.aOut > 0 ? extSection.aOut : 0; // u_out,ef of the slab section
+  const extOut = ext ? Math.max(0, (loadId ? load?.ext?.required && load.ext.aOut : extSection.aOut) || 0) : 0; // u_out,ef of the slab section
   const headReach = head ? Math.max(...head.lH) + Math.max(2 * head.d, extOut) : 0;
   const efReach = result.layout?.outerEf ? Math.max(...layers.map(layer => layer.offset)) * Math.SQRT2 + 1.5 * d : 0; // grid ring corners
   const reach = Math.max(u1Offset, aOut, headReach, efReach, ...layers.map(layer => layer.offset), 0);
@@ -94,36 +100,38 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     const inner = Math.max(aOut - 1.5 * d, 0);
     parts.push(perimeter(aOut, COLORS.muted, '2 3', 0.8));
     parts.push(labelAt(aOut, 'u_out,req (a_out)', COLORS.muted, 0.2 * model.intervalsAt(aOut).u));
-    if (inner > 0) parts.push(perimeter(inner, COLORS.muted, '6 2 1 2', 0.8));
+    if (inner > 0 && !result.compactOuterZone) parts.push(perimeter(inner, COLORS.muted, '6 2 1 2', 0.8));
     const lines = effectiveOuterLines(outerEf.segments, 1.5 * d).map(line => line.map(p => toGlobal(model.column, p)));
-    for (const line of lines) parts.push(polyline(line, view, `fill="none" stroke="${COLORS.uout}" stroke-width="1.2" stroke-dasharray="${DASH.uout}"`));
+    for (const line of lines) parts.push(polyline(line, view, `fill="none" stroke="${stroke('outer', COLORS.uout)}" stroke-width="${selectedCheck('outer') ? 3 : 1.2}" stroke-dasharray="${DASH.uout}"`));
     const tip = lines.flat().reduce((low, p) => (!low || p.y < low.y ? p : low), null); // lowest point
     if (tip) parts.push(`<text class="label" x="${n(view.x(tip.x) + 40)}" y="${n(view.y(tip.y) + 14)}" fill="${COLORS.uout}">u_out,ef</text>`);
     // Callout in the free top-left corner: position rule and length check.
-    const req = model.intervalsAt(aOut).total;
+    const req = (loadId ? load?.uOut : result.envelope.uOut) ?? model.intervalsAt(aOut).total;
     const last = layers.at(-1);
     const ok = outerEf.u >= req - 1e-6;
     [`u_out,req = βV/(v_Rd,c·d) = ${req.toFixed(0)} mm (drawn at a_out = ${aOut.toFixed(0)})`,
-      `outer links ≥ a_out − 1.5d = ${inner.toFixed(0)} mm (dash-dot): ${last.id} at ${last.offset.toFixed(0)}`,
+      result.compactOuterZone
+        ? `SG NA link zone: 0.3d to 1.5d; ${last.id} at ${last.offset.toFixed(0)} mm`
+        : `Outermost link layer: ${last.id} at ${last.offset.toFixed(0)} mm`,
       `u_out,ef (Fig. 6.22) = ${outerEf.u.toFixed(0)} ${ok ? '≥' : '<'} ${req.toFixed(0)} mm: ${ok ? 'OK' : 'NOT OK'}`,
     ].forEach((line, k) => parts.push(`<text class="small" x="12" y="${18 + 14 * k}">${esc(line)}</text>`));
   } else if (aOut > 0) {
-    parts.push(perimeter(aOut, COLORS.uout, DASH.uout, 1));
-    parts.push(labelAt(aOut, 'u_out,ef', COLORS.uout, firstEffective(model, aOut, 0.16)));
+    parts.push(perimeter(aOut, stroke('outer', COLORS.uout), DASH.uout, selectedCheck('outer') ? 3 : 1));
+    parts.push(labelAt(aOut, 'u_out,req', COLORS.uout, firstEffective(model, aOut, 0.16)));
   }
   if (head) parts.push(headOutline(input, view, Math.max(26, (reach - Math.min(...head.lH)) * view.scale * 0.75)));
   if (ext) {
-    parts.push(polyline(pathPolyline(ext.model.column, 2 * head.d), view, `fill="none" stroke="${COLORS.ink}" stroke-width="1.1" stroke-dasharray="${DASH.ext}"`, true));
+    parts.push(polyline(pathPolyline(ext.model.column, 2 * head.d), view, `fill="none" stroke="${extSelected ? COLORS.governing : COLORS.ink}" stroke-width="${extSelected ? 3 : 1.1}" stroke-dasharray="${DASH.ext}"`, true));
     const p = toGlobal(ext.model.column, pointAt(ext.model.column, 2 * head.d, 0.09 * ext.u1));
     parts.push(`<text class="label" x="${n(view.x(p.x) + 4)}" y="${n(view.y(p.y) - 4)}">u1,ext (2d from drop)</text>`);
     if (extOut > 0) {
-      parts.push(perimeter(extOut, COLORS.uout, DASH.uout, 1, extModel));
+      parts.push(perimeter(extOut, stroke('outer', COLORS.uout, true), DASH.uout, selectedCheck('outer', true) ? 3 : 1, extModel));
       const q = toGlobal(extModel.column, pointAt(extModel.column, extOut, firstEffective(extModel, extOut, 0.2)));
-      parts.push(`<text class="label" x="${n(view.x(q.x) + 4)}" y="${n(view.y(q.y) - 4)}">u_out,ef,ext</text>`);
+      parts.push(`<text class="label" x="${n(view.x(q.x) + 4)}" y="${n(view.y(q.y) - 4)}">u_out,req,ext</text>`);
     }
   }
   if (d > 0) {
-    parts.push(perimeter(u1Offset, COLORS.u1, DASH.u1, 1.3));
+    parts.push(perimeter(u1Offset, basicSelected ? COLORS.governing : COLORS.u1, DASH.u1, basicSelected ? 3 : 1.3));
     const u1Label = toGlobal(pathColumn, pointAt(pathColumn, u1Offset, firstEffective(model, u1Offset, head?.kind === 'small' ? 0.1 : 0.3)));
     const name = outerOnly || (head?.kind === 'small' && !head.rcont) ? 'u1,ext (2d from drop)' : head?.kind === 'large' ? 'u1,int (d_H)' : head?.kind === 'small' ? `u1 at r_cont (${head.rcont.eq})` : 'u1 (2d)';
     parts.push(`<text class="label" x="${n(view.x(u1Label.x) + 4)}" y="${n(view.y(u1Label.y) - 5)}">${esc(name)}</text>`);
@@ -133,12 +141,14 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     const m = layer.zone === 'slab' && extModel ? extModel : model;
     const r = layer.pathOffset ?? layer.offset;
     const pc = m?.column ?? pathColumn;
-    parts.push(perimeter(r, COLORS.muted, DASH.layer, 0.6, m));
+    const active = activeRow?.governing === layer.id;
+    parts.push(perimeter(r, active ? COLORS.governing : COLORS.muted, DASH.layer, active ? 2.5 : 0.6, m));
     const p = toGlobal(pc, pointAt(pc, r, firstEffective(m, r, 0.42)));
     const zoneEnd = layers[index + 1]?.zone !== layer.zone || layers[index - 1]?.zone !== layer.zone;
     if (index === 0 || index === layers.length - 1 || zoneEnd) parts.push(`<text class="small" x="${n(view.x(p.x) - 6)}" y="${n(view.y(p.y) - 6)}" text-anchor="end">${esc(layer.id ?? 'L' + (index + 1))}</text>`);
   }
-  const gov = governingGap(result, extModel?.column);
+  const gapCheck = checkId === 'tangential' || checkId === 'ext-tangential';
+  const gov = !checkId || gapCheck ? governingGap(result, load, ext && extModel?.column, gapCheck ? checkId : null) : null;
   if (gov) {
     const points = [];
     const steps = 40;
@@ -147,7 +157,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
     parts.push(polyline(points, view, `fill="none" stroke="${gov.fails ? COLORS.ink : COLORS.governing}" stroke-width="4" stroke-opacity=".75" stroke-linecap="round"${gov.fails ? ' stroke-dasharray="6 3"' : ''} data-governing="${esc(gov.layer.id)}"`));
   }
   const outline = column.shape === 'circular' ? pathPolyline(column, 0) : [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => toGlobal(column, { x: sx * column.cx / 2, y: sy * column.cy / 2 }));
-  parts.push(polyline(outline, view, `fill="url(#concrete)" stroke="${COLORS.ink}" stroke-width="1.6"`, true));
+  parts.push(polyline(outline, view, `fill="url(#concrete)" stroke="${stroke('max', COLORS.ink)}" stroke-width="${selectedCheck('max') ? 3 : 1.6}"`, true));
   const reachLine = reach + 0.6 * margin;
   for (const [ax, ay] of [[1, 0], [0, 1]]) {
     const a = toGlobal(column, { x: -ax * reachLine, y: -ay * reachLine });
@@ -157,7 +167,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null } =
   }
   for (const link of result.layout?.links ?? []) {
     const radius = Math.max(2.4, (link.diameter / 2) * view.scale);
-    const isSelected = selected === link.id;
+    const isSelected = selected === link.id || selected === link.layerId;
     let body = '';
     if (link.legs.length === 2) body += `<line x1="${n(view.x(link.legs[0].x))}" y1="${n(view.y(link.legs[0].y))}" x2="${n(view.x(link.legs[1].x))}" y2="${n(view.y(link.legs[1].y))}" stroke="${COLORS.link}" stroke-width="1.6"/>`;
     for (const leg of link.legs) {

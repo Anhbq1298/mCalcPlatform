@@ -39,7 +39,7 @@ export function newDefaults() {
     head: { enabled: false, shape: 'rectangular', lx: 1500, ly: 1500, diameter: 1500, thickness: 400 },
     openings: [],
     loadType: 'net',
-    loads: [{ name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
+    loads: [{ id: 'uls-1', name: 'ULS 1', V: 1112.197, Mx: 0, My: 0 }],
     beta: { method: 'moment', confirmed: false, userValue: 1.15 },
     reinforcement: {
       enabled: false, mode: 'auto', arrangement: 'grid', srAuto: true, sr: 150, st: 150, thin: true, diameter: 10, shape: 'single', legGap: 100, groups: [], omitted: {},
@@ -96,7 +96,23 @@ function migrate(saved) {
 }
 
 export function restoreInputs(saved) {
-  return merge(newDefaults(), migrate(structuredClone(saved ?? {})));
+  const input = merge(newDefaults(), migrate(structuredClone(saved ?? {})));
+  if (!Array.isArray(input.loads)) return input;
+  const ids = new Set(input.loads.map(load => load.id).filter(id => typeof id === 'string' && id));
+  const used = new Set();
+  input.loads = input.loads.map((load, index) => {
+    if (typeof load.id === 'string' && load.id && !used.has(load.id)) {
+      used.add(load.id);
+      return load;
+    }
+    let n = index + 1;
+    while (ids.has('uls-' + n)) n += 1;
+    const id = 'uls-' + n;
+    ids.add(id);
+    used.add(id);
+    return { ...load, id };
+  });
+  return input;
 }
 
 // Link layers from the spacing groups: row 1 spacing is measured from the column face, each row adds
@@ -108,7 +124,7 @@ export function groupLayers(reinforcement = {}) {
     for (let k = 0; k < (group.count ?? 1); k += 1) {
       offset += group.spacing;
       const id = 'L' + (layers.length + 1);
-      layers.push({ id, offset, diameter: group.diameter, shape: group.shape, ...(group.st > 0 ? { st: group.st } : { links: group.links }), start: 0, omitted: reinforcement.omitted?.[id] ?? [] });
+      layers.push({ id, offset, diameter: group.diameter, shape: group.shape, ...(group.st > 0 ? { st: group.st } : { links: group.links }), points: group.points, arrangement: group.arrangement, start: 0, omitted: reinforcement.omitted?.[id] ?? [] });
     }
   }
   return layers;
@@ -119,13 +135,14 @@ export function groupLayers(reinforcement = {}) {
 // 5 mm, so the rebuilt layer has at least as many links.
 export function layersToGroups(layers, summary = []) {
   return layers.map((layer, i) => {
-    const spacing = Math.round(layer.offset - (i ? layers[i - 1].offset : 0));
+    const spacing = layer.offset - (i ? layers[i - 1].offset : 0);
     // s_t no larger than the largest designed gap nor the mean spacing u/n, so the rebuilt layer never has
     // fewer links than the design (grid rings hold more points than their path length / largest gap).
     const own = summary[i];
     const gap = Math.min(own?.tangential?.max ?? Infinity, own?.physicalLinks > 0 ? own.u / own.physicalLinks : Infinity);
     const st = Number.isFinite(gap) && gap > 0 ? Math.max(5, Math.floor(gap / 5 + 1e-9) * 5) : null;
-    return { spacing, diameter: layer.diameter, shape: layer.shape, ...(st !== null ? { st } : { links: layer.links }) };
+    return { spacing, diameter: layer.diameter, shape: layer.shape, ...(st !== null ? { st } : { links: layer.links }),
+      ...(layer.points ? { points: structuredClone(layer.points), arrangement: layer.arrangement } : {}) };
   });
 }
 
@@ -228,7 +245,7 @@ export function validateReinforcement(reinforcement = {}) {
     if (!groups.length) issues.push({ state: STATES.incomplete, message: 'Add at least one layer to the link arrangement, or use Auto arrangement.' });
     for (const [index, group] of groups.entries()) {
       const tangential = positive(group.st) || (Number.isInteger(group.links) && group.links >= 1);
-      if (!(group.count === undefined || Number.isInteger(group.count) && group.count >= 1) || !positive(group.spacing) || !positive(group.diameter) || !tangential) {
+      if (!(group.count === undefined || Number.isInteger(group.count) && group.count >= 1) || !positive(group.spacing) || !positive(group.diameter) || !tangential || (group.points !== undefined && (!Array.isArray(group.points) || !group.points.length || !group.points.every(point => [point?.x, point?.y, point?.s].every(finite))))) {
         issues.push({ state: STATES.incomplete, message: `Layer L${index + 1}: enter the radial spacing s, a diameter and the tangential spacing s_t.` });
       }
     }

@@ -174,7 +174,7 @@ const MAX_RAILS = 80;
 // u_out,ef (§9.4.3(4) and the Note to §6.4.5(4)), at least two perimeters. With uReq (Fig. 6.22 applies)
 // layers are added until the effective outer perimeter reaches the length Eq. 6.54 requires. Radial rails
 // are added in pairs from the entered n_tang (a minimum) until s_t ≤ 1.5d inside u1 and u_out,ef is reached.
-export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false }) {
+export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false, maxOffset = Infinity }) {
   if (!(sr > 0)) return { layers: [], reason: 'Enter a radial spacing s_r > 0.' };
   if (type === 'grid' && !(st > 0)) return { layers: [], reason: 'Enter a grid spacing s_t > 0.' };
   const column = model.column;
@@ -183,6 +183,8 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
   const placeable = p => !exclusion(model, toGlobal(column, p));
   const required = Math.max(aOut - outerK * d, first);
   const minCount = Math.max(2, Math.ceil((required - first) / sr - 1e-9) + 1);
+  const maxCount = Math.min(MAX_LAYERS, Math.floor((maxOffset - first) / sr + 1e-9) + 1);
+  if (minCount > maxCount) return { layers: [], reason: 'The reinforcement zone cannot fit the required layers at this radial spacing.' };
   const place = n => {
     const build = count => {
       const offsets = Array.from({ length: count }, (_, i) => first + i * sr);
@@ -201,7 +203,7 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, rails, diameter, 
       let trial = layers;
       let count = minCount;
       while (outerPerimeterEf(trial.at(-1).points, d, outerK).u < uReq - 1e-6) {
-        if (count >= MAX_LAYERS || trial.some(layer => !layer.points.length)) { trial = null; break; }
+        if (count >= maxCount || trial.some(layer => !layer.points.length)) { trial = null; break; }
         trial = build(++count);
       }
       if (trial && !trial.some(layer => !layer.points.length)) layers = trial;
