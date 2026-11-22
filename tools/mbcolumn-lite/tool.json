@@ -9,6 +9,7 @@
     "member.column"
   ],
   "entry": "t/mbcolumn-lite/",
+  "fileExtension": "mrcol",
   "description": "Rectangular reinforced concrete column interaction, slenderness, and directional shear checks.",
   "inputs": {
     "type": "object"

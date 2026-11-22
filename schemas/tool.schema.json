@@ -77,6 +77,10 @@
     },
     "localDraft": {
       "type": "string"
+    },
+    "fileExtension": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]{1,7}$"
     }
   }
 }

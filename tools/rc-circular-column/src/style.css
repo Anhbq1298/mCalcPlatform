@@ -64,3 +64,8 @@ dd { margin: 0; font-variant-numeric: tabular-nums; }
 .interaction-axis { color: #435159; font-size: .75rem; font-weight: 500; }
 #plot-axis-p { margin-top: .5rem; }
 .interaction-axis-m { text-align: right; }
+.mode-choice { display: flex; align-items: center; }
+.mode-choice input { margin: 0; }
+#coordinate-editor { margin-top: .75rem; }
+summary { cursor: pointer; font-weight: 500; }
+#coordinate-editor table { margin-top: .35rem; }

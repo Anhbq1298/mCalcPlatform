@@ -24,10 +24,11 @@ export function button(name, run) {
   return item;
 }
 
-export function dialog(title, fields) {
+export function dialog(title, fields, confirmLabel = 'Save') {
   const panel = qs('editor');
   const form = panel.querySelector('form');
   qs('dialog-title').textContent = title;
+  form.querySelector('button[value=confirm]').textContent = confirmLabel;
   panel.returnValue = 'cancel';
   form.querySelector('[data-fields]').replaceChildren(...fields.map(([name, options, value]) => {
     const label = el('label');
@@ -62,10 +63,14 @@ export function dialog(title, fields) {
   });
 }
 
-export async function saveFile(name, contents) {
-  const url = URL.createObjectURL(await exportPackage(contents));
+export function saveBlob(name, blob) {
+  const url = URL.createObjectURL(blob);
   const action = link('Download', url);
-  action.download = name + '.mcalc';
+  action.download = name;
   action.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function saveFile(name, contents) {
+  saveBlob(name + '.mcalc', await exportPackage(contents));
 }

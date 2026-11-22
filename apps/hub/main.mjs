@@ -1,8 +1,10 @@
-import { createDesign, createProject, createStore, duplicateDesign, importPackage } from '../../packages/design-sdk/src/index.mjs';
-import { findTool } from '../registry.mjs';
-import { button, dialog, el, link, qs, saveFile, status } from './dom.mjs';
+import { createDesign, createFolder, createProject, createStore, designFileName, duplicateDesign, exportDesignFile, folderBreadcrumb, folderPath, importDesignFile, importPackage, isDesignExtension, moveFolder, searchProject, sortByName, withFolder, withFolderName } from '../../packages/design-sdk/src/index.mjs';
+import { findTool, tools } from '../registry.mjs';
+import { button, dialog, el, link, qs, saveBlob, saveFile, status } from './dom.mjs';
 import { pickModule, renderCatalog, thumbnail } from './module-cards.mjs';
-import { folderBreadcrumb, renderTree } from './project-tree.mjs';
+import { designMime, folderCommands, startDrag, trashPanel } from './folder-actions.mjs';
+import { renderSearch } from './project-search.mjs';
+import { renderTree } from './project-tree.mjs';
 import './style.css';
 
 const db = createStore();
@@ -10,6 +12,7 @@ const expanded = new Set();
 let projects = [], designs = new Map();
 let refreshId = 0;
 let projectId, folderId;
+let view = 'designs', query = '', sortDirection = 'asc';
 
 function projectUrl(project, folder, route = './') {
   const url = new URL(route, document.baseURI);
@@ -21,13 +24,12 @@ function projectUrl(project, folder, route = './') {
 function select(project, folder, focus) {
   projectId = project?.id;
   folderId = folder?.id;
+  view = 'designs';
+  query = '';
+  qs('project-search').value = '';
   if (project) {
     expanded.add(project.id);
-    let branch = folder;
-    while (branch) {
-      expanded.add(project.id + '/' + branch.id);
-      branch = project.folders.find(item => item.id === branch.parentId);
-    }
+    if (folder) for (const item of folderPath(project, folder.id)) expanded.add(project.id + '/' + item.id);
   }
   const url = projectUrl(project, folder);
   url.hash = 'projects';
@@ -61,8 +63,8 @@ async function newProject() {
 async function addFolder(project, parent) {
   const name = await named(parent ? 'Add subfolder' : 'Add folder', 'Folder name');
   if (!name) return;
-  const folder = { id: crypto.randomUUID(), name, designs: [], ...(parent ? { parentId: parent.id } : {}) };
-  await db.updateProject(project.id, current => ({ ...current, folders: [...current.folders, folder] }));
+  const folder = createFolder(name, parent?.id);
+  await db.updateProject(project.id, current => withFolder(current, folder));
   await refresh();
   select(await db.getProject(project.id), folder, true);
 }
@@ -70,9 +72,7 @@ async function addFolder(project, parent) {
 async function renameFolder(project, folder) {
   const name = await named('Rename folder', 'Folder name', folder.name);
   if (!name) return;
-  await db.updateProject(project.id, current => ({
-    ...current, folders: current.folders.map(item => item.id === folder.id ? { ...item, name } : item),
-  }));
+  await db.updateProject(project.id, current => withFolderName(current, folder.id, name));
   await refresh();
 }
 
@@ -115,6 +115,10 @@ function designUrl(doc, project, folder, report = false) {
 function calculationCard(doc, project, folder) {
   const tool = findTool(doc.tool);
   const card = el('article', undefined, 'calculation-card saved');
+  if (folder) {
+    card.draggable = true;
+    card.addEventListener('dragstart', event => startDrag(event, designMime, doc.id));
+  }
   const title = el('h3');
   const open = tool ? link(doc.meta.name, designUrl(doc, project, folder)) : el('span', doc.meta.name);
   open.id = 'design-' + doc.id;
@@ -142,6 +146,11 @@ function calculationCard(doc, project, folder) {
     await refresh();
   }));
   actions.append(button('Export', () => saveFile(doc.meta.name, { designs: [doc] })));
+  if (tool && isDesignExtension(tool.fileExtension)) {
+    actions.append(button('Save .' + tool.fileExtension, async () => {
+      try { saveBlob(designFileName(doc, tool), await exportDesignFile(doc, tool)); } catch (error) { status(error.message); }
+    }));
+  }
   card.append(thumbnail(tool), info, actions);
   return card;
 }
@@ -154,6 +163,25 @@ async function saveProject(id) {
   if (docs.some(doc => !doc)) throw new Error('This project references an unavailable calculation.');
   await saveFile(project.name, { project, designs: docs });
   status('Project file saved.');
+}
+
+const commandsFor = (project, folder) => folder && folderCommands({ db, refresh, select, project, folder });
+
+async function dropFolder(owner, folderId, targetId) {
+  try {
+    await db.updateProject(owner.id, latest => moveFolder(latest, folderId, targetId));
+    await refresh();
+    status('Folder moved.');
+  } catch (error) { status(error.message); }
+}
+
+async function dropDesign(owner, designId, targetId) {
+  if (targetId === undefined) return;
+  try {
+    await db.moveDesign(owner.id, designId, targetId);
+    await refresh();
+    status('Calculation moved.');
+  } catch (error) { status(error.message); }
 }
 
 function render() {
@@ -171,28 +199,52 @@ function render() {
     qs('project-list').querySelector('[data-disclosure="' + key + '"]')?.focus();
   };
   qs('project-list').replaceChildren(...renderTree({
-    projects, project, folder, expanded, toggle,
+    projects, project, folder, expanded, toggle, direction: sortDirection,
     select: (owner, target) => select(owner, target, true),
     showSaved: () => select(undefined, undefined, true),
+    onDropFolder: dropFolder, onDropDesign: dropDesign,
   }));
   qs('breadcrumb').textContent = folder ? folderBreadcrumb(project, folder) : project?.name ?? 'Saved designs';
-  qs('folder-actions').replaceChildren(...(folder ? [
+  const commands = commandsFor(project, folder);
+  const folderButtons = folder ? [
     button('Add subfolder', () => addFolder(project, folder)),
     button('Rename folder', () => renameFolder(project, folder)),
+    button('Move folder', commands.move),
+    button('Copy folder', commands.copy),
+    button('Move to trash', commands.trash),
     button('+ Add design module', () => addDesign(project, folder)),
-  ] : project ? [button('Add folder', () => addFolder(project))] : []));
+  ] : project ? [
+    button('Add folder', () => addFolder(project)),
+    button('Trash', () => { view = 'trash'; render(); }),
+  ] : [];
+  qs('folder-actions').replaceChildren(...folderButtons);
   qs('folder-actions').querySelector('button:last-child')?.classList.toggle('primary', true);
+  qs('project-search').hidden = !project;
+  qs('design-sort').closest('label').hidden = !project;
 
-  const cards = folder ? folder.designs.map(id => designs.get(id)).filter(Boolean)
-    : project ? [] : [...designs.values()];
-  qs('design-list').replaceChildren(...(cards.length ? cards.map(doc => calculationCard(doc, project, folder)) :
-    [el('p', folder ? 'Add a design module to start a calculation.' : project ? 'Select or add a folder.' : 'Saved calculations appear here.', 'muted')]));
+  if (project && view === 'trash') {
+    qs('design-list').replaceChildren(trashPanel({ db, refresh, select, project, showFolder: () => { view = 'designs'; render(); } }));
+  } else if (project && query.trim()) {
+    const results = searchProject(project, designs, query);
+    qs('design-list').replaceChildren(...renderSearch(results, {
+      open: result => select(project, project.folders.find(item => item.id === result.id)),
+      openDesign: result => select(project, project.folders.find(item => item.id === result.path.at(-1).id)),
+    }));
+  } else {
+    const cards = folder ? sortByName(folder.designs.map(id => designs.get(id)).filter(Boolean), sortDirection, doc => doc.meta.name)
+      : project ? [] : sortByName([...designs.values()], sortDirection, doc => doc.meta.name);
+    qs('design-list').replaceChildren(...(cards.length ? cards.map(doc => calculationCard(doc, project, folder)) :
+      [el('p', folder ? 'Add a design module to start a calculation.' : project ? 'Select or add a folder.' : 'Saved calculations appear here.', 'muted')]));
+  }
   qs('save-project').disabled = !project;
   qs('save-project').onclick = () => saveProject(project.id).catch(error => status(error.message));
   const print = qs('print-project');
   print.hidden = !project?.folders.some(item => item.designs.some(id => designs.get(id)?.report));
   if (!print.hidden) print.href = projectUrl(project, undefined, 'package/');
 }
+
+qs('project-search').oninput = event => { query = event.target.value; render(); };
+qs('design-sort').onchange = event => { sortDirection = event.target.value; render(); };
 
 renderCatalog();
 qs('nav-projects').onclick = event => {
@@ -206,6 +258,14 @@ qs('import').onchange = async event => {
   const [file] = event.target.files;
   if (!file) return;
   try {
+    if (isDesignExtension(file.name.split('.').pop().toLowerCase())) {
+      const design = await importDesignFile(file, tools);
+      if (await db.getDesign(design.id)) design.id = crypto.randomUUID();
+      await db.saveDesign(design);
+      await refresh();
+      status('Opened ' + file.name + '.');
+      return;
+    }
     const contents = await importPackage(file);
     const id = await db.importPackage(contents);
     await refresh();

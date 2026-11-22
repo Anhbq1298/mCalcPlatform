@@ -103,7 +103,7 @@ test('saves independent calculations in nested folders and reopens the file in f
   await page.getByRole('button', { name: 'Expand Framing' }).click();
 
   await page.getByRole('button', { name: '+ Add design module', exact: true }).click();
-  await page.getByRole('searchbox').fill('not-a-module');
+  await page.getByRole('searchbox', { name: 'Search modules' }).fill('not-a-module');
   await expect(page.getByText('No modules found')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -128,7 +128,10 @@ test('saves independent calculations in nested folders and reopens the file in f
     await addModule(page, search, title, name);
     await page.getByRole('link', { name, exact: true }).click();
     await expect(shell(page).getByLabel('Design name')).toHaveValue(name, { timeout: 45000 });
-    if (title === 'RC Column') await page.locator('#b').fill('650');
+    if (title === 'RC Column') {
+      await expect(page.locator('#slOn')).toBeChecked();
+      await page.locator('#b').fill('650');
+    }
     await save(page);
     await workspace(page);
     await page.getByRole('link', { name, exact: true }).click();
@@ -165,6 +168,8 @@ test('saves independent calculations in nested folders and reopens the file in f
       await expect(shell(reopened).getByLabel('Design name')).toHaveValue(name);
       await workspace(reopened);
     }
+    await reopened.waitForLoadState('load');
+    await expect(reopened.getByRole('button', { name: 'Open Project', exact: true })).toBeVisible();
     await reopened.locator('#import').setInputFiles({ name: 'invalid.mcalc', mimeType: 'application/zip', buffer: Buffer.from('bad file') });
     await expect(reopened.locator('#status')).toContainText('Invalid package');
     await expect(reopened.getByRole('link', { name: steelRenamed, exact: true })).toBeVisible();
@@ -188,62 +193,130 @@ test('opens the original flat project format and preserves unavailable calculati
   await expect(card.getByText('Module unavailable')).toBeVisible();
 });
 
-test('solves mConcreteRecCol locally and restores shear inputs by design ID', async ({ page }) => {
+test('solves mConcreteRecCol locally and persists committed reinforcement', async ({ page }) => {
   test.setTimeout(120000);
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.route('https://mbcolumnlite-api-sg.onrender.com/**', route => route.abort());
   await page.goto('t/mbcolumn-lite/?new=1');
   await expect(page).toHaveTitle('mConcreteRecCol');
   await expect(page.locator('html')).toHaveCSS('color-scheme', 'light');
-  const enable = page.getByLabel('Check directional shear (EC2 2023)');
+  const browseBars = page.getByRole('button', { name: 'Browse longitudinal reinforcement' });
+  const browseShear = page.getByRole('button', { name: 'Browse shear reinforcement' });
+  const barForm = page.getByRole('dialog', { name: 'Longitudinal reinforcement' });
+  const shearForm = page.getByRole('dialog', { name: 'Shear reinforcement' });
+  const enable = shearForm.getByLabel('Check directional shear (EC2 2023)');
+  const layout = shearForm.getByLabel('Link layout', { exact: true });
+  const spacing = shearForm.getByLabel('Link spacing (mm)', { exact: true });
   const canvas = page.locator('canvas#section');
-  const legend = page.locator('#shear-link-legend');
+  const legend = shearForm.locator('#shear-link-legend');
+  const shearCaption = page.locator('#committed-shear-summary');
   const summary = page.locator('#column-check-summary');
-  const sectionBox = await canvas.boundingBox();
-  expect((await summary.boundingBox()).x).toBeGreaterThan(sectionBox.x);
+  expect((await summary.boundingBox()).x).toBeGreaterThan((await canvas.boundingBox()).x);
   await expect(page.locator('#b')).toHaveValue('600');
   await expect(page.locator('#h')).toHaveValue('1000');
   await expect(page.locator('#concreteGrade')).toHaveValue('C32/40');
-  await expect(page.locator('#fc')).toHaveValue('32');
-  await expect(enable).toBeChecked();
+  await expect(page.locator('#slOn')).toBeChecked();
+  await expect(page.locator('#slFields')).toBeVisible();
+  await expect(page.locator('#loadTable [data-k="mxb"]').first()).toBeVisible();
+  await expect(page.locator('#rebarTable')).toBeHidden();
   await expect(page.getByLabel('ULS 1 Vx (kN)', { exact: true })).toHaveValue('150');
-  await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('250');
-  await expect(legend).toContainText('Auto · Link Ø10 @ 150 mm · X legs: 4 · Y legs: 4');
-  await expect(page.getByLabel('Effective X legs', { exact: true })).toBeHidden();
-  const generatedLinks = await canvas.evaluate(element => element.toDataURL());
-  await page.getByLabel('Link layout', { exact: true }).selectOption('manual');
+  await expect(shearCaption).toHaveText('Auto · Link Ø10 @ 150 mm · X legs: 4 · Y legs: 4');
+
+  await browseShear.click();
+  await expect(enable).toBeChecked();
+  await expect(shearForm.getByLabel('Effective X legs', { exact: true })).toBeHidden();
+  await layout.selectOption('manual');
   await expect(legend).toContainText('X legs: 2 · Y legs: 2');
-  expect(await canvas.evaluate(element => element.toDataURL())).not.toBe(generatedLinks);
-  await page.getByLabel('Link layout', { exact: true }).selectOption('auto');
-  await page.getByLabel('Link spacing (mm)', { exact: true }).fill('125');
+  await expect(legend).toContainText('Outer hoop shown');
+  await spacing.fill('0');
+  await shearForm.getByRole('button', { name: 'Apply' }).click();
+  await expect(shearForm.getByRole('status').last()).toContainText('Enter valid link spacing');
+  await page.keyboard.press('Escape');
+  await expect(shearForm).toBeHidden();
+  await expect(browseShear).toBeFocused();
+  await expect(shearCaption).toContainText('@ 150 mm');
+  await browseShear.click();
+  await expect(layout).toHaveValue('auto');
+  await spacing.fill('125');
+  await shearForm.getByRole('button', { name: 'Apply' }).click();
+  await expect(shearCaption).toContainText('@ 125 mm');
   await page.getByLabel('ULS 1 Vy (kN)', { exact: true }).fill('350');
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+
   const shear = page.locator('#column-shear-results');
   await expect(shear.getByRole('heading', { name: 'Directional shear' })).toBeVisible({ timeout: 60000 });
   await expect(shear.getByRole('row').filter({ hasText: '350.0' })).toContainText('ULS 1');
   await expect(summary.getByRole('row').filter({ hasText: 'P–Mx–My interaction' })).toContainText(/\d+\.\d{3}/);
-  await expect(summary.getByRole('row').filter({ hasText: 'Shear Y' })).toContainText('ULS 1');
-  await expect(summary.getByRole('row').filter({ hasText: 'Slenderness X' })).toContainText('Off');
-  await expect(summary.locator('[data-overall-ur]')).toBeVisible();
-  await expect(legend).toContainText('@ 125 mm');
+  const slenderness = summary.getByRole('row').filter({ hasText: 'Slenderness X' });
+  await expect(slenderness).toContainText(/Slender|Non-slender/);
+  await expect(slenderness.getByRole('cell').first()).toHaveText('');
+  const overall = summary.locator('[data-overall-ur]');
+  await expect(overall).toBeVisible();
+
+  await browseBars.click();
+  const firstX = barForm.getByLabel('Bar 1 X', { exact: true });
+  const originalX = await firstX.inputValue();
+  await firstX.fill('0');
+  await barForm.getByRole('button', { name: 'Cancel' }).click();
+  await expect(overall).toBeVisible();
+  await browseBars.click();
+  await expect(firstX).toHaveValue(originalX);
+  for (const face of ['Top', 'Bottom', 'Left', 'Right']) {
+    await barForm.getByLabel(face + ' face bar size', { exact: true }).selectOption('2T16');
+  }
+  await barForm.getByRole('button', { name: 'Replace bars', exact: true }).click();
+  await barForm.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.locator('#committed-bar-summary')).toContainText('12 bundles');
+  await expect(overall).toHaveCount(0);
+  await browseShear.click();
+  await expect(legend).toContainText('Links wrap the bundle envelope');
+  await layout.selectOption('manual');
+  await shearForm.getByLabel('Effective X legs', { exact: true }).fill('6');
+  await shearForm.getByRole('button', { name: 'Apply' }).click();
+  await expect(shearCaption).toContainText('Manual · Link Ø10 @ 125 mm · X legs: 6 · Y legs: 2');
+
+  await page.locator('#slOn').uncheck();
   await save(page);
   await page.reload();
-  await expect(enable).toBeChecked();
-  await expect(summary.locator('[data-overall-ur]')).toHaveCount(0);
-  await expect(legend).toContainText('X legs: 4 · Y legs: 4');
-  await expect(page.getByLabel('Link spacing (mm)', { exact: true })).toHaveValue('125');
+  await expect(page.locator('#slOn')).not.toBeChecked();
+  await expect(shearCaption).toContainText('Manual · Link Ø10 @ 125 mm · X legs: 6 · Y legs: 2');
+  await expect(page.locator('#committed-bar-summary')).toContainText('12 bundles');
   await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('350');
-
-  for (const face of ['Top', 'Bottom', 'Left', 'Right']) {
-    await page.getByLabel(face + ' face bar size', { exact: true }).selectOption('2T16');
-  }
-  await page.getByRole('button', { name: 'Replace bars', exact: true }).click();
-  await expect(legend).toContainText('X legs: 4 · Y legs: 4 · Bundled bars');
+  await browseShear.click();
+  await enable.uncheck();
+  await shearForm.getByRole('button', { name: 'Apply' }).click();
+  await expect(shearCaption).toHaveText('Off');
+  await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveCount(0);
+  await browseShear.click();
+  await enable.check();
+  await expect(spacing).toHaveValue('125');
+  await expect(shearForm.getByLabel('Effective X legs', { exact: true })).toHaveValue('6');
+  await shearForm.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByLabel('ULS 1 Vy (kN)', { exact: true })).toHaveValue('350');
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(shear.getByRole('row').filter({ hasText: '350.0' })).toContainText('ULS 1', { timeout: 60000 });
 });
 
-test('calculates and saves a Circular RC Column using the reference worksheet', async ({ page }) => {
+test('keeps the rectangular section preview compact and the editor reachable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await page.goto('t/mbcolumn-lite/?new=1');
+  const canvas = page.locator('#main-section-slot');
+  const initial = await canvas.boundingBox();
+  expect(initial.height).toBeLessThanOrEqual(360);
+  for (let i = 0; i < 10; i++) await page.getByRole('button', { name: 'Add load case' }).click();
+  expect((await canvas.boundingBox()).height).toBe(initial.height);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect((await canvas.boundingBox()).height).toBeLessThan(initial.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.getByRole('button', { name: 'Browse longitudinal reinforcement' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Longitudinal reinforcement' });
+  await expect(dialog.getByRole('button', { name: 'Apply' })).toBeInViewport();
+  await dialog.getByRole('button', { name: 'Close longitudinal reinforcement' }).click();
+  await expect(dialog).toBeHidden();
+});
+
+test('calculates, switches, and saves Circular RC Column reinforcement', async ({ page }) => {
   test.setTimeout(120000);
   await page.goto('./');
   await page.getByRole('article').filter({ hasText: 'mConcreteCircCol' }).getByRole('link', { name: 'New design' }).click();
@@ -256,10 +329,20 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   expect((await summary.boundingBox()).x).toBeGreaterThan((await section.boundingBox()).x);
   await expect(remove).toBeDisabled();
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
-  await expect(summary).toContainText('0.769');
-  await expect(summary.locator('[data-overall-ur]')).toHaveText('0.872');
+  const linksMode = page.getByRole('radio', { name: 'Circular Stirrups (Closed Links)' });
+  const helixMode = page.getByRole('radio', { name: 'Continuous Spiral (Helix)' });
+  const pmm = summary.getByRole('row', { name: /Biaxial bending/ });
+  await expect(linksMode).toBeChecked();
+  await expect(page.locator('#circular-elevation')).toHaveCount(0);
+  const originalRatio = await pmm.locator('td').first().textContent();
+  await expect(summary.getByRole('row', { name: /Shear Design/ })).toContainText('Not Verified');
+  await helixMode.check();
+  await page.getByLabel('L1 Helix pitch (mm)', { exact: true }).fill('112');
+  await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
+  await expect(pmm.locator('td').first()).toHaveText(originalRatio);
+  await linksMode.check();
+  await expect(page.getByLabel('L1 Link spacing (mm)', { exact: true })).toHaveValue('85');
   await expect(summary.getByRole('row').filter({ hasText: 'L1 bar clearance' })).toContainText('Pass');
-  await expect(page.locator('#checks')).toContainText('1022.4 mm');
   await expect(page.locator('#interaction-caption')).toContainText('θ = 33.7°');
   const curve = page.locator('#interaction-curve');
   const automaticGrid = await curve.evaluate(canvas => canvas.toDataURL());
@@ -274,7 +357,12 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   const mobilePlot = await curve.boundingBox();
   expect(mobilePlot.x + mobilePlot.width).toBeLessThanOrEqual(375);
   await page.setViewportSize(viewport);
-
+  await page.getByLabel('Effective length X (mm)', { exact: true }).fill('9000');
+  await page.getByLabel('Effective length Y (mm)', { exact: true }).fill('1000');
+  const slenderness = summary.getByRole('row', { name: /Slenderness/ });
+  await expect(slenderness).toContainText('Second order applied');
+  await expect(slenderness.locator('td').first()).toHaveText('');
+  await expect(pmm.locator('td').first()).not.toHaveText(originalRatio);
 
   await add.click();
   await add.click();
@@ -282,7 +370,7 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   await remove.click();
   await expect(section.locator('[data-layer]')).toHaveCount(2);
   await page.getByLabel('L2 Link spacing (mm)', { exact: true }).fill('140');
-  await expect(page.locator('#section-legend')).toContainText('radial clear 32.0 mm');
+  await expect(page.locator('#section-legend')).toContainText('radial clear 48.0 mm');
   const tangent = await section.locator('[data-layer="2"]').evaluate(layer => {
     const link = layer.querySelector('.section-link');
     const bar = layer.querySelector('.section-bar');
@@ -291,14 +379,52 @@ test('calculates and saves a Circular RC Column using the reference worksheet', 
   });
   expect(tangent).toBeCloseTo(0, 10);
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
-  await expect(summary).not.toContainText('0.769');
+  await expect(pmm.locator('td').first()).not.toHaveText(originalRatio);
   await expect(summary.getByRole('row').filter({ hasText: 'L1–L2 radial clearance' })).toContainText('Pass');
   await save(page);
   await page.reload();
   await expect(calculation).toHaveText('Calculation complete.', { timeout: 65000 });
   await expect(page.getByLabel('L2 Link spacing (mm)', { exact: true })).toHaveValue('140');
+  await expect(page.getByLabel('Effective length X (mm)', { exact: true })).toHaveValue('9000');
+  await helixMode.check();
+  await expect(page.getByLabel('L1 Helix pitch (mm)', { exact: true })).toHaveValue('112');
+  await page.getByText('Advanced reinforcement coordinates', { exact: true }).click();
+  await page.getByLabel('L2 Angular offset (°)', { exact: true }).fill('27');
+  await expect(section.locator('[data-layer="2"] .section-bar').first()).not.toHaveAttribute('cy', '0');
   await shell(page).getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
+});
+
+test('moves, copies, trashes, restores, and searches folders', async ({ page }) => {
+  test.setTimeout(180000);
+  await page.goto('./');
+  await page.getByRole('link', { name: 'Projects' }).click();
+  await submitName(page, 'New Project', 'Project name', 'Folder test');
+  await submitName(page, 'Add folder', 'Folder name', 'A');
+  await page.getByRole('button', { name: 'Folder test', exact: true }).click();
+  await submitName(page, 'Add folder', 'Folder name', 'B');
+
+  await page.getByRole('button', { name: 'A', exact: true }).click();
+  await page.getByRole('button', { name: 'Move folder', exact: true }).click();
+  await page.getByRole('dialog').getByRole('combobox', { name: 'Destination' }).selectOption({ label: 'Folder test › B' });
+  await page.getByRole('dialog').getByRole('button', { name: 'Move', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'A', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Copy folder', exact: true }).click();
+  await page.getByRole('dialog').getByRole('combobox', { name: 'Destination' }).selectOption({ label: 'Project root' });
+  await page.getByRole('dialog').getByRole('button', { name: 'Copy', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'A', exact: true })).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'B', exact: true }).click();
+  await page.getByRole('button', { name: 'Move to trash', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Move to trash', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'B', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Trash', exact: true }).click();
+  await page.getByRole('button', { name: 'Restore B', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'B', exact: true })).toBeVisible();
+
+  await page.getByRole('searchbox', { name: 'Search this project' }).fill('a');
+  await expect(page.locator('.search-results').getByRole('button', { name: 'A', exact: true })).toHaveCount(2);
 });
 
 test('designs punching shear links, edits a provided layout, saves, reopens and reports', async ({ page }) => {

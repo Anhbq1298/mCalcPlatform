@@ -9,6 +9,7 @@
     "member.beam"
   ],
   "entry": "t/composite-beam/",
+  "fileExtension": "mcb",
   "description": "Composite beam design with construction-stage, strength, and serviceability checks.",
   "inputs": {
     "type": "object"

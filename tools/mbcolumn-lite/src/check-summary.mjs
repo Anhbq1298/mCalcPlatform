@@ -25,7 +25,7 @@ export function renderRectangularSummary(result, slenderness, loads, shearEnable
   for (const axis of ['x', 'y']) {
     const label = 'Slenderness ' + axis.toUpperCase();
     if (!slenderness) {
-      checks.push({ label, status: 'off' });
+      checks.push({ label, status: 'off', hideRatio: true });
       continue;
     }
     const rows = slenderness.map((result, index) => ({
@@ -34,10 +34,10 @@ export function renderRectangularSummary(result, slenderness, loads, shearEnable
     }));
     const worst = governingRow(rows, row => row.ratio);
     checks.push({
-      label, ratio: worst?.ratio, detail: worst?.name,
+      label, detail: worst?.name, hideRatio: true,
       status: worst ? (worst.slender ? 'second-order' : 'pass') : 'incomplete',
-      statusLabel: worst ? (worst.slender ? 'Second-order' : 'Stocky') : undefined,
+      statusLabel: worst ? (worst.slender ? 'Slender' : 'Non-slender') : 'Input required',
     });
   }
-  renderColumnSummary(panel, checks);
+  renderColumnSummary(panel, checks, undefined, 'UR');
 }

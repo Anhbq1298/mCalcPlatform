@@ -16,7 +16,7 @@ export interface DesignTool<I, R = Record<string, unknown>> {
 export interface ToolManifest {
   id: string; name: string; version: string; schema: number; labels: string[]; folder: string;
   entry: string; description: string;
-  title?: string; code?: string; keywords?: string[]; localDraft?: string;
+  title?: string; code?: string; keywords?: string[]; localDraft?: string; fileExtension?: string;
 }
 export interface ProjectDoc {
   id: string; name: string; settings: Record<string, unknown>;
@@ -35,6 +35,7 @@ export interface WorkspaceStore {
   addProjectDesign(projectId: string, folderId: string, design: DesignDoc): Promise<void>;
   moveDesign(projectId: string, designId: string, folderId: string): Promise<void>;
   importPackage(contents: PackageContents): Promise<IDBValidKey | undefined>;
+  copyFolder(projectId: string, folderId: string, parentId?: string): Promise<IDBValidKey | undefined>;
 }
 export interface ToolPageAdapter {
   migrate?(inputs: Record<string, unknown>, from: number): Record<string, unknown> | Promise<Record<string, unknown>>;
@@ -53,6 +54,16 @@ export declare const projectFolders: [string, string][];
 export declare function createStore(factory?: IDBFactory): WorkspaceStore;
 export declare function exportPackage(contents: PackageContents): Promise<Blob>;
 export declare function importPackage(file: Blob): Promise<PackageContents>;
+export declare function isDesignExtension(extension: string): boolean;
+export declare function designFileName(doc: DesignDoc, tool: ToolManifest): string;
+export declare function exportDesignFile(doc: DesignDoc, tool: ToolManifest): Promise<Blob>;
+export declare function importDesignFile(file: File, tools: ToolManifest[]): Promise<DesignDoc>;
 export declare function mountToolShell(options: {
   tool: ToolManifest; getAdapter(): ToolPageAdapter | undefined; home: URL; reportUrl: URL; reportOwner?: DesignDoc;
 }): void;
+export declare function createFolder(name: string, parentId?: string): ProjectDoc['folders'][number];
+export declare function withFolder(project: ProjectDoc, folder: ProjectDoc['folders'][number]): ProjectDoc;
+export declare function withFolderName(project: ProjectDoc, folderId: string, name: string): ProjectDoc;
+export declare function childFolders(project: ProjectDoc, parentId?: string): ProjectDoc['folders'];
+export declare function folderPath(project: ProjectDoc, folderId: string): ProjectDoc['folders'];
+export declare function folderBreadcrumb(project: ProjectDoc, folder: ProjectDoc['folders'][number]): string;
