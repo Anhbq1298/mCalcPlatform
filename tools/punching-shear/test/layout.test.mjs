@@ -54,14 +54,17 @@ test('tangential gaps sum to the layer perimeter and detect an omitted link', ()
   assert.ok(Math.abs(gaps.max - 2 * u / 12) < 1e-9);
 });
 
-test('check-provided mode does not move links and reports radial, tangential and outer failures', () => {
+test('check-provided mode does not move links; s_r is a warning without UR, tangential and first layer fail', () => {
   const result = provided([
     { offset: 150, diameter: 10, shape: 'single', links: 8, start: 0, omitted: [] },
     { offset: 400, diameter: 10, shape: 'single', links: 8, start: 0, omitted: [] },
   ]);
   const rows = Object.fromEntries(result.loads[0].rows.map(entry => [entry.id, entry.status]));
   assert.equal(rows.first, 'Fail');
-  assert.equal(rows.radial, 'Fail');
+  assert.equal(rows.radial, 'Requires confirmation');
+  const radial = result.loads[0].rows.find(entry => entry.id === 'radial');
+  assert.equal(radial.ur, null);
+  assert.match(radial.detail, /s_r = 250 mm > 0\.75d/);
   assert.equal(rows.tangential, 'Fail');
   assert.deepEqual(result.layout.layers.map(layer => layer.offset), [150, 400]);
   assert.equal(result.status, 'Fail');

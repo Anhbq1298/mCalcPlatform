@@ -73,9 +73,12 @@ export function renderCompact(panel, result, loadName, selectedId, onSelect) {
     ...(head?.sections?.find(item => item.id === 'ext') ? [['u_1,ext', `${f(head.sections.find(item => item.id === 'ext').u1, 0)} mm`]] : []),
   ].map(([k, v]) => `<div class="key-param"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
   const lines = pick ? working(pick.id, pick, load, result) : [];
+  // Detailing warnings (no UR): shown as a list under the bars.
+  const warnings = load.rows.filter(row => row.warning && row.status !== STATES.pass)
+    .map(row => `<p class="compact-warning">⚠ ${esc(row.detail ?? row.label)}</p>`).join('');
   panel.innerHTML = `<div class="compact-head"><span class="compact-ur ${tone(result.status)}">${governing ? governing.ur.toFixed(3) : '—'}</span><span class="compact-status ${tone(result.status)}">${esc(result.status)}</span></div>`
     + `<p class="compact-governing">Governing: ${esc(governing ? (SHORT[governing.id] ?? governing.label) : '—')} · ${esc(load.name)}</p>`
-    + `<div class="ur-list" role="list">${bars}</div>`
+    + `<div class="ur-list" role="list">${bars}</div>${warnings}`
     + `<h3 class="compact-title">Key parameters</h3><div class="key-grid">${keys}</div>`
     + `<h3 class="compact-title">How: ${esc(pick ? SHORT[pick.id] ?? pick.label : '')}</h3><div class="how">${lines.map(line => `<p>${esc(line)}</p>`).join('')}</div>`;
   htmlSubscripts(panel);
