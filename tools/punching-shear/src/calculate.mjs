@@ -115,7 +115,9 @@ export function calculate(rawInput, options = {}) {
   }
   const envelope = { aswReq: Math.max(0, ...needing.map(item => item.aswReq)), aOut: Math.max(0, ...needing.map(item => item.aOut)), sr: ctx.envelopeSr };
   envelope.uOut = needing.length ? Math.max(...needing.map(item => item.uOut)) : null;
-  ctx.compactOuterZone = Boolean(profile.compactOuterZone && envelope.aOut > 0 && envelope.aOut < 3 * d - 1e-6);
+  // options.compactOuterZone: fixed by the caller (composite inner section: links designed for scaled loads
+  // keep the zone the actual loads give).
+  ctx.compactOuterZone = options.compactOuterZone ?? Boolean(profile.compactOuterZone && envelope.aOut > 0 && envelope.aOut < 3 * d - 1e-6);
   const limitIssues = [];
   const linkLimit = options.linkLimit;
   let layoutOut = envelope.aOut;

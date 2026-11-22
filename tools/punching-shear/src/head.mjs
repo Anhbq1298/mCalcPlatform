@@ -13,7 +13,7 @@
 // (Fig. 6.15/6.20 perimeters), the inner section is the edge or corner column with d_H. EN 1992-1-1
 // shows heads only at internal columns, so this is a geometric interpretation (see help.html).
 import { calculate, worstState } from './calculate.mjs';
-import { STATES, derivedSection, groupLayers, restoreInputs } from './inputs.mjs';
+import { STATES, derivedSection, groupLayers, layersToGroups, restoreInputs } from './inputs.mjs';
 import { compositeInner } from './composite.mjs';
 
 const positive = value => typeof value === 'number' && Number.isFinite(value) && value > 0;
@@ -97,6 +97,11 @@ const deeper = (input, hH) => {
   return { ...input, slab: { ...input.slab, h: input.slab.h + hH, depthMode: 'explicit', dx: dx + hH, dy: dy + hH } };
 };
 const asColumn = (input, size) => ({ ...input, column: { ...input.column, ...size }, openings: [] });
+// Loads scaled by `scale` (V and moments, so β is unchanged): used to design links for a larger demand.
+const scaled = (input, scale) => (scale === 1 ? input : { ...input, loads: input.loads.map(load => ({ ...load, V: load.V * scale, Mx: load.Mx * scale, My: load.My * scale })) });
+// Fixed link layers (provided mode), no links (concrete only), or the input as it is.
+const withLinks = (input, layers, none) => (layers ? { ...input, reinforcement: { ...input.reinforcement, enabled: true, mode: 'provided', groups: layersToGroups(layers), omitted: {} } }
+  : none ? { ...input, reinforcement: { ...input.reinforcement, enabled: false } } : input);
 
 // Hint: the smallest drop (same depth, both plan sizes grown by the same amount, in 50 mm steps) for which
 // the slab around it needs no links, with the β cap of the column connection. Null when it already needs
@@ -246,15 +251,16 @@ export function calculateDesign(raw, forcedKind = null) {
   const dropBox = geo.circular ? null : { xMin: geo.extents.xMin + c, xMax: geo.extents.xMax - c, yMin: geo.extents.yMin + c, yMax: geo.extents.yMax - c };
   // Mixed head (internal, rectangular): on a face with l_H < 2h_H the crack from the column face leaves
   // through the side of the head, so the inner section there is the slab crack from the head edge. The
-  // inner check becomes a composite section (composite.mjs); links are not designed for it.
+  // inner check becomes a composite section (composite.mjs).
   const mixed = geo.straddles && internal && !geo.circular;
-  const innerInput = mixed ? { ...input, reinforcement: { ...input.reinforcement, enabled: false } } : input;
-  const inner = calculate(deeper(innerInput, geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...zone(split.drop, 0) });
-  const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...zone(split.slab, inner.layout?.layers.length ?? 0) });
+  const runInner = (scale = 1, layers = null) => calculate(deeper(scaled(withLinks(input, layers, mixed && !layers && scale === 1), scale), geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...(layers ? { layerBase: 0 } : zone(split.drop, 0)) });
+  const runOuter = (scale = 1, layers = null, base0 = 0, extra = {}) => calculate(asColumn(scaled(withLinks(input, layers, false), scale), dropAsColumn), { betaCap, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...extra, ...(layers ? { layerBase: base0 } : zone(split.slab, base0)) });
+  let inner = runInner();
+  let outer = runOuter(1, null, inner.layout?.layers.length ?? 0);
+  if (mixed && inner.loads?.length && outer.loads?.length) ({ inner, outer } = compositeInner({ inner, outer, input, geo, d, dH, runInner, runOuter, provided, linkLimit: geo.lMin - c }));
   hint(outer);
-  if (mixed && inner.loads?.length && outer.loads?.length) compositeInner({ inner, outer, input, geo, d, dH });
   const info = {
-    kind: 'large', inner: true, columnModel: base.model, edge: !internal, ...geo, d, dH,
+    kind: 'large', inner: true, columnModel: base.model, edge: !internal, ...geo, d, dH, composite: inner.compositeSection ?? null,
     sections: [{ id: 'int', label: 'Inside the drop', d: dH, offset: 2 * dH, model: inner.model, u1: inner.u1, eq: geo.circular ? 'Eq. 6.37' : '§6.4.2(10)' }, extSection(outer, extEq)],
   };
   if (!inner.loads?.length) return { ...inner, input, head: info };

@@ -279,3 +279,17 @@ test('mixed rectangular head: composite inner section (d_H on the long faces, sl
   const large = calculateDesign(base({ lx: 1500, ly: 1500, depth: 150 }, { column: input.column, loads: input.loads }));
   assert.ok(!large.loads[0].rows.find(entry => entry.id === 'concrete').label.includes('composite'));
 });
+
+test('mixed rectangular head needing links: composite section with links passes; the long parts are drawn', async () => {
+  const { planSvg } = await import('../src/plan-view.mjs');
+  const input = base({ lx: 1300, ly: 1300, depth: 150 }, { column: { shape: 'rectangular', position: 'internal', cx: 300, cy: 900, rotation: 0, x: 0, y: 0 }, loads: [{ name: 'ULS 1', V: 1300, Mx: 0, My: 0 }] });
+  input.reinforcement = { ...input.reinforcement, enabled: true, mode: 'auto' };
+  const result = calculateDesign(input);
+  const rows = result.loads[0].rows;
+  assert.equal(rows.find(entry => entry.id === 'concrete').status, STATES.linksRequired);
+  const reinforced = rows.find(entry => entry.id === 'reinforced');
+  assert.ok(reinforced.label.includes('composite') && reinforced.status === STATES.pass, reinforced.detail);
+  assert.ok(result.layout.links.length > 0);
+  assert.deepEqual(result.head.composite.long.sort(), ['xMax', 'xMin']);
+  assert.ok(planSvg(result).includes(' composite<'));
+});

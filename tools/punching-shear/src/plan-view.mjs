@@ -3,7 +3,7 @@
 import { pathExtent, pathPolyline, pointAt, toGlobal } from './geometry.mjs';
 import { intervalPolylines } from './perimeters.mjs';
 import { COLORS, DASH, dimension, esc, grid, n, polyline, svgDocument, viewport } from './svg.mjs';
-import { headOutline } from './head-drawing.mjs';
+import { compositeLines, headOutline } from './head-drawing.mjs';
 
 // Label position along a path: a fixed fraction of a closed path (labels of different perimeters
 // do not stack), or the middle of the first effective interval of a clipped one.
@@ -130,10 +130,11 @@ export function planSvg(result, { width = 640, height = 600, selected = null, ch
       parts.push(`<text class="label" x="${n(view.x(q.x) + 4)}" y="${n(view.y(q.y) - 4)}">u_out,req,ext</text>`);
     }
   }
-  if (d > 0) {
+  if (d > 0 && head?.composite) parts.push(compositeLines(head, pathColumn, view, basicSelected ? COLORS.governing : COLORS.u1, basicSelected ? 3 : 1.6));
+  else if (d > 0) {
     parts.push(perimeter(u1Offset, basicSelected ? COLORS.governing : COLORS.u1, DASH.u1, basicSelected ? 3 : 1.3));
     const u1Label = toGlobal(pathColumn, pointAt(pathColumn, u1Offset, firstEffective(model, u1Offset, head?.kind === 'small' ? 0.1 : 0.3)));
-    const name = outerOnly || (head?.kind === 'small' && !head.rcont) ? 'u1,ext (2d from drop)' : head?.kind === 'large' ? 'u1,int (d_H)' : head?.kind === 'small' ? `u1 at r_cont (${head.rcont.eq})` : 'u1 (2d)';
+    const name = outerOnly || head?.kind === 'small' ? 'u1,ext (2d from drop)' : head?.kind === 'large' ? 'u1,int (d_H)' : 'u1 (2d)';
     parts.push(`<text class="label" x="${n(view.x(u1Label.x) + 4)}" y="${n(view.y(u1Label.y) - 5)}">${esc(name)}</text>`);
   }
   for (const [index, layer] of layers.entries()) {
@@ -242,13 +243,12 @@ function keyValues({ d, u1Offset, aOut, layers, head, input }) {
     const radial = [...new Set(layers.slice(1).filter((layer, i) => layer.zone === layers[i].zone).map(layer => (layer.offset - layers[layers.indexOf(layer) - 1].offset).toFixed(0)))];
     if (radial.length) out.push(`s_r = ${radial.join(' / ')}`);
   }
-  if (head?.kind === 'small' && head.rcont) out.push(`r_cont = ${head.rcont.r.toFixed(0)}`);
   else if (head?.kind === 'small') out.push(`2d = ${(2 * head.d).toFixed(0)} from drop`);
   else if (d > 0 && !(head?.kind === 'large' && !head.inner)) out.push(`${head?.kind === 'large' ? '2d_H' : '2d'} = ${u1Offset.toFixed(0)}`);
   if (head) out.push(`h_tot = ${input.head.thickness}`, `l_H = ${head.lH.map(v => v.toFixed(0)).join(' / ')}`);
   if (head?.kind === 'large') out.push(`l_H + 2d = ${(head.lMin + 2 * head.d).toFixed(0)}`);
   const fromDrop = head && !(head.kind === 'large' && head.inner);
-  if (aOut > 0) out.push(`a_out = ${aOut.toFixed(0)}${head?.rcont ? ' from the equivalent circle' : fromDrop ? ' from the drop' : ''}`);
+  if (aOut > 0) out.push(`a_out = ${aOut.toFixed(0)}${fromDrop ? ' from the drop' : ''}`);
   return out.join(' · ') + (out.length ? ' (mm from the column face)' : '');
 }
 
