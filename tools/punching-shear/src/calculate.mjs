@@ -145,7 +145,7 @@ export function calculate(rawInput, options = {}) {
   const summary = layerSummary(model, layout.layers, links, base);
   // Drop: grid links out to the drop edge beyond the last ring (detailing; not counted in the checks).
   if (layout.mode === 'auto' && layout.arrangement === 'grid' && options.dropBox && layout.layers.length) {
-    const fill = dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox });
+    const fill = dropFillPoints({ column: model.column, layers: layout.layers, sr: ctx.envelopeSr, box: options.dropBox, d, widen: reinforcement.thin !== false });
     const last = layout.layers.at(-1);
     const edge = { ...last, id: 'E', points: fill.map(p => ({ ...p, s: arcLengthAt(model.column, last.offset, p) })), omitted: [] };
     if (fill.length) links.push(...buildLinks(model, [edge], 'auto', base).map(link => ({ ...link, layerId: 'E', layerIndex: -1, edge: true })));
