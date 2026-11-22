@@ -162,3 +162,4 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 .info-button[aria-expanded="true"] { background: #2f5d47; border-color: #2f5d47; color: #fff; }
 .info-note { margin: .3rem 0 0; padding: .35rem .5rem; border-left: 3px solid #2f5d47; background: #eef3f0; font-size: .75rem; line-height: 1.4; color: #2e3a33; }
 
+.auto-schedule td, .auto-schedule th { text-align: right; } .auto-schedule td:first-child, .auto-schedule th:first-child { text-align: left; }
