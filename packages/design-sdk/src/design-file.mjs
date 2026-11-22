@@ -6,7 +6,7 @@ import { hashReport } from './package-file.mjs';
 const FORMAT = 'mcalc-design';
 const VERSION = 1;
 const decoder = new TextDecoder('utf-8', { fatal: true });
-const DESIGN_EXTENSIONS = new Set(['mrcol', 'mcb', 'mccol', 'msbc']);
+const DESIGN_EXTENSIONS = new Set(['mrcol', 'mcb', 'mccol', 'msbc', 'mpsh']);
 
 export function isDesignExtension(extension) {
   return DESIGN_EXTENSIONS.has(extension);

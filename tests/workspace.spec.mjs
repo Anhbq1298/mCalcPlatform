@@ -11,7 +11,7 @@ const cases = [
 test('opens, saves and reopens each integrated tool under a Pages project path', async ({ page }) => {
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Tool Library' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(5);
+  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(6);
   const beamIcon = module => page.locator('.thumbnail[data-module="' + module + '"] i:nth-child(2)');
   const profileStyle = element => {
     const { width, height, clipPath, backgroundColor } = getComputedStyle(element);
@@ -425,4 +425,83 @@ test('moves, copies, trashes, restores, and searches folders', async ({ page }) 
 
   await page.getByRole('searchbox', { name: 'Search this project' }).fill('a');
   await expect(page.locator('.search-results').getByRole('button', { name: 'A', exact: true })).toHaveCount(2);
+});
+
+test('designs punching shear links, edits a provided layout, saves, reopens and reports', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('a[href*="t/punching-shear/"]').filter({ hasText: 'New design' }).first().click();
+  await expect(page.getByRole('heading', { name: /mPunchingShear/ })).toBeVisible();
+  await page.getByLabel('Show all inputs').check();
+  const status = page.locator('#design-status');
+  await expect(status).toContainText('Incomplete input');
+  await page.getByLabel('Braced, spans differ ≤ 25 % (§6.4.3(6))').check();
+  await page.getByLabel('1 V_Ed', { exact: true }).fill('800');
+  await expect(status).toContainText('Requires confirmation');
+  await page.getByLabel('Links enclose top and bottom flexural bars').check();
+  await expect(status).toContainText('Design status: Pass');
+  await page.getByLabel('Column position').selectOption('edge');
+  await expect(status).toContainText('Incomplete input');
+  await expect(page.locator('#messages')).toContainText('geometry is an internal column');
+  await page.getByLabel('Column position').selectOption('internal');
+  const schedule = page.locator('#layer-schedule tbody tr');
+  await expect(schedule).toHaveCount(4);
+  await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
+  await page.getByRole('button', { name: 'Auto arrangement' }).click();
+  await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
+  await page.getByRole('button', { name: 'Link arrangement: add row' }).click();
+  await expect(schedule).toHaveCount(5);
+  await page.locator('#plan-view [data-link="L2-3"]').click();
+  await expect(page.locator('#selection-info')).toContainText('L2-3');
+  await page.getByRole('button', { name: 'Omit selected link' }).click();
+  await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Load combinations: add row' }).click();
+  await page.getByLabel('2 M_y', { exact: true }).fill('60');
+  await page.getByLabel('2 V_Ed', { exact: true }).fill('500');
+  await expect(page.locator('#combination option')).toHaveCount(2);
+  const shell = page.getByRole('navigation', { name: 'Design workspace' });
+  await shell.getByLabel('Design name').fill('PS-01 internal column');
+  await shell.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(shell.getByText('Design saved.')).toBeVisible();
+  const before = await status.textContent();
+  await page.reload();
+  await expect(shell.getByLabel('Design name')).toHaveValue('PS-01 internal column', { timeout: 45000 });
+  await expect(page.getByLabel('Mode', { exact: true })).toHaveValue('provided');
+  await expect(schedule).toHaveCount(5);
+  await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
+  await expect(page.getByLabel('2 M_y', { exact: true })).toHaveValue('60');
+  await expect(status).toHaveText(before);
+  await page.getByRole('tab', { name: 'Section B–B' }).click();
+  await expect(page.locator('#section-view-b svg')).toBeVisible();
+  await page.getByRole('tab', { name: 'Plan' }).click();
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 375, height: 812 });
+  const plan = await page.locator('#plan-view svg').boundingBox();
+  expect(plan.x + plan.width).toBeLessThanOrEqual(375);
+  await page.setViewportSize(viewport);
+  await shell.getByRole('button', { name: 'Report', exact: true }).click();
+  await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
+  await expect(page.getByText('PUNCHING SHEAR CHECK – INTERNAL COLUMN (EC2)').first()).toBeVisible({ timeout: 65000 });
+});
+
+test('loads the punching shear worked cases, including drop panels', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('a[href*="t/punching-shear/"]').filter({ hasText: 'New design' }).first().click();
+  const status = page.locator('#design-status');
+  await page.getByLabel('Start from').selectOption('cards');
+  await page.getByRole('button', { name: 'Interior + drop' }).click();
+  await expect(status).toContainText('Pass');
+  await expect(page.locator('#plan-view')).toContainText('u1,ext');
+  await page.getByRole('tab', { name: 'Section A–A' }).click();
+  await expect(page.locator('#section-view')).toContainText('htot');
+  await expect(page.locator('#section-view')).toContainText('u1,ext');
+  await page.locator('summary', { hasText: 'Drop panel' }).click();
+  await expect(page.getByLabel('Include a drop panel (concentric)')).toBeChecked();
+  await expect(page.locator('#punching-inputs')).not.toContainText('accepted');
+  await page.getByRole('button', { name: 'Interior', exact: true }).click();
+  await page.getByRole('button', { name: 'Provided layout (fails)' }).click();
+  await expect(status).toContainText('Fail');
+  await expect(page.locator('#punching-inputs summary math').first()).toBeVisible();
+  await page.getByRole('tab', { name: 'Stress' }).click();
+  await expect(page.locator('#stress-view svg')).toBeVisible();
+  await expect(page.locator('#sign-view')).toContainText('ULS 1');
 });
