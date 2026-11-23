@@ -127,9 +127,14 @@ test('auto grid follows the flexural bars: links on bar lines at the bar spacing
   const run = edit => { const input = newDefaults(); input.reinforcement.enabled = true; input.reinforcement.thin = false; input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }]; edit(input); return calculateDesign(input); };
   const on = run(input => { input.flexure.sX = input.flexure.sY = 125; });
   assert.equal(on.envelope.sr, 125);
-  const xs = [...new Set(on.layout.layers.flatMap(layer => layer.points.map(p => Math.round(p.x * 1e3) / 1e3)))].sort((a, b) => a - b);
-  const steps = xs.slice(1).map((x, i) => x - xs[i]).filter(step => Math.abs(step - 125) > 1e-6);
-  assert.ok(steps.length <= 2, String(steps)); // bar spacing everywhere except the closing bar at the centre
+  // One bar grid, bars split about the column centre lines (±62.5, ±187.5, … every 125 mm): every link sits on
+  // a bar line in one direction (along the bar its position is the exact ring offset, or a bar too).
+  const onBar = v => Math.abs((v - 62.5) / 125 - Math.round((v - 62.5) / 125)) < 1e-6;
+  assert.ok(on.layout.links.every(link => onBar(link.position.x) || onBar(link.position.y)));
+  // Same bar lines in every ring: ring side links at the same y (x-bars) across rings.
+  const rows = layer => { const side = Math.max(...layer.points.map(p => Math.abs(p.x))); return new Set(layer.points.filter(p => Math.abs(Math.abs(p.x) - side) < 1e-6).map(p => p.y)); };
+  const [r1, r2] = on.layout.layers.map(rows);
+  assert.ok([...r1].every(y => onBar(y)) && [...r2].every(y => onBar(y)));
   const off = run(input => { input.flexure.sX = 150; input.flexure.sY = 200; });
   assert.ok(off.notes.some(note => note.includes('Grid not on the flexural bars')));
 });
@@ -161,7 +166,7 @@ test('drop: grid links run out to the drop edge (less cover) on every side; extr
   const input = newDefaults();
   input.reinforcement.enabled = true;
   input.reinforcement.dropFill = true;
-  input.head = { ...input.head, enabled: true, shape: 'rectangular', lx: 2400, ly: 2400, thickness: 400 };
+  input.head = { ...input.head, enabled: true, sizeMode: 'absolute', shape: 'rectangular', lx: 2400, ly: 2400, thickness: 400 };
   input.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }];
   const result = calculateDesign(input);
   const edge = result.layout.links.filter(link => link.edge);
@@ -224,7 +229,7 @@ test('auto arrangement at edge and corner columns, with and without a drop: both
   for (const [position, drop, V, Mx, My] of cases) for (const arrangement of ['grid', 'radial']) {
     const input = newDefaults();
     input.column = { ...input.column, cx: 400, cy: 400, position, x: 3800, y: position === 'corner' ? 3800 : 0 };
-    if (drop) input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+    if (drop) input.head = { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 };
     input.reinforcement = { ...input.reinforcement, enabled: true, arrangement };
     input.loads = [{ name: 'U', V, Mx, My }];
     const result = calculateDesign(input);
@@ -238,7 +243,7 @@ test('grid ring widening at edge columns and inside / around a drop: fewer links
   const { calculateDesign } = await import('../src/head.mjs');
   const cases = [
     { column: { cx: 400, cy: 400, position: 'edge', x: 3800, y: 0 }, loads: [{ name: 'U', V: 500, Mx: 60, My: -20 }] },
-    { column: { cx: 400, cy: 400 }, head: { enabled: true, lx: 2000, ly: 2000, thickness: 400 }, loads: [{ name: 'U', V: 1500, Mx: 20, My: 40 }] },
+    { column: { cx: 400, cy: 400 }, head: { enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 }, loads: [{ name: 'U', V: 1500, Mx: 20, My: 40 }] },
   ];
   for (const c of cases) {
     const input = newDefaults();

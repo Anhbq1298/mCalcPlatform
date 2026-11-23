@@ -82,19 +82,17 @@ function thinRing(layer, column, m, open = false) {
 }
 
 export function thinGrid(layers, { column, d, sr, aswReq, legArea, leg, minLeg, gap, span = () => null, maxMultiple = 6 }) {
-  let m = 1;
+  // Each ring independently takes the widest multiple that still meets s_t, A_sw (Eq. 6.52) and Eq. 9.11.
+  // (Starting each ring from the previous ring's multiple and stopping at the first failure left a ring at
+  // full density whenever that multiple did not fit it, e.g. a second ring in a drop.)
   return layers.map(layer => {
     const limit = (layer.offset <= 2 * d ? 1.5 : 2) * d;
-    let best = layer.points;
-    for (let k = m; k <= maxMultiple; k += 1) {
+    for (let k = maxMultiple; k >= 2; k -= 1) {
       const points = thinRing(layer, column, k, span(layer) ?? false);
       const g = gap({ ...layer, points });
-      const ok = g <= limit + 1e-9 && points.length * legArea >= aswReq - 1e-6 && leg >= minLeg(sr, g) - 1e-9;
-      if (!ok) break;
-      best = points;
-      m = k;
+      if (g <= limit + 1e-9 && points.length * legArea >= aswReq - 1e-6 && leg >= minLeg(sr, g) - 1e-9) return { ...layer, points, multiple: k };
     }
-    return { ...layer, points: best, multiple: m };
+    return { ...layer, multiple: 1 };
   });
 }
 
@@ -176,5 +174,40 @@ export function radialDropFillPoints({ column, layers, sr, box }) {
     const left = room - (k - 1) * sr;
     if (left > sr / 4) points.push({ x: p.x + u.x * room, y: p.y + u.y * room });
   }
+  return points;
+}
+
+// On the slab bars: one bar grid for the whole layout, bars at origin + i·s both ways (origin = a bar
+// line through the column centre by default, in the section's local axes). A ring at offset o puts its
+// links on the bars that cross it: on the faces x = ±(a + o) at every m-th y-bar line, on y = ±(b + o) at
+// every m-th x-bar line, counted from the bar line nearest the column centre, plus the outermost bar line
+// at each end (it closes the corner), so every link sits on a bar and the links run in rows along the bars (a link hooks a bar and can sit anywhere
+// along it, so the ring offset itself is exact).
+// snap: { x, y, delta } — the first ring sits on the bar line x (resp. y) beyond the face, ring k at
+// x + delta with delta = k·s_r, so every link is at a bar intersection; a missing snap keeps the exact offset.
+export function barGridPoints(column, offset, s, origin = { x: 0, y: 0 }, m = 1, snap = {}) {
+  const a = Number.isFinite(snap.x) ? snap.x + snap.delta : column.cx / 2 + offset;
+  const b = Number.isFinite(snap.y) ? snap.y + snap.delta : column.cy / 2 + offset;
+  const lines = (o, half) => {
+    const out = [];
+    const lo = Math.ceil((-half - o) / s - 1e-9);
+    const hi = Math.floor((half - o) / s + 1e-9);
+    const inner = Math.min(...Array.from({ length: hi - lo + 1 }, (_, j) => Math.abs(o + (lo + j) * s)));
+    // Every m-th line counted outward from the line(s) nearest the centre (symmetric), plus the outermost
+    // bar line at each end (it closes the ring corner).
+    for (let i = lo; i <= hi; i += 1) {
+      const x = o + i * s;
+      const k = Math.round((Math.abs(x) - inner) / s);
+      if (i === lo || i === hi || k % m === 0) out.push(x);
+    }
+    return out;
+  };
+  const xs = lines(origin.x, a);
+  const ys = lines(origin.y, b);
+  const points = [];
+  for (const y of ys) points.push({ x: a, y }, { x: -a, y });
+  // A bar line closer than s/2 to the ring corner would put a second link next to the corner link of the
+  // other side: it is left out (the corner gap stays a checked s_t).
+  for (const x of xs) if (a - Math.abs(x) > s / 2 - 1e-6) points.push({ x, y: b }, { x, y: -b });
   return points;
 }

@@ -19,7 +19,7 @@ test('plan draws one selectable group per physical link and marks ineffective le
   const result = design();
   const svg = planSvg(result, { selected: result.layout.links[0].id });
   assert.equal((svg.match(/data-link="/g) || []).length, result.layout.links.length);
-  assert.ok(svg.includes('font-size="78%">1</tspan> (2d)') && svg.includes('font-size="78%">out,ef</tspan>') && svg.includes('data-governing'));
+  assert.ok(svg.includes('font-size="78%">1</tspan> (2d)') && svg.includes('font-size="78%">0</tspan>') && !svg.includes('font-size="78%">out,ef</tspan>') && svg.includes('data-governing'));
   assert.ok(balanced(svg));
   // A leg outside the effective path (slab edge, opening, shadow) is drawn in the failure colour.
   const links = result.layout.links.map((link, index) => (index ? link : { ...link, legs: link.legs.map(leg => ({ ...leg, effective: false, reason: 'Outside slab' })) }));
@@ -107,8 +107,21 @@ test('slab thickness and drop size change the result, the link arrangement and t
   const [thin, thick] = [run(i => { i.slab.h = 220; }), run(i => { i.slab.h = 300; })];
   assert.ok(thick.section.d > thin.section.d && thick.layout.links.length !== thin.layout.links.length);
   views(thin).forEach((svg, k) => assert.notEqual(svg, views(thick)[k]));
-  const drop = size => run(i => { i.head = { ...i.head, enabled: true, shape: 'rectangular', lx: size, ly: size, thickness: 400 }; i.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }]; });
+  const drop = size => run(i => { i.head = { ...i.head, enabled: true, sizeMode: 'absolute', shape: 'rectangular', lx: size, ly: size, thickness: 400 }; i.loads = [{ name: 'U', V: 1600, Mx: 20, My: 40 }]; });
   const [small, large] = [drop(2400), drop(3000)];
   assert.notEqual(small.layout.links.length, large.layout.links.length);
   views(small).forEach((svg, k) => assert.notEqual(svg, views(large)[k]));
+});
+
+test('plan: optional link layer perimeters, thin solid green, one per layer', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  input.reinforcement.enabled = true;
+  input.loads = [{ name: 'U', V: 900, Mx: 0, My: 0 }];
+  const result = calculateDesign(input);
+  assert.ok(!planSvg(result).includes('layer-line'));
+  const svg = planSvg(result, { layerLines: true });
+  assert.equal((svg.match(/class="layer-line"/g) || []).length, result.layout.layers.length);
+  assert.ok(svg.includes('stroke="#2e9e44" stroke-width=".5"') && !/layer-line[^>]*dasharray/.test(svg));
 });

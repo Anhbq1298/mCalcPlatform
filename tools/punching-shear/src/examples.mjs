@@ -49,13 +49,13 @@ const CASE_LIST = [
     input: { ...confirmed, ...engaged, ...slab(250, 210), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, openings: [{ x: 850, y: 250, w: 300, h: 300 }, { x: 900, y: -200, w: 300, h: 300 }], loads: [{ name: 'ULS 1', V: 600, Mx: 0, My: 0 }] },
   },
   {
-    id: 'drop-small', title: '8 · Drop with l_H ≤ 2h_H (Fig. 6.17)', expect: 'Pass',
-    note: 'Single section in the slab at r_cont = min(Eq. 6.34, Eq. 6.35).',
+    id: 'drop-small', title: '8 · Drop with l_H < 2h_H (Fig. 6.17)', expect: 'Pass',
+    note: 'Single section in the slab at 2d from the head outline (rounded rectangle; Eq. 6.34/6.35 equivalent circle for comparison in the hand check).',
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 700, Mx: 0, My: 0 }] },
   },
   {
-    id: 'drop-small-links', title: '8b · Rectangular head l_H ≤ 2h_H with links (mapped)', expect: 'Pass',
-    note: 'Check on the EC2 equivalent circle, links on the head outline, mapped by 22.5° sectors. Tool method (not an EC2 rule), results by that method; see Help.',
+    id: 'drop-small-links', title: '8b · Rectangular head l_H < 2h_H with links', expect: 'Pass',
+    note: 'Section at 2d from the head outline (slab d); links in the slab around the head.',
     input: { ...confirmed, ...engaged, ...slab(250, 210), ...head({ lx: 1000, ly: 1000, thickness: 450 }), column: { shape: 'rectangular', position: 'internal', cx: 400, cy: 400, rotation: 0, x: 0, y: 0 }, flexure: { areaMode: 'explicit', asx: 1340, asy: 1340, phiX: 16, phiY: 16, sX: 150, sY: 150, outer: 'x' }, loads: [{ name: 'ULS 1', V: 900, Mx: 0, My: 0 }] },
   },
   {

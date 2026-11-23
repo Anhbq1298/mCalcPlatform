@@ -1,7 +1,7 @@
 // Drop panels / column heads (§6.4.2(8)–(11)), the example set, and the LaTeX label renderer.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CASES, EXAMPLE_CARDS, EXAMPLES } from '../src/examples.mjs';
+import { CASES, EXAMPLE_CARDS, EXAMPLES, exampleById } from '../src/examples.mjs';
 import { calculateDesign, rcontSmall } from '../src/head.mjs';
 import { STATES } from '../src/inputs.mjs';
 import { labelText, texToMathML } from '../src/tex.mjs';
@@ -27,14 +27,15 @@ test('r_cont for l_H ≤ 2h_H: lesser of Eq. 6.34 and 6.35 with l1 ≤ l2, Eq. 6
   close(circle.r, 400 + 250 + 250);
 });
 
-test('l_H ≤ 2h_H: hand check of the slab section at r_cont', () => {
+test('l_H < 2h_H: hand check of the slab section at 2d from the head outline (Fig. 6.17)', () => {
   const result = calculateDesign(base({ lx: 1000, ly: 1000, depth: 200 }));
   assert.equal(result.head.kind, 'small');
-  close(result.u1, 2 * Math.PI * 980, 1e-3);
+  const u1 = 4 * 1000 + 2 * Math.PI * 420; // rounded rectangle at 2d = 420 from the 1000 × 1000 head
+  close(result.u1, u1, 1e-3);
   const rhoL = Math.sqrt((1340 / 215000) * (1340 / 205000));
   const k = 1 + Math.sqrt(200 / 210);
   const vRdc = Math.max((0.18 / 1.5) * k * (100 * rhoL * 30) ** (1 / 3), 0.035 * k ** 1.5 * Math.sqrt(30));
-  const vEd = (1.15 * 700e3) / (2 * Math.PI * 980 * 210);
+  const vEd = (1.15 * 700e3) / (u1 * 210);
   const concrete = result.loads[0].rows.find(row => row.id === 'concrete');
   close(concrete.demand, vEd, 1e-6);
   close(concrete.resistance, vRdc, 1e-6);
@@ -56,27 +57,27 @@ test('l_H > 2h_H: perimeters inside the drop (d_H) and in the slab outside the d
   assert.equal(result.status, STATES.pass);
 });
 
-test('rectangular head with l_H > 2h_H needs no confirmation; the inner section is checked only when it fits', () => {
+test('rectangular head with l_H > 2h_H: the inner section (d_H) is always checked, also when 2d_H reaches beyond the head', () => {
   const result = calculateDesign(base({ lx: 2400, ly: 2400, depth: 150 }, { loads: [{ name: 'ULS 1', V: 600, Mx: 0, My: 0 }] }));
   assert.equal(result.status, STATES.pass);
   assert.equal(result.head.inner, true);
-  // 2h_H = 300 < l_H = 350 < 2d_H = 720: only the slab section outside the drop, face check with d_H.
+  // 2h_H = 300 < l_H = 350 < 2d_H = 720: inner section at 2d_H with d_H and slab section at 2d from the drop.
   const narrow = calculateDesign(base({ lx: 1100, ly: 1100, depth: 150 }, { loads: [{ name: 'ULS 1', V: 500, Mx: 0, My: 0 }] }));
-  assert.equal(narrow.head.inner, false);
-  assert.deepEqual(narrow.head.sections.map(item => item.id), ['ext']);
-  close(narrow.u1, 4 * 1100 + 2 * Math.PI * 420, 1e-3);
+  assert.equal(narrow.head.inner, true);
+  assert.deepEqual(narrow.head.sections.map(item => item.id), ['int', 'ext']);
+  close(narrow.head.sections[0].u1, 1600 + 2 * Math.PI * 720, 1e-3);
+  close(narrow.head.sections[1].u1, 4 * 1100 + 2 * Math.PI * 420, 1e-3);
   const face = narrow.loads[0].rows.find(row => row.id === 'max');
   close(face.demand, (1.15 * 500e3) / (1600 * 360), 1e-6);
 });
 
-test('mixed drops are checked both ways; unsupported drop configurations are reported', () => {
-  // l_H straddles 2h_H: checked both as Fig. 6.17 and Fig. 6.18, the governing one reported with a note.
+test('a rectangular head with l_H < 2h_H on some sides only is checked by Fig. 6.18; unsupported drop configurations are reported', () => {
+  // l_H straddles 2h_H: Fig. 6.17 needs l_H < 2h_H on every side, so Fig. 6.18 applies, with a note.
   const mixed = calculateDesign(base({ lx: 2400, ly: 1000, depth: 200 }));
-  assert.notEqual(mixed.status, STATES.unsupportedGeometry);
-  assert.ok(mixed.notes[0].includes('checked as Fig. 6.17 and as Fig. 6.18'));
-  const small = calculateDesign(base({ lx: 2400, ly: 1000, depth: 200 }), 'small');
   const large = calculateDesign(base({ lx: 2400, ly: 1000, depth: 200 }), 'large');
-  assert.ok(mixed.governing.ur >= Math.min(small.governing?.ur ?? 0, large.governing?.ur ?? 0) - 1e-9);
+  assert.notEqual(mixed.status, STATES.unsupportedGeometry);
+  assert.ok(mixed.notes.some(n => n.includes('so Fig. 6.18 applies')));
+  assert.equal(mixed.governing.ur, large.governing.ur);
   const edge = base({ lx: 1000, ly: 1000, depth: 200 }, { slab: { h: 250, depthMode: 'explicit', dx: 215, dy: 205, cover: 25, xMin: -6000, xMax: 200, yMin: -6000, yMax: 6000 } });
   edge.column.position = 'edge';
   const edgeResult = calculateDesign(edge); // links beyond the drop are now designed, not refused
@@ -153,22 +154,14 @@ test('large drop: provided links inside and beyond the drop are split by zone', 
   assert.ok(calculateDesign(step).issues.some(issue => /drop edge step/.test(issue.message)));
 });
 
-test('rectangular head l_H ≤ 2h_H with links: equivalent-circle check, links on the head outline, results by the tool method', async () => {
-  const { sectorCoverage } = await import('../src/head-mapped.mjs');
-  const { exampleById } = await import('../src/examples.mjs');
+test('Fig. 6.17 rectangular head: section at 2d from the head outline (rounded rectangle), links around the head', () => {
   const result = calculateDesign(exampleById('drop-small-links').input);
   assert.equal(result.status, STATES.pass);
-  const rows = result.loads[0].rows;
-  for (const id of ['reinforced', 'outer', 'sector']) assert.ok(rows.find(entry => entry.id === id).detail.includes('see Help'), id); // method stated
-  assert.equal(rows.find(entry => entry.id === 'radial').status, STATES.pass); // detailing on the real geometry stays a normal check
-  assert.ok(result.layout.layers.every(layer => layer.zone === 'slab' && layer.pathOffset < layer.offset));
-  // r_cont = min(2d + 0.56·√(l1·l2), 2d + 0.69·l1) = 2·210 + 560 = 980 mm (Eq. 6.34)
-  assert.equal(result.head.rcont.r, 980);
-  // Sector mapping: 16 legs evenly round a circle give one leg per sector; one missing leg → empty sector.
-  const legs = Array.from({ length: 16 }, (_, i) => ({ layerId: 'L1', diameter: 10, legs: [{ effective: true, x: Math.cos((i + 0.5) * Math.PI / 8), y: Math.sin((i + 0.5) * Math.PI / 8) }] }));
-  const ok = sectorCoverage(legs, [{ id: 'L1' }], { x: 0, y: 0 }, 16 * 78.54)[0];
-  assert.ok(Math.abs(ok.ur - 1) < 1e-3);
-  assert.equal(sectorCoverage(legs.slice(1), [{ id: 'L1' }], { x: 0, y: 0 }, 100)[0].ur, Infinity);
+  assert.equal(result.head.kind, 'small');
+  assert.equal(result.head.rcont, null);
+  // head 1000 × 1000, d = 210: u1 = 4·1000 + 2π·420
+  assert.ok(Math.abs(result.u1 - (4000 + 2 * Math.PI * 420)) < 1e-6);
+  assert.ok(result.layout.layers.length && result.layout.layers.every(layer => layer.zone === 'slab'));
 });
 
 test('tangential spacing s_t sets the link count per layer; Auto arrangement round-trips to s_t rows', async () => {
@@ -200,7 +193,7 @@ test('drop at edge and corner columns: β outside the drop is capped at the colu
     input.reinforcement = { ...input.reinforcement, enabled: true, arrangement };
     input.loads = [{ name: 'U', V, Mx, My }];
     const flat = calculateDesign(input);
-    const drop = calculateDesign({ ...input, head: { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 } });
+    const drop = calculateDesign({ ...input, head: { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 } });
     assert.equal(drop.status, 'Pass');
     assert.ok(steel(drop) < steel(flat), `${position} ${arrangement}: drop ${steel(drop)} ≥ flat ${steel(flat)}`);
   }
@@ -211,7 +204,7 @@ test('radial arrangement in a drop: with the option ticked, radial lines continu
   const { newDefaults } = await import('../src/inputs.mjs');
   const input = newDefaults();
   input.column = { ...input.column, cx: 400, cy: 400 };
-  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.head = { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 };
   input.reinforcement = { ...input.reinforcement, enabled: true, arrangement: 'radial', dropFill: true };
   input.loads = [{ name: 'U', V: 1500, Mx: 20, My: 40 }];
   const result = calculateDesign(input);
@@ -230,7 +223,7 @@ test('links out to the drop edge are an option, off by default', async () => {
   assert.equal(input.reinforcement.dropFill, false);
   input.code = { ...input.code, profile: 'cen' }; // outside the SG compact link zone
   input.column = { ...input.column, cx: 400, cy: 400 };
-  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.head = { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 };
   input.loads = [{ name: 'U', V: 1200, Mx: 20, My: 40 }];
   for (const arrangement of ['grid', 'radial']) {
     const off = calculateDesign({ ...input, reinforcement: { ...input.reinforcement, enabled: true, arrangement } });
@@ -246,7 +239,7 @@ test('hint: the smallest drop that needs no links in the slab around it', async 
   const { newDefaults } = await import('../src/inputs.mjs');
   const input = newDefaults();
   input.column = { ...input.column, cx: 400, cy: 400 };
-  input.head = { ...input.head, enabled: true, lx: 2000, ly: 2000, thickness: 400 };
+  input.head = { ...input.head, enabled: true, sizeMode: 'absolute', lx: 2000, ly: 2000, thickness: 400 };
   input.reinforcement = { ...input.reinforcement, enabled: true };
   input.loads = [{ name: 'U', V: 1500, Mx: 20, My: 40 }];
   const note = calculateDesign(input).notes.find(n => n.startsWith('Links are needed in the slab around the drop'));
@@ -255,3 +248,4 @@ test('hint: the smallest drop that needs no links in the slab around it', async 
   assert.equal(lx, ly);
   assert.ok(ext(lx) <= 1 && ext(lx - 50) > 1, `${lx}: ${ext(lx)}, ${ext(lx - 50)}`);
 });
+

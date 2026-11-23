@@ -55,6 +55,7 @@
         <button type="button" role="tab" data-tab="compare" aria-selected="false">Compare layouts</button>
       </div>
       <div class="tab-panel" data-panel="plan">
+        <label class="plan-toggle"><input type="checkbox" id="layer-lines"> Show link layer perimeters</label>
         <div id="plan-view" class="drawing" role="img" aria-label="Plan of column, control perimeters and links"></div>
         <p id="selection-info">Select a link in the plan to inspect it.</p>
       </div>
@@ -73,7 +74,7 @@
       <div class="tab-panel" data-panel="schedule" hidden>
         <div class="schedule-wrap">
           <table id="layer-schedule" class="column-summary-table">
-            <thead><tr><th scope="col">Layer</th><th scope="col">s from face</th><th scope="col">Ø</th><th scope="col">Shape</th><th scope="col">Links</th><th scope="col">Eff. legs</th><th scope="col">A_sw (mm²)</th><th scope="col">s_r</th><th scope="col">s_t max ≤ limit</th><th scope="col">Reinforcement</th><th scope="col">Detailing</th></tr></thead>
+            <thead><tr><th scope="col">Layer</th><th scope="col">s from face</th><th scope="col">Ø</th><th scope="col">Shape</th><th scope="col">Links</th><th scope="col">Eff. legs</th><th scope="col">A_sw (mm²)</th><th scope="col">s_r</th><th scope="col">Spacing</th><th scope="col">s_t max ≤ limit</th><th scope="col">Reinforcement</th><th scope="col">Detailing</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>

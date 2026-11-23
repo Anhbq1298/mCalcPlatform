@@ -128,13 +128,24 @@ export function renderBasis(container, profile) {
   container.append(head, table, assumptions, list(profile.assumptions), unsupported, list(profile.unsupported));
 }
 
+// Link spacing as set out: grid on the slab bars, a link on every m-th bar (@ m·s); grid not on the bars,
+// the entered s_t; radial, the number of lines on the perimeter.
+function setOut(result, index) {
+  const layer = result.layout?.layers?.[index];
+  if (!layer) return '—';
+  if (layer.arrangement === 'radial') return `${layer.points?.length ?? layer.links} lines`;
+  const f = result.input?.flexure ?? {};
+  const bar = f.sX > 0 && Math.abs(f.sX - (f.sY ?? f.sX)) < 1e-6 ? f.sX : result.input?.reinforcement?.st;
+  return bar > 0 ? `@${fmt((layer.multiple ?? 1) * bar, 0)}` : '—';
+}
+
 export function renderSchedule(table, result, selectedLayer) {
   const body = table.tBodies[0];
   body.replaceChildren();
   const layers = result.layout?.summary ?? [];
   if (!layers.length) {
     const cell = body.insertRow().insertCell();
-    cell.colSpan = 12;
+    cell.colSpan = 13;
     cell.textContent = result.layout?.reason ?? 'No layers.';
     return;
   }
@@ -146,7 +157,7 @@ export function renderSchedule(table, result, selectedLayer) {
     const cells = [
       layer.id, layer.zone === 'slab' ? `${fmt(layer.offset, 0)} (drop + ${fmt(layer.pathOffset, 0)})` : fmt(layer.offset, 0), 'Ø' + layer.diameter, LINK_SHAPES[layer.shape]?.label ?? layer.shape,
       String(layer.physicalLinks), `${layer.effectiveLegs} / ${layer.legs}`, fmt(layer.asw, 0),
-      radial === null ? '—' : fmt(radial, 0), `${fmt(layer.tangential.max, 0)} ≤ ${fmt(layer.tangentialLimit, 0)}`,
+      radial === null ? '—' : fmt(radial, 0), setOut(result, index), `${fmt(layer.tangential.max, 0)} ≤ ${fmt(layer.tangentialLimit, 0)}`,
     ];
     for (const value of cells) row.insertCell().textContent = value;
     for (const state of [layer.reinforcementState, layer.detailingState]) {
@@ -167,11 +178,11 @@ export function renderAutoSchedule(host, result) {
   const edge = (result.layout.links ?? []).filter(link => link.edge).length;
   const rows = layers.map((layer, i) => {
     const sr = i && layers[i - 1].zone === layer.zone ? fmt(layer.offset - layers[i - 1].offset, 0) : '—';
-    return `<tr><td>${layer.id}</td><td>${fmt(layer.offset, 0)}</td><td>${sr}</td><td>${layer.physicalLinks}</td><td>Ø${layer.diameter}</td><td>${fmt(layer.tangential.max, 0)}</td><td>${fmt(layer.asw, 0)}</td></tr>`;
+    return `<tr><td>${layer.id}</td><td>${fmt(layer.offset, 0)}</td><td>${sr}</td><td>${setOut(result, i)}</td><td>${layer.physicalLinks}</td><td>Ø${layer.diameter}</td><td>${fmt(layer.tangential.max, 0)}</td><td>${fmt(layer.asw, 0)}</td></tr>`;
   }).join('');
   const total = (result.layout.links ?? []).length;
   host.innerHTML = `<p class="card-subhead">Auto schedule</p>`
-    + `<table class="column-summary-table auto-schedule"><thead><tr><th>Layer</th><th>From face</th><th>s_r</th><th>Links</th><th>Ø</th><th>s_t max</th><th>A_sw</th></tr></thead><tbody>${rows}</tbody></table>`
+    + `<table class="column-summary-table auto-schedule"><thead><tr><th>Layer</th><th>From face</th><th>s_r</th><th>Spacing</th><th>Links</th><th>Ø</th><th>s_t max</th><th>A_sw</th></tr></thead><tbody>${rows}</tbody></table>`
     + `<p class="table-caption">${total} links${edge ? `, of which ${edge} fill the drop to its edge (detailing)` : ''}. mm, mm². Full checks per layer: Schedule tab.</p>`;
 }
 

@@ -95,7 +95,7 @@ export function calculate(rawInput, options = {}) {
   const { d, model } = ctx;
   const { materials, reinforcement } = input;
   // Auto arrangement: the user's bar Ø and maximum spacings are constraints; see optimise.mjs.
-  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && !options.srFixed) return optimise(calculate, input, options, d);
+  if (reinforcement.mode === 'auto' && reinforcement.enabled !== false && !options.srFixed && !options.noLinks) return optimise(calculate, input, options, d);
   // Radial spacing for the required A_sw (Eq. 6.52) and the layer grid: the auto arrangement's s_r, else
   // the recommended 0.75d rounded down to 5 mm.
   const srLimit = Math.floor((P.radialSpacing * d) / 5 + 1e-9) * 5;
@@ -115,7 +115,9 @@ export function calculate(rawInput, options = {}) {
   }
   const envelope = { aswReq: Math.max(0, ...needing.map(item => item.aswReq)), aOut: Math.max(0, ...needing.map(item => item.aOut)), sr: ctx.envelopeSr };
   envelope.uOut = needing.length ? Math.max(...needing.map(item => item.uOut)) : null;
-  ctx.compactOuterZone = Boolean(profile.compactOuterZone && envelope.aOut > 0 && envelope.aOut < 3 * d - 1e-6);
+  // options.compactOuterZone: fixed by the caller (composite inner section: links designed for scaled loads
+  // keep the zone the actual loads give).
+  ctx.compactOuterZone = options.compactOuterZone ?? Boolean(profile.compactOuterZone && envelope.aOut > 0 && envelope.aOut < 3 * d - 1e-6);
   const limitIssues = [];
   const linkLimit = options.linkLimit;
   let layoutOut = envelope.aOut;
@@ -150,7 +152,7 @@ export function calculate(rawInput, options = {}) {
     const uReq = fig622 ? envelope.uOut : null;
     const generated = !needing.length
       ? { layers: [], reason: 'No punching reinforcement required.' }
-      : arrangedLayers({ model, d, aOut: ctx.compactOuterZone ? 0 : dropEdgeOut, maxOffset: ctx.compactOuterZone ? Math.min(linkLimit ?? Infinity, 1.5 * d) : Infinity, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, extra: reinforcement.extra ?? 0, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
+      : arrangedLayers({ model, d, aOut: ctx.compactOuterZone ? 0 : dropEdgeOut, maxOffset: ctx.compactOuterZone ? Math.min(linkLimit ?? Infinity, 1.5 * d) : Infinity, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, extra: reinforcement.extra ?? 0, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk, barOrigin: options.barOrigin, maxMultiple: options.maxMultiple ?? 6, relaxFirst: !ctx.compactOuterZone });
     layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
     if (generated.note) limitNotes.push(generated.note);
     if (srNote && needing.length) limitNotes.push(srNote);

@@ -26,7 +26,7 @@ export function callout(x, y, dx, dy, run, lines, color = COLORS.ink) {
   const head = `<path d="M${n(x)} ${n(y)}L${n(x - ux * 7 - uy * 2.5)} ${n(y - uy * 7 + ux * 2.5)}L${n(x - ux * 7 + uy * 2.5)} ${n(y - uy * 7 - ux * 2.5)}Z" fill="${color}"/>`;
   const anchor = dx > 0 ? 'start' : 'end';
   const tx = ex + dx * 3;
-  const text = lines.map((line, i) => `<text class="small" x="${n(tx)}" y="${n(ey - 4 - (lines.length - 1 - i) * 11)}" text-anchor="${anchor}" fill="${COLORS.ink}">${esc(line)}</text>`).join('');
+  const text = lines.map((line, i) => `<text class="small" x="${n(tx)}" y="${n(ey - 4 - (lines.length - 1 - i) * 11)}" text-anchor="${anchor}" fill="${COLORS.ink}" stroke="white" stroke-width="3" paint-order="stroke">${esc(line)}</text>`).join('');
   return `<g class="callout">${head}<path d="M${n(x)} ${n(y)}L${n(ex)} ${n(ey)}L${n(lx)} ${n(ey)}" fill="none" stroke="${COLORS.ink}" stroke-width=".7"/>${text}</g>`;
 }
 // Technical lettering: ISOCPEUR when installed (AutoCAD), else the bundled ISO 3098 font osifont.

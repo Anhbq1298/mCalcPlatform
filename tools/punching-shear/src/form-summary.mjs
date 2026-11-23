@@ -1,4 +1,5 @@
 // One-line summaries shown on the collapsed input cards (keys are the group titles).
+import { resolveHead } from './inputs.mjs';
 const n0 = value => (Number.isFinite(value) ? String(Math.round(value)) : '—');
 const PROFILE = { cen: 'CEN values', sg: 'SG NA', uk: 'UK NA' };
 const POSITION = { internal: 'internal', edge: 'edge', corner: 'corner' };
@@ -7,7 +8,7 @@ export const SUMMARY = {
   'Design basis': s => `${PROFILE[s.code.profile] ?? s.code.profile} · ${POSITION[s.column.position] ?? s.column.position}`,
   Column: s => (s.column.shape === 'circular' ? `Ø${n0(s.column.diameter)}` : `${n0(s.column.cx)} × ${n0(s.column.cy)}${s.column.rotation ? ` · ${s.column.rotation}°` : ''}`),
   Slab: s => `h ${n0(s.slab.h)} · ${s.slab.depthMode === 'explicit' ? `d ${n0((s.slab.dx + s.slab.dy) / 2)}` : 'd from bars'}`,
-  'Drop panel / column head': s => (s.head?.enabled ? (s.head.shape === 'circular' ? `Ø${n0(s.head.diameter)}` : `${n0(s.head.lx)} × ${n0(s.head.ly)}`) + ` · h_tot ${n0(s.head.thickness)}` : 'none'),
+  'Drop panel / column head': s => { if (!s.head?.enabled) return 'none'; const h = resolveHead(structuredClone(s)).head; return (h.sizeMode === 'column' ? `l_H ${n0(h.offset)} → ` : '') + (h.shape === 'circular' ? `Ø${n0(h.diameter)}` : `${n0(h.lx)} × ${n0(h.ly)}`) + ` · h_tot ${n0(h.thickness)}`; },
   Openings: s => (s.openings?.length ? `${s.openings.length} opening${s.openings.length > 1 ? 's' : ''}` : 'none'),
   Materials: s => `f_ck ${n0(s.materials.fck)} · f_yk ${n0(s.materials.fyk)}`,
   'In-plane normal stress': s => (s.prestress?.sigmaX || s.prestress?.sigmaY ? `σ ${s.prestress.sigmaX ?? 0} / ${s.prestress.sigmaY ?? 0} MPa` : 'none'),

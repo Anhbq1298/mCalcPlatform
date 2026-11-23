@@ -168,6 +168,7 @@ byId('restore-links').addEventListener('click', () => {
   if (id && state.reinforcement.omitted) delete state.reinforcement.omitted[id];
   schedule();
 });
+byId('layer-lines')?.addEventListener('change', () => render());
 byId('plan-view').addEventListener('click', event => {
   const target = event.target.closest('[data-link]');
   selected = target ? target.dataset.link : null;
@@ -235,7 +236,7 @@ function render() {
     htmlSubscripts(comparisonHost);
   }
   const drawable = Boolean(result.section);
-  byId('plan-view').innerHTML = drawable ? planSvg(result, { selected, checkId: selectedCheck, loadId: combination.value }) : '';
+  byId('plan-view').innerHTML = drawable ? planSvg(result, { selected, checkId: selectedCheck, loadId: combination.value, layerLines: byId('layer-lines')?.checked }) : '';
   byId('sign-view').innerHTML = drawable ? signSvg(result) : '';
   byId('stress-view').innerHTML = drawable && result.loads?.length ? stressSvg(result, { load: result.loads.find(item => item.id === combination.value) }) : '';
   byId('section-view').innerHTML = drawable ? sectionSvg(result, { axis: 'x' }) : '';
