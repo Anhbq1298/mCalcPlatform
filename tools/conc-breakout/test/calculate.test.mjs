@@ -9,6 +9,7 @@ import { buildReport } from '../src/report.mjs';
 const close = (actual, expected, tolerance, label) => assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: ${actual} vs ${expected}`);
 const make = patch => {
   const input = newDefaults();
+  input.options.analysis = 'rigid'; // these tests cover the rigid-plate model; FEM is in fem.test.mjs
   for (const [group, values] of Object.entries(patch)) Object.assign(input[group], values);
   return input;
 };
@@ -114,7 +115,9 @@ test('restore keeps unknown fields and refuses a newer schema', () => {
   assert.equal(restored.plate.extra, 'x');
   assert.equal(restored.plate.t, 30);
   assert.equal(restored.plate.B, 300);
-  assert.throws(() => migrateInputs({}, 2), /newer/);
+  assert.throws(() => migrateInputs({}, 4), /newer/);
+  assert.equal(restoreInputs(migrateInputs({ plate: { t: 30 } }, 1)).options.analysis, 'rigid');
+  assert.equal(restoreInputs({}).options.analysis, 'fem');
 });
 
 test('drawings and the Canvas report are generated from the result', () => {

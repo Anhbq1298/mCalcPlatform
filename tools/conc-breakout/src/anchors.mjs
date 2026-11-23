@@ -28,6 +28,25 @@ function unionLength(values, r, lo, hi) {
   return total;
 }
 
+// Exact area of the union of squares [x ± r] × [y ± r], clipped to the box (any layout).
+export function unionArea(points, r, box) {
+  const squares = points.map(p => [Math.max(p.x - r, box.x0), Math.min(p.x + r, box.x1), Math.max(p.y - r, box.y0), Math.min(p.y + r, box.y1)]);
+  const xs = [...new Set(squares.flatMap(q => [q[0], q[1]]))].sort((a, b) => a - b);
+  const ys = [...new Set(squares.flatMap(q => [q[2], q[3]]))].sort((a, b) => a - b);
+  let area = 0;
+  for (let i = 0; i < xs.length - 1; i++) {
+    const cx = (xs[i] + xs[i + 1]) / 2;
+    for (let j = 0; j < ys.length - 1; j++) {
+      const cy = (ys[j] + ys[j + 1]) / 2;
+      if (squares.some(q => cx > q[0] && cx < q[1] && cy > q[2] && cy < q[3])) area += (xs[i + 1] - xs[i]) * (ys[j + 1] - ys[j]);
+    }
+  }
+  return area;
+}
+
+const clipBox = edges => ({ x0: edges.left === null ? -1e12 : -edges.left, x1: edges.right === null ? 1e12 : edges.right,
+  y0: edges.bottom === null ? -1e12 : -edges.bottom, y1: edges.top === null ? 1e12 : edges.top });
+
 const groupEdges = (points, edges) => {
   const out = { left: Infinity, right: Infinity, bottom: Infinity, top: Infinity };
   for (const point of points) {
@@ -59,9 +78,7 @@ export function coneResistance(points, { hef, fck, cracked, dense, edges }) {
   const scr = 3 * h;
   const xs = points.map(p => p.x);
   const ys = points.map(p => p.y);
-  const lx = unionLength(xs, ccr, edges.left === null ? -Infinity : -edges.left, edges.right === null ? Infinity : edges.right);
-  const ly = unionLength(ys, ccr, edges.bottom === null ? -Infinity : -edges.bottom, edges.top === null ? Infinity : edges.top);
-  const Ac = lx * ly;
+  const Ac = unionArea(points, ccr, clipBox(edges));
   const A0 = scr * scr; // Eq. 7.3
   const cMin = Math.min(...SIDES.map(side => c[side]));
   const psiS = Math.min(1, 0.7 + 0.3 * cMin / ccr); // Eq. 7.4

@@ -554,6 +554,11 @@ test('checks an embedded plate connection, saves, reopens and reports', async ({
   await expect(page.locator('#bar-rows tbody tr')).toHaveCount(2);
   await page.getByRole('tab', { name: 'Section' }).click();
   await expect(page.locator('#section-view svg')).toBeVisible();
+  await page.getByRole('tab', { name: '3D' }).click();
+  await expect(page.locator('#viewer-3d svg')).toBeVisible();
+  await page.locator('[data-3d="field"]').selectOption('deflection');
+  await expect(page.locator('#viewer-3d svg')).toContainText('Plate w (mm)');
+  await expect(page.locator('#column-check-summary')).toContainText('Flexible vs rigid plate');
   await page.getByRole('tab', { name: 'Element forces' }).click();
   await expect(page.locator('#force-table tbody tr')).toHaveCount(8);
   await page.getByRole('tab', { name: 'Plan' }).click();
@@ -570,4 +575,27 @@ test('checks an embedded plate connection, saves, reopens and reports', async ({
   await shell.getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/\/calc\/\?report=/, { timeout: 65000 });
   await expect(page.getByText('EMBEDDED PLATE CONNECTION').first()).toBeVisible({ timeout: 65000 });
+});
+
+test('edits a custom fastener layout: add, convert and delete points', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('a[href*="t/conc-breakout/"]').filter({ hasText: 'New design' }).first().click();
+  await expect(page.getByRole('heading', { name: /mConcBreakout/ })).toBeVisible();
+  const field = path => page.locator(`#breakout-inputs [data-path="${path}"]`);
+  const rows = page.locator('.point-table tbody tr');
+  await field('layout.mode').selectOption('custom');
+  await expect(rows).toHaveCount(6);
+  await expect(field('studs.nx')).toBeHidden();
+  await rows.nth(0).locator('[data-key="sel"]').check();
+  await page.getByRole('button', { name: 'Stud ↔ Bar' }).click();
+  await expect(rows.nth(0).locator('[data-key="type"]')).toHaveValue('rebar');
+  await expect(page.locator('#force-table tbody tr')).toHaveCount(6);
+  const plan = page.locator('#plan-view svg');
+  const box = await plan.boundingBox();
+  await plan.click({ position: { x: box.width / 2, y: box.height / 2 } });
+  await expect(rows).toHaveCount(7);
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await expect(rows).toHaveCount(6);
+  await expect(page.locator('#design-status')).toContainText('Design status:');
+  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.');
 });

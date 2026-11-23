@@ -4,7 +4,7 @@ import { COLORS, arrow, circle, dim, frame, label, line, rect, view } from './sv
 
 const FREE = 260; // drawn extent beyond the plate where an edge is far away (mm)
 
-export function planSvg(result, { width = 560, height = 520 } = {}) {
+export function planSvg(result, { width = 560, height = 520, selected = new Set() } = {}) {
   const { input, bars, studs, eq } = result;
   const { plate, member, concrete, studs: s } = input;
   const e = concrete.edges;
@@ -55,25 +55,31 @@ export function planSvg(result, { width = 560, height = 520 } = {}) {
   } else if (eq.block && eq.C > 0) {
     out.push(rect(v, -plate.B / 2, -plate.H / 2, plate.B / 2, -plate.H / 2 + eq.block.x, `fill="${COLORS.compression}" fill-opacity=".14" stroke="${COLORS.compression}" stroke-width=".8"`));
   }
+  // Points of a custom layout carry data-point (their index) for selection; selected ones get a ring.
+  const hit = (item, r) => item.index === undefined ? '' : `<g data-point="${item.index}" style="cursor:pointer">${circle(v, item.x, item.y, r, 'fill="transparent"')}`
+    + (selected.has(item.index) ? circle(v, item.x, item.y, r, `fill="none" stroke="${COLORS.compression}" stroke-width="2"`) : '') + '</g>';
   for (const st of studs) {
     out.push(circle(v, st.x, st.y, s.dh / 2, `fill="none" stroke="${COLORS.steel}" stroke-width=".8" stroke-dasharray="2 2"`));
     out.push(circle(v, st.x, st.y, s.d / 2, `fill="#ffffff" stroke="${COLORS.steel}" stroke-width="1.4"`));
     out.push(label(v.x(st.x) + 10, v.y(st.y) - 8, st.id, { anchor: 'start', size: 9, color: COLORS.muted }));
+    out.push(hit(st, s.dh / 2 + 6));
   }
   for (const bar of bars) {
     out.push(circle(v, bar.x, bar.y, bar.d / 2, `fill="${COLORS.rebar}" stroke="${bar.F > 0 ? COLORS.tension : COLORS.rebar}" stroke-width="${bar.F > 0 ? 1.4 : 0.6}"`));
+    out.push(hit(bar, bar.d / 2 + 8));
   }
-  const barText = input.rebars.rows.map(row => row.n + 'Ø' + row.d).join(' + ');
+  const barText = result.layout.rows.map(row => row.n + 'Ø' + row.d).join(' + ');
   if (barText) out.push(label(v.x(-plate.B / 2) - 8, v.y(plate.H / 2) - 4, barText + ' welded', { anchor: 'end', color: COLORS.rebar, size: 10, weight: 600 }));
 
   out.push(dim(v, -plate.B / 2, plate.H / 2, plate.B / 2, plate.H / 2, -16, 'B = ' + plate.B));
   out.push(dim(v, plate.B / 2, -plate.H / 2, plate.B / 2, plate.H / 2, 18, 'H = ' + plate.H));
-  if (s.nx > 1) out.push(dim(v, studs[0].x, -plate.H / 2, studs[1].x, -plate.H / 2, 16, 's_x = ' + s.sx));
-  if (s.ny > 1) out.push(dim(v, -plate.B / 2, studs[0].y, -plate.B / 2, studs[s.nx].y, -18, 's_y = ' + s.sy));
+  if (result.layout.mode === 'grid' && s.nx > 1) out.push(dim(v, studs[0].x, -plate.H / 2, studs[1].x, -plate.H / 2, 16, 's_x = ' + s.sx));
+  if (result.layout.mode === 'grid' && s.ny > 1) out.push(dim(v, -plate.B / 2, studs[0].y, -plate.B / 2, studs[s.nx].y, -18, 's_y = ' + s.sy));
   if (e.bottom !== null) out.push(dim(v, plate.B / 2 + 70, -e.bottom, plate.B / 2 + 70, 0, 0, 'c_bottom = ' + e.bottom));
   const V = result.actions.V / 1e3;
   if (V > 0) out.push(arrow(v.x(plate.B / 2) + 52, v.y(0) + 24, 0, 1, 48, COLORS.shear, 'V_Ed = ' + V.toFixed(1) + ' kN', -1));
   out.push(label(12, 18, 'PLAN ON PLATE FACE', { anchor: 'start', weight: 600 }));
   out.push(label(12, 32, 'x →, y ↑ · M_Ed causes tension at +y', { anchor: 'start', size: 10, color: COLORS.muted }));
-  return frame(v, out.join(''), 'Plan on the plate face with studs, welded bars and breakout boundaries');
+  return frame(v, out.join(''), 'Plan on the plate face with studs, welded bars and breakout boundaries', v.height,
+    ` data-ox="${v.ox}" data-oy="${v.oy}" data-scale="${v.scale}"`);
 }

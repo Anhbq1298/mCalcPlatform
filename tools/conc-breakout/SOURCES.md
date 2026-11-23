@@ -4,7 +4,7 @@ Scope: a cast-in steel plate with welded reinforcing bars and headed studs. Acti
 
 ## Status
 
-Implemented and unit-tested. Benchmarked against published INFASO formula values (below). **Not yet validated** against a complete published worked example of the combined welded-bar and headed-stud connection, because none was found. The INFASO Design Manual II balcony case (§3.3) gives F_Ed = 136.17 kN but no complete component check in the accessible text.
+Implemented and unit-tested. Since schema 2, the default force distribution is a flexible-plate FE model; schema 1 designs reopen with the rigid model. Benchmarked against published INFASO formula values (below). **Not yet validated** against a complete published worked example of the combined welded-bar and headed-stud connection, because none was found. The INFASO Design Manual II balcony case (§3.3) gives F_Ed = 136.17 kN but no complete component check in the accessible text.
 
 ## Clauses and where they are implemented
 
@@ -34,7 +34,22 @@ Implemented and unit-tested. Benchmarked against published INFASO formula values
 
 Sources consulted: EN 1992-4:2018 text (Hilti-hosted copy, partly garbled extraction; the constants above were cross-checked with known worked values); the INFASO Design Manual II (Example 9.4, Example 9.5, §3.3). SCI P102, P252 and P398 were not consulted for this version.
 
-## Benchmarks (`test/benchmarks.test.mjs`)
+## Flexible-plate FEM (`src/fem/`, `test/fem.test.mjs`)
+
+| Item | Basis | Check |
+| --- | --- | --- |
+| MITC4 plate element | Bathe & Dvorkin (1985), assumed transverse shear strains | SS square plate, central point load: w = 0.01160·P·a²/D (Timoshenko & Woinowsky-Krieger), within 1% at 10 × 10 and 20 × 20 meshes; uniform load: w = 0.00406·q·a⁴/D within 1.5%, M = 0.0479·q·a² within 3% |
+| Concrete springs | EN 1993-1-8 Table 6.11 k13 = E_c·√(b_eff·l_eff)/(1.275·E), over the plate area | Thick plate (t = 400 mm) against an independent rigid plate on the same springs: ΣT and C within 2% |
+| Bar spring length l_e | Engineering assumption | none (sensitivity is reported in the Flexible vs rigid row) |
+| Equilibrium | Statics | ΣF exact, ΣM within 0.5% (bar springs spread over neighbouring nodes) |
+
+Public sources the FEM model follows: Hilti PROFIS Engineering CBFEM (concrete as compression springs, anchors as tension springs, steel as shells; technical background articles, Hilti Engineering Centre). The close-to-rigid deviations (highest anchor force, sum of forces, linearity) are also from Hilti. **Open:** a numerical comparison with a published flexible-plate example (ACI 349.2R-97 Examples B2(b) and B3(b), the INFASO DM I/II anchor plate examples, Hilti large-anchorage report 5818140) is not yet done, because those documents could not be retrieved in this session.
+
+## Custom layout (`src/layout.mjs`, `test/layout.test.mjs`)
+
+A custom layout seeded from the grid reproduces the grid results exactly (rigid and FEM). Exact union area of cone squares is checked against hand values for L-shaped, disjoint and clipped groups. Irregular bar rows use the smallest gap and edge distance.
+
+## Benchmarks (`test/anchors.test.mjs`)
 
 | Quantity | Published | Tool | Note |
 | --- | --- | --- | --- |
