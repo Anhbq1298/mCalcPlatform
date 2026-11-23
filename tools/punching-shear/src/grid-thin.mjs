@@ -82,19 +82,17 @@ function thinRing(layer, column, m, open = false) {
 }
 
 export function thinGrid(layers, { column, d, sr, aswReq, legArea, leg, minLeg, gap, span = () => null, maxMultiple = 6 }) {
-  let m = 1;
+  // Each ring independently takes the widest multiple that still meets s_t, A_sw (Eq. 6.52) and Eq. 9.11.
+  // (Starting each ring from the previous ring's multiple and stopping at the first failure left a ring at
+  // full density whenever that multiple did not fit it, e.g. a second ring in a drop.)
   return layers.map(layer => {
     const limit = (layer.offset <= 2 * d ? 1.5 : 2) * d;
-    let best = layer.points;
-    for (let k = m; k <= maxMultiple; k += 1) {
+    for (let k = maxMultiple; k >= 2; k -= 1) {
       const points = thinRing(layer, column, k, span(layer) ?? false);
       const g = gap({ ...layer, points });
-      const ok = g <= limit + 1e-9 && points.length * legArea >= aswReq - 1e-6 && leg >= minLeg(sr, g) - 1e-9;
-      if (!ok) break;
-      best = points;
-      m = k;
+      if (g <= limit + 1e-9 && points.length * legArea >= aswReq - 1e-6 && leg >= minLeg(sr, g) - 1e-9) return { ...layer, points, multiple: k };
     }
-    return { ...layer, points: best, multiple: m };
+    return { ...layer, multiple: 1 };
   });
 }
 
