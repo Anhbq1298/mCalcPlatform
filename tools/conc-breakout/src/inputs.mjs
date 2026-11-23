@@ -64,7 +64,13 @@ export function migrateInputs(inputs, from = SCHEMA) {
     inputs.options = { ...(inputs.options ?? {}), analysis: inputs.options?.analysis ?? 'rigid' };
   }
   if (from < 4 && isObject(inputs)) {
-    inputs.loading = { ...legacyLoading(merge(newDefaults().actions, inputs.actions)), model: 'legacy' };
+    const legacy = legacyLoading(merge(newDefaults().actions, inputs.actions));
+    inputs.loading = {
+      ...inputs.loading,
+      point: { ...inputs.loading?.point, ...legacy.point },
+      applied: { ...inputs.loading?.applied, ...legacy.applied },
+      model: 'legacy',
+    };
   }
   return inputs;
 }
@@ -111,6 +117,14 @@ export function validateInputs(input) {
   need(2 * m.tf < m.h, 'Flange thickness must be less than half the member depth.');
   if (input.loading?.model === 'spatial') {
     transformLoads(input.loading.point ?? {}, input.loading.applied ?? {});
+    need(m.profile == null || ['i', 'hss'].includes(m.profile), 'Select a supported member footprint.');
+    need(m.tw == null || (finite(m.tw) && m.tw > 0 && m.tw <= m.b / 2), 'Enter a valid web thickness.');
+    if (m.profile === 'hss') need(2 * (m.tw ?? m.tf) < m.b, 'HSS webs must fit within the member width.');
+    const hasStuds = input.layout?.mode === 'custom' ? input.layout.points?.some(p => p.type === 'stud') : s.nx && s.ny;
+    need(!hasStuds || s.hef < c.thickness, 'Stud embedment must be smaller than the receiving member thickness.');
+    need(r.backCover == null || (finite(r.backCover) && r.backCover >= 0), 'Enter a valid rear cover.');
+    need(finite(r.cd) && r.cd > 0 && finite(r.k) && r.k > 0
+      && (r.shape !== 'bent' || (finite(r.mandrel) && r.mandrel > 0)), 'Enter valid bar cover, tensile strength and bend geometry.');
   } else {
     need(!input.loading || input.loading.model === 'legacy', 'Select a supported loading model.');
     need([a.N, a.V, a.e, a.M].every(finite), 'Enter all design actions.');

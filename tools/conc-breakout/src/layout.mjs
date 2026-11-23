@@ -37,8 +37,8 @@ export function resolveLayout(input) {
     return { mode: 'grid', studs: studPositions(input.studs), bars, rows };
   }
   const points = input.layout.points;
-  const studs = points.filter(p => p.type === 'stud').map((p, i) => ({ id: 'S' + (i + 1), x: p.x, y: p.y, index: points.indexOf(p), ...(p.shearStiffness != null ? { shearStiffness: p.shearStiffness } : {}) }));
-  const bars = points.filter(p => p.type === 'rebar').map(p => ({ x: p.x, y: p.y, d: p.d, index: points.indexOf(p) }));
+  const studs = points.filter(p => p.type === 'stud').map((p, i) => ({ id: 'S' + (i + 1), x: p.x, y: p.y, index: points.indexOf(p), shearStiffness: p.shearStiffness, axialStiffness: p.axialStiffness }));
+  const bars = points.filter(p => p.type === 'rebar').map(p => ({ x: p.x, y: p.y, d: p.d, index: points.indexOf(p), axialStiffness: p.axialStiffness }));
   const rows = rowsOf(bars);
   const count = new Map();
   for (const bar of bars) {

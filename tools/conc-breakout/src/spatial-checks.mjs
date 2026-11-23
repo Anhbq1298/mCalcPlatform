@@ -119,7 +119,7 @@ export function barVerification(input, bars) {
       bar.anchor.lbd.toFixed(1) + ' / ' + rebars.length + ' mm', ref));
     if (rebars.shape === 'straight' && Number.isFinite(rebars.backCover)) {
       rows.push(utilization(group, bar.id + ' fit within member',
-        (plate.t + rebars.length + rebars.backCover) / concrete.thickness, 'Straight bar plus plate and rear cover.', 'Geometry'));
+        (rebars.length + rebars.backCover) / concrete.thickness, 'Straight bar from interface plus rear cover.', 'Geometry'));
     }
     if (rebars.shape === 'bent') rows.push(utilization(group, bar.id + ' mandrel diameter',
       minMandrel(bar.d) / rebars.mandrel, 'Minimum mandrel diameter only. Check concrete pressure inside bend.', 'EN 1992-1-1:2004 Table 8.1N'));

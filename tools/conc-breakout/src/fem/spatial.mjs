@@ -1,26 +1,25 @@
 import { solveFlexible } from './connection-model.mjs';
-import { solveMembrane } from './membrane.mjs';
 
 export function solveSpatial(input, elements, concrete, actions, size) {
   const { N, Mx, My, Vx, Vy, Mz } = actions;
-  const eq = solveFlexible(input, elements, concrete, N, Mx, { My, size });
-  const { mesh } = eq.fem;
-  let membrane;
-  let shearIssue;
   const studs = elements.filter(element => element.kind === 'stud');
-  if ([Vx, Vy, Mz].some(Boolean) && (input.options.friction || !studs.length || studs.some(e => !(e.shearK > 0)))) {
-    shearIssue = 'Supply positive headed-stud shear stiffness and disable friction for the current shear model.';
-  } else {
-    const supports = studs.map(element => ({
-      id: element.id, x: element.x, y: element.y, k: element.shearK,
-      node: mesh.nodes.find(node => Math.hypot(node.x - element.x, node.y - element.y) <= 1e-6)?.id,
-    }));
-    try {
-      membrane = solveMembrane({ mesh, slaves: eq.fem.slaves, supports, t: input.plate.t, load: [Vx, Vy, Mz] });
-    } catch (error) {
-      shearIssue = error.message;
-    }
+  const hasShear = [Vx, Vy, Mz].some(Boolean);
+  const valid = studs.every(e => Number.isFinite(e.shearK) && e.shearK > 0);
+  const distinct = studs.some(e => Math.hypot(e.x - studs[0].x, e.y - studs[0].y) > 1e-6);
+  const withShell = !input.options.friction && valid && distinct;
+  let shearIssue = hasShear && !withShell
+    ? 'The shear model requires positive shear stiffness at two distinct headed studs and excludes friction.' : undefined;
+  let eq;
+  try {
+    eq = solveFlexible(input, elements, concrete, N, Mx, { My, size, Vx, Vy, Mz, supports: withShell ? studs : [] });
+  } catch (error) {
+    if (!withShell) throw error;
+    shearIssue = error.message;
+    eq = solveFlexible(input, elements, concrete, N, Mx, { My, size });
   }
+  const membrane = eq.membrane ?? (!hasShear && !shearIssue ? {
+    anchors: [], residual: { Fx: 0, Fy: 0, Mz: 0 }, stresses: [],
+  } : null);
   const residual = { ...eq.residual, ...membrane?.residual };
   const forceLimit = 0.05 + 1e-6 * Math.max(Math.hypot(N, Vx, Vy), eq.T, eq.C);
   const momentLimit = forceLimit * Math.max(input.plate.B, input.plate.H)
@@ -29,7 +28,7 @@ export function solveSpatial(input, elements, concrete, actions, size) {
     Number.isFinite(residual[key]) && Math.abs(residual[key]) <= (key.startsWith('F') ? forceLimit : momentLimit));
   const finite = eq.fem.w.every(Number.isFinite) && Number.isFinite(eq.fem.vmMax) && Number.isFinite(eq.fem.pMax);
   return {
-    ...eq, membrane, shearIssue, residual, balanced, forceLimit, momentLimit,
+    ...eq, coupled: Boolean(eq.membrane), membrane, shearIssue, residual, balanced, forceLimit, momentLimit,
     analysisValid: finite && eq.fem.converged && balanced,
   };
 }

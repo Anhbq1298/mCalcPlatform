@@ -29,11 +29,14 @@ export function calculateSpatial(input) {
   const grade = plateProps(plate.grade);
   const gammas = studFactors(s.fuk, s.fyk);
   const fjd = jointStrength(concrete, o.betaJ, o.alpha);
-  const rebarElements = layout.bars.map(b => ({ ...b, kind: 'rebar', area: barArea(b.d) }));
+  const rebarElements = layout.bars.map(b => ({ ...b, kind: 'rebar', area: barArea(b.d), axialK: b.axialStiffness ?? rebars.axialStiffness }));
   const studElements = layout.studs.map(p => ({
-    ...p, kind: 'stud', d: s.d, area: shankArea(s.d), shearK: p.shearStiffness ?? s.shearStiffness,
+    ...p, kind: 'stud', d: s.d, area: shankArea(s.d), axialK: p.axialStiffness ?? s.axialStiffness, shearK: p.shearStiffness ?? s.shearStiffness,
   }));
   const elements = [...rebarElements, ...studElements];
+  if (elements.some(e => e.axialK != null && !(Number.isFinite(e.axialK) && e.axialK > 0))) {
+    throw new Error('Enter a positive axial stiffness for each override.');
+  }
   const h = o.meshSize ?? Math.max(meshSize(plate), Math.max(plate.B, plate.H) / 35);
   if (!Number.isFinite(h) || h <= 0) throw new Error('Enter a positive mesh size.');
   const eq = solveSpatial(input, elements, concrete, loads, h);
@@ -63,7 +66,8 @@ export function calculateSpatial(input) {
         + '% against 1.45× coarser mesh. The screening threshold is 5% of the governing reaction.'
         : (meshIssue ?? 'Two equilibrated meshes are required.'), 'Force-resultant sensitivity screen'),
     information(group, 'Analysis model validation', 'incomplete',
-      'Elastic plate and membrane with point springs. Verify axial and shear stiffness, combined anchor behaviour and through-thickness restraint for the connection.',
+      (eq.coupled ? 'Coupled shell with shear at the concrete interface. ' : 'Out-of-plane solve. In-plane restraint is unverified. ')
+      + 'Verify axial and shear stiffness, nonlinear anchor interaction and local effects at the load-introduction points.',
       'Model scope and benchmark record'),
     information('Load path', 'Transfer into the receiving member', 'incomplete',
       'Resolve concrete bearing into struts and nodal zones. Trace anchor forces into developed reinforcement ties. Verify confinement, laps, splitting and member actions.',
