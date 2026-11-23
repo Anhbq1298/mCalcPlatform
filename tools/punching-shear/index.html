@@ -11,14 +11,15 @@
     <a class="help-link" href="help.html" target="_blank" rel="noopener">Help</a>
     <output id="calculation-status" aria-live="polite">Preparing</output>
   </header>
-  <main class="column-layout punching-layout">
+  <section id="template-picker" class="template-picker" aria-labelledby="template-title" hidden>
+    <h2 id="template-title">Choose a punching shear template</h2>
+    <p>Select the column position and whether the slab has a drop panel. You can edit the geometry, loads and design basis after opening a template.</p>
+    <div id="example-cards" class="example-cards" role="group" aria-label="Punching shear templates"></div>
+  </section>
+  <main id="design-inputs" class="column-layout punching-layout" hidden>
     <form id="punching-inputs" aria-label="Punching shear inputs">
-      <fieldset id="examples-anchor">
-        <legend>Calculation case</legend>
-        <label><span>Start from</span><select id="case-mode" aria-label="Start from"><option value="custom">Custom input</option><option value="cards">Worked case</option></select></label>
-        <div id="example-cards" class="example-cards" role="group" aria-label="Worked cases" hidden></div>
-        <div id="example-variants" class="example-variants" role="group" aria-label="Variants" hidden></div>
-        <p id="example-note" class="table-caption"></p>
+      <fieldset>
+        <legend id="active-template">Calculation inputs</legend>
         <label class="show-all"><input type="checkbox" id="show-all-inputs"><span>Show all inputs</span></label>
       </fieldset>
       <div id="openings-anchor">

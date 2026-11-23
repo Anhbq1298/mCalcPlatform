@@ -10,7 +10,7 @@ export function positionIssues(input, position) {
   if (position.kind === 'invalid') return [{ state: STATES.unsupportedGeometry, message: position.message }];
   if (position.kind !== input.column.position) {
     const edges = position.normals.map(normal => normal.edge).join(' and ');
-    return [{ state: STATES.incomplete, message: `Column position is set to ${input.column.position}, but the geometry is ${position.kind === 'internal' ? 'an internal column' : `${position.kind === 'edge' ? 'an edge' : 'a corner'} column (face flush with slab edge ${edges})`}. Correct the position or the slab edges.` }];
+    return [{ state: STATES.incomplete, code: 'column-position-mismatch', detectedPosition: position.kind, message: `Column position is set to ${input.column.position}, but the geometry is ${position.kind === 'internal' ? 'an internal column' : `${position.kind === 'edge' ? 'an edge' : 'a corner'} column (face flush with slab edge ${edges})`}. Check the column position and actual slab boundaries.` }];
   }
   return [];
 }

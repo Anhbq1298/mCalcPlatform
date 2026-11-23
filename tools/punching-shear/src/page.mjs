@@ -10,8 +10,9 @@ import { signSvg } from './sign-view.mjs';
 import { stressSvg } from './stress-view.mjs';
 import { buildForm } from './form.mjs';
 import { htmlSubscripts } from './subscript.mjs';
-import { LINK_DIAMETERS, layersToGroups, newDefaults, restoreInputs } from './inputs.mjs';
+import { LINK_DIAMETERS, layersToGroups, restoreInputs } from './inputs.mjs';
 import { planSvg } from './plan-view.mjs';
+import { classifyPosition } from './position.mjs';
 import { renderCompact } from './output-view.mjs';
 import { renderArrangementComparison, renderAutoSchedule, renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
 import { sectionSvg } from './section-view.mjs';
@@ -30,7 +31,8 @@ const form = byId('punching-inputs');
 const status = byId('calculation-status');
 const combination = byId('combination');
 const SCHEMA = 1;
-let state = newDefaults();
+const chooseTemplate = 'Choose a punching shear template.';
+let state = null;
 let result = null;
 let selected = null;
 let debounce;
@@ -97,47 +99,54 @@ for (const cell of layerTableHost.querySelectorAll('thead th')) {
   });
 }
 
-// Calculation case: worked cases appear as cards only when "Worked case" is chosen.
-let activeCard = null;
 let selectedCheck = null;
-let activeVariant = null;
-function loadVariant(item) {
-  state = restoreInputs(item.input);
-  activeVariant = item.id;
+function openDesign(inputs, templateTitle) {
+  clearTimeout(debounce);
+  state = restoreInputs(inputs);
   selectedCheck = null;
-  byId('example-note').textContent = item.note;
   selected = null;
-  renderCards();
+  byId('active-template').textContent = templateTitle ?? 'Calculation inputs';
+  byId('template-picker').hidden = true;
+  byId('design-inputs').hidden = false;
   refresh();
   recalculate();
 }
-function renderCards() {
-  const show = byId('case-mode').value === 'cards';
-  byId('example-cards').hidden = !show;
-  byId('example-variants').hidden = !show || !activeCard || activeCard.variants.length < 2;
-  if (!show) return;
-  byId('example-cards').replaceChildren(...EXAMPLE_CARDS.map(card => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'example-card';
-    button.setAttribute('aria-pressed', String(card === activeCard));
-    button.innerHTML = cardIcon(card) + `<span>${card.title}</span>`;
-    button.addEventListener('click', () => { activeCard = card; loadVariant(card.variants[0]); });
-    return button;
-  }));
-  if (activeCard) byId('example-variants').replaceChildren(...activeCard.variants.map(item => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'example-variant';
-    chip.dataset.example = item.id;
-    chip.setAttribute('aria-pressed', String(activeVariant === item.id));
-    chip.textContent = item.label;
-    chip.addEventListener('click', () => loadVariant(item));
-    return chip;
-  }));
-  htmlSubscripts(byId('example-variants'));
+
+for (const card of EXAMPLE_CARDS) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'example-card';
+  button.innerHTML = cardIcon(card) + `<span>${card.title}</span>`;
+  button.addEventListener('click', () => {
+    openDesign(card.variants[0].input, card.title + ' template');
+    focusField('Column', 'column.shape');
+  });
+  byId('example-cards').append(button);
 }
-byId('case-mode').addEventListener('input', renderCards);
+
+function focusField(group, path) {
+  refreshForm.open(group);
+  form.querySelector(`[data-path="${path}"]`).focus();
+}
+
+function positionActions(issue) {
+  if (issue.code !== 'column-position-mismatch') return [];
+  const detected = classifyPosition(state.column, state.slab);
+  if (detected.kind !== issue.detectedPosition || detected.kind === state.column.position) return [];
+  const name = detected.kind === 'internal' ? 'interior' : detected.kind;
+  return [
+    [`Use ${name} position`, () => {
+      // The editor remains live while checks are queued. Apply only the position still indicated by the geometry.
+      if (classifyPosition(state.column, state.slab).kind !== detected.kind) return;
+      state.column.position = detected.kind;
+      refreshForm();
+      focusField('Column', 'column.position');
+      clearTimeout(debounce);
+      recalculate();
+    }],
+    ['Review slab edges', () => focusField('Slab', 'slab.xMin')],
+  ];
+}
 // Drawing tabs: one drawing at a time in the centre column.
 const tabs = [...document.querySelectorAll('.drawing-tabs [role="tab"]')];
 for (const tab of tabs) tab.addEventListener('click', () => {
@@ -222,6 +231,7 @@ function recalculate() {
 
 function render() {
   if (!result) return;
+  combination.closest('label').hidden = !result.loads.length;
   const current = combination.value;
   const duplicate = name => result.loads.filter(load => load.name === name).length > 1;
   combination.replaceChildren(...result.loads.map((load, index) => new Option(
@@ -230,8 +240,10 @@ function render() {
   combination.value = result.loads.some(load => load.id === current) ? current : result.governing?.loadId ?? '';
   byId('design-basis').textContent = result.profile ? `EN 1992-1-1:2004 · ${result.profile.label}` : '';
   renderSummary(document.createElement('div'), byId('design-status'), result, combination.value);
-  renderCompact(byId('column-check-summary'), result, combination.value, selectedCheck, id => { selectedCheck = id; byId('plan-tab').click(); render(); });
-  renderMessages(byId('messages'), result);
+  const summary = byId('column-check-summary');
+  if (!result.loads.length && result.issues?.length) summary.replaceChildren();
+  else renderCompact(summary, result, combination.value, selectedCheck, id => { selectedCheck = id; byId('plan-tab').click(); render(); });
+  renderMessages(byId('messages'), result, positionActions);
   renderDetails(byId('checks'), result, combination.value);
   if (result.profile) renderBasis(byId('code-basis'), result.profile);
   else byId('code-basis').replaceChildren();
@@ -255,26 +267,30 @@ function render() {
     : 'Select a link in the plan to inspect it.';
   byId('omit-link').disabled = !(link && state.reinforcement.mode === 'provided');
   byId('restore-links').disabled = !(state.reinforcement.mode === 'provided' && (link || /^L\d+$/.test(selected ?? '')));
-  for (const id of ['column-check-summary', 'design-status', 'messages', 'checks', 'code-basis', 'layer-schedule', 'auto-schedule', 'selection-info', 'example-note', 'example-variants']) htmlSubscripts(byId(id));
+  for (const id of ['column-check-summary', 'design-status', 'messages', 'checks', 'code-basis', 'layer-schedule', 'auto-schedule', 'selection-info']) htmlSubscripts(byId(id));
 }
 
 form.addEventListener('submit', event => event.preventDefault());
-refresh();
-recalculate();
+function showTemplatePicker() {
+  byId('template-picker').hidden = false;
+  status.textContent = chooseTemplate;
+}
+
+if (!new URLSearchParams(location.search).has('design')) showTemplatePicker();
 
 registerPage('punching-shear', {
-  snapshot: () => structuredClone(state),
+  reset: showTemplatePicker,
+  snapshot: () => {
+    if (!state) throw new Error(chooseTemplate);
+    return structuredClone(state);
+  },
   migrate: (inputs, from) => {
     if (from < 1 || from > SCHEMA) throw new Error('Unsupported punching shear input version.');
     return restoreInputs(inputs);
   },
-  restore: inputs => {
-    state = restoreInputs(inputs);
-    selected = null;
-    refresh();
-    recalculate();
-  },
+  restore: inputs => openDesign(inputs),
   report: async () => {
+    if (!state) throw new Error(chooseTemplate);
     clearTimeout(debounce);
     result = calculate(state);
     render();

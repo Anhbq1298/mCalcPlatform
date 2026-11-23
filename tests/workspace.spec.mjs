@@ -431,12 +431,26 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.goto('./');
   await page.locator('a[href*="t/punching-shear/"]').filter({ hasText: 'New design' }).first().click();
   await expect(page.getByRole('heading', { name: /mPunchingShear/ })).toBeVisible();
+  const shell = page.getByRole('navigation', { name: 'Design workspace' });
+  const picker = page.getByRole('region', { name: 'Choose a punching shear template' });
+  await expect(picker.getByRole('button')).toHaveCount(6);
+  await expect(page.getByLabel('Show all inputs')).toBeHidden();
+  await shell.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(shell.getByText('Choose a punching shear template.')).toBeVisible();
+  await picker.getByRole('button', { name: 'Interior', exact: true }).click();
+  await expect(picker).toBeHidden();
   await page.getByLabel('Show all inputs').check();
   const status = page.locator('#design-status');
-  // Defaults: Singapore NA, β from moments, d from h, cover and bars; a result straight away.
-  await expect(page.getByLabel('Parameter set')).toHaveValue('sg');
+  // Set up the legacy Singapore link-layout regression from the Interior template.
+  await page.getByLabel('Parameter set').selectOption('sg');
+  await page.getByLabel('Effective depth', { exact: true }).selectOption('bars');
+  await page.locator('[data-path="column.cx"]').fill('300');
+  await page.locator('[data-path="column.cy"]').fill('900');
+  await page.getByLabel('1 M_x', { exact: true }).fill('0');
+  await page.getByLabel('1 M_y', { exact: true }).fill('0');
   await page.getByLabel('1 V_Ed', { exact: true }).fill('775');
-  // No links by default: links are needed at V = 775 kN, so Fail until the tick.
+  await page.locator('[data-path="reinforcement.srAuto"]').check();
+  await page.getByLabel('Provide punching reinforcement (shear links)').uncheck();
   await expect(page.getByLabel('Links', { exact: true })).toBeHidden();
   await expect(status).toContainText('Design status: Fail');
   await expect(page.locator('#design-basis')).toContainText('Singapore National Annex');
@@ -449,7 +463,13 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.getByLabel('Column position').selectOption('edge');
   await expect(status).toContainText('Incomplete input');
   await expect(page.locator('#messages')).toContainText('geometry is an internal column');
-  await page.getByLabel('Column position').selectOption('internal');
+  await expect(page.getByLabel('Combination shown')).toBeHidden();
+  await page.getByRole('button', { name: 'Review slab edges' }).click();
+  await expect(page.locator('[data-path="slab.xMin"]')).toBeFocused();
+  await page.getByRole('button', { name: 'Use interior position' }).click();
+  await expect(page.getByLabel('Column position')).toHaveValue('internal');
+  await expect(page.locator('[data-path="slab.xMax"]')).toHaveValue('6000');
+  await expect(status).toContainText('Design status: Pass');
   const schedule = page.locator('#layer-schedule tbody tr');
   await expect(schedule).toHaveCount(2); // Singapore compact link zone.
   await page.getByRole('tab', { name: 'Compare layouts' }).click();
@@ -481,13 +501,13 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await page.locator('#combination').selectOption({ index: 1 });
   await expect(page.locator('#combination option:checked')).toContainText('row 2');
   await page.locator('#combination').selectOption({ index: 0 });
-  const shell = page.getByRole('navigation', { name: 'Design workspace' });
   await shell.getByLabel('Design name').fill('PS-01 internal column');
   await shell.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(shell.getByText('Design saved.')).toBeVisible();
   const before = await status.textContent();
   await page.reload();
   await expect(shell.getByLabel('Design name')).toHaveValue('PS-01 internal column', { timeout: 45000 });
+  await expect(picker).toBeHidden();
   await expect(page.getByLabel('Links', { exact: true })).toHaveValue('provided');
   await expect(schedule).toHaveCount(3);
   await expect(page.locator('#plan-view [data-link="L2-3"]')).toHaveCount(0);
@@ -514,7 +534,18 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await page.goto('./');
   await page.locator('a[href*="t/punching-shear/"]').filter({ hasText: 'New design' }).first().click();
   const status = page.locator('#design-status');
-  await page.getByLabel('Start from').selectOption('cards');
+  await page.getByRole('button', { name: 'Edge', exact: true }).click();
+  await expect(status).toContainText('Pass');
+  await page.getByLabel('Show all inputs').check();
+  const slabEdge = page.locator('[data-path="slab.xMax"]');
+  await expect(slabEdge).toHaveValue('200');
+  await slabEdge.fill('6000');
+  await expect(status).toContainText('Incomplete input');
+  await page.getByRole('button', { name: 'Review slab edges' }).click();
+  await slabEdge.fill('200');
+  await expect(status).toContainText('Pass');
+  await expect(page.getByLabel('Column position')).toHaveValue('edge');
+  await page.getByRole('navigation', { name: 'Design workspace' }).getByRole('button', { name: 'New', exact: true }).click();
   await page.getByRole('button', { name: 'Interior + drop' }).click();
   await expect(status).toContainText('Pass');
   await expect(page.locator('#plan-view')).toContainText('u1,ext');
@@ -526,7 +557,7 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await expect(page.locator('#punching-inputs')).not.toContainText('accepted');
   await expect(page.locator('#column-check-summary')).toContainText('Fig. 6.18');
   await expect(page.locator('#column-check-summary')).toContainText('in the drop and beyond the drop');
-  await expect(page.locator('#example-variants')).toBeHidden();
+  await page.getByRole('navigation', { name: 'Design workspace' }).getByRole('button', { name: 'New', exact: true }).click();
   await page.getByRole('button', { name: 'Interior', exact: true }).click();
   await expect(status).toContainText('Pass');
   await expect(page.locator('#punching-inputs summary math').first()).toBeVisible();
