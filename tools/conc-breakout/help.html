@@ -36,6 +36,19 @@
   <p><span class="tag assume">Assumption</span> <b>Full-width block</b>: f<sub>jd</sub> over the full plate width from the bottom edge. The tool warns when B exceeds b + 2c, because the plate cannot then spread bearing across its full width.</p>
   <p>The lever arm is not entered. It comes out of equilibrium: ΣT − C = N and ΣT·y − C·y<sub>c</sub> = M. With pure tension at small eccentricity, a linear field over the tension elements is used with no bearing.</p>
 
+  <h2>2b Flexible plate (FEM), the default analysis</h2>
+  <p><span class="tag assume">Assumption</span> The plate is modelled with MITC4 Reissner–Mindlin plate elements on a mesh of at most 25 mm. Grid lines pass through every bar, stud and flange line. The steel member is a rigid footprint over both flanges and the web line, an I-section, and carries N<sub>Ed</sub> and M<sub>Ed</sub>. Shear stays with the studs as in the rigid model.</p>
+  <ul>
+    <li>Concrete: compression-only Winkler springs, k<sub>c</sub> = E<sub>cm</sub>/(1.275·√(B·H)) per unit area. This is the concrete-in-compression coefficient k<sub>13</sub> of EN 1993-1-8 Table 6.11 spread over the plate. E<sub>cm</sub> is from EN 1992-1-1 Table 3.1.</li>
+    <li>Welded bars: tension-only springs E<sub>s</sub>A<sub>s</sub>/l<sub>e</sub>, with l<sub>e</sub> = ½·min(l<sub>b,prov</sub>, l<sub>b,rqd</sub>), spread over the nodes within the weld collar or one mesh step.</li>
+    <li>Studs, when they share tension: tension-only springs E<sub>s</sub>A<sub>s</sub>/h<sub>ef</sub>, the steel shank only. This is stiffer than the real stud, so stud tension is not underestimated.</li>
+    <li>When studs share tension, the stud springs are an upper bound on stud stiffness and would unload the bars. The model is therefore solved twice. The bars take the larger force from a run without stud tension and the run with it, and the studs take their force from the run with stiff stud springs. Each component is checked for its upper bound.</li>
+    <li>One-sided springs are solved by active-set iteration. The bar and stud forces from FEM replace the rigid-plate forces in every check. The bearing check compares the FEM compression resultant with the flange T-stub F<sub>c,Rd</sub>.</li>
+    <li>The plate is elastic. The von Mises stress at element centres is reported against f<sub>y</sub>/γ<sub>M0</sub> as a warning, not a failure. Peaks next to point springs depend on the mesh, and the yield-line strip check stays the resistance check. No plastic redistribution (EN 1993-1-5 Annex C) is modelled.</li>
+    <li>Verification (test/fem.test.mjs): Navier simply supported plate under a point load and under a uniform load (Timoshenko coefficients) within 1–1.5%. A 400 mm thick plate reproduces an independent rigid-plate-on-Winkler solution within 2%. Global equilibrium is checked for N &lt; 0, = 0 and &gt; 0.</li>
+  </ul>
+  <p>What changes physically: a thin plate concentrates bearing under the compression flange and raises the bar force. A thick plate behaves rigidly on the elastic concrete, so bearing moves toward the plate edge and the lever arm grows. The "Flexible vs rigid plate" row reports both.</p>
+
   <h2>3 Welded bars</h2>
   <ul>
     <li><span class="tag code">Code</span> Steel: F ≤ A<sub>s</sub>·f<sub>yk</sub>/γ<sub>s</sub>.</li>
@@ -74,7 +87,8 @@
   <h3>Is the SCI / EN 1993-1-8 T-stub directly applicable?</h3>
   <p>Its yield-line lengths are, because they depend on the plate and the load points, not on the fastener type. Its prying and bolt-elongation rules are not. Welded bonded bars are stiff and cannot separate from the plate, which is why the strip check here uses a cantilever with no prying.</p>
 
-  <h2>7 Drawing convention</h2>
+  <h2>7 Drawing convention and 3D view</h2>
+  <p>The 3D tab is an SVG projection: drag to rotate, use the wheel or buttons to zoom, or the arrow keys. It colours the plate by σ<sub>vM</sub>, deflection w or contact pressure, with optional exaggerated deformation, and shows bars coloured by utilisation and the checked breakout bodies dashed. Studs drawn red carry tension. The concrete is drawn only to the free edges, or 260 mm beyond the plate where no edge is set.</p>
   <p><span class="swatch" style="background:#e3e5e7"></span>Concrete <span class="swatch" style="background:#5b6b7d"></span>Steel plate and studs <span class="swatch" style="background:#e07b00"></span>Reinforcement <span class="swatch" style="background:#c62828"></span>Tension and failure surfaces (dashed) <span class="swatch" style="background:#1f5fbf"></span>Compression <span class="swatch" style="background:#7b1fa2"></span>Applied shear</p>
 
   <h2>8 Not covered</h2>

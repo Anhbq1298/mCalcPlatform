@@ -41,6 +41,7 @@ export const GROUPS = [
     choice('studs.tension', 'Stud tension', [['excluded', 'Neglected (bars take tension)'], ['shared', 'Studs share tension']]),
   ]],
   ['Model and confirmations', [
+    choice('options.analysis', 'Plate analysis', [['fem', 'Flexible plate (FEM)'], ['rigid', 'Rigid plate']]),
     choice('options.method', 'Compression model', [['component', 'Flange T-stub (EN 1993-1-8)'], ['block', 'Full-width block']]),
     num('options.betaJ', 'β<sub>j</sub>', { step: 0.01 }), num('options.alpha', 'α spread factor (EC2 Eq. 6.63)', { min: 1, max: 3, step: 0.1 }),
     check('options.friction', 'Use friction 0.2·N<sub>c,Ed</sub>'),

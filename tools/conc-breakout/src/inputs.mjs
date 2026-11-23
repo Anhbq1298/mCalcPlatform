@@ -3,7 +3,7 @@
 // M_Ed rotates the top of the plate away from the concrete (tension at +y). V_Ed acts down (−y).
 // Unknown fields are preserved on restore.
 
-export const SCHEMA = 1;
+export const SCHEMA = 2;
 
 export const PLATE_GRADES = {
   // EN 1993-1-1 Table 3.1, t ≤ 40 mm; β_w from EN 1993-1-8 Table 4.1.
@@ -30,7 +30,7 @@ export const newDefaults = () => ({
     d: 22, dh: 35, hef: 165, fuk: 450, fyk: 350, ductile: true, k8: 2.0,
     nx: 2, ny: 2, sx: 200, sy: 200, tension: 'excluded',
   },
-  options: { method: 'component', betaJ: 2 / 3, alpha: 1.0, friction: false, loadPathConfirmed: false },
+  options: { analysis: 'fem', method: 'component', betaJ: 2 / 3, alpha: 1.0, friction: false, loadPathConfirmed: false },
 });
 
 const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -46,6 +46,10 @@ function merge(base, saved) {
 
 export function migrateInputs(inputs, from = SCHEMA) {
   if (from > SCHEMA) throw new Error('This design was saved by a newer mConcBreakout schema.');
+  if (from < 2 && inputs && typeof inputs === 'object') {
+    // Schema 1 designs were checked with the rigid-plate model; keep their results unchanged.
+    inputs.options = { ...(inputs.options ?? {}), analysis: inputs.options?.analysis ?? 'rigid' };
+  }
   return inputs;
 }
 
@@ -116,6 +120,7 @@ export function validateInputs(input) {
     need(c.edges[side] === null || c.edges[side] >= half[side], `The ${side} edge cuts through the plate.`);
   }
   need(['component', 'block'].includes(o.method), 'Select the compression model.');
+  need(['fem', 'rigid'].includes(o.analysis), 'Select the plate analysis.');
   need(['excluded', 'shared'].includes(s.tension), 'Select how studs take tension.');
   need(finite(o.betaJ) && o.betaJ > 0 && o.betaJ <= 1, 'β_j must lie in (0, 1].');
   need(finite(o.alpha) && o.alpha >= 1 && o.alpha <= 3, 'α (EC2 Eq. 6.63 spread factor) must lie in [1, 3].');

@@ -8,6 +8,7 @@ import { migrateInputs, newDefaults, restoreInputs } from './inputs.mjs';
 import { planSvg } from './plan-view.mjs';
 import { buildReport } from './report.mjs';
 import { sectionSvg } from './section-view.mjs';
+import { createViewer } from './viewer3d.mjs';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
@@ -23,10 +24,12 @@ let debounce;
 const refreshForm = buildForm(byId('breakout-inputs'), () => state, schedule);
 byId('breakout-inputs').addEventListener('submit', event => event.preventDefault());
 
+const viewer = createViewer(byId('viewer-3d'));
 const tabs = [...document.querySelectorAll('.drawing-tabs [role="tab"]')];
 for (const tab of tabs) tab.addEventListener('click', () => {
   for (const other of tabs) other.setAttribute('aria-selected', String(other === tab));
   for (const panel of document.querySelectorAll('.tab-panel')) panel.hidden = panel.dataset.panel !== tab.dataset.tab;
+  if (tab.dataset.tab === 'view3d') viewer.redraw();
 });
 
 function schedule() {
@@ -59,6 +62,7 @@ function recalculate() {
   }
   byId('plan-view').innerHTML = planSvg(result);
   byId('section-view').innerHTML = sectionSvg(result);
+  viewer.update(result);
   forceRows(result);
   renderColumnSummary(summary, result.rows);
   byId('design-status').textContent = 'Design status: ' + result.status + '.';

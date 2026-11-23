@@ -554,6 +554,11 @@ test('checks an embedded plate connection, saves, reopens and reports', async ({
   await expect(page.locator('#bar-rows tbody tr')).toHaveCount(2);
   await page.getByRole('tab', { name: 'Section' }).click();
   await expect(page.locator('#section-view svg')).toBeVisible();
+  await page.getByRole('tab', { name: '3D' }).click();
+  await expect(page.locator('#viewer-3d svg')).toBeVisible();
+  await page.locator('[data-3d="field"]').selectOption('deflection');
+  await expect(page.locator('#viewer-3d svg')).toContainText('Plate w (mm)');
+  await expect(page.locator('#column-check-summary')).toContainText('Flexible vs rigid plate');
   await page.getByRole('tab', { name: 'Element forces' }).click();
   await expect(page.locator('#force-table tbody tr')).toHaveCount(8);
   await page.getByRole('tab', { name: 'Plan' }).click();

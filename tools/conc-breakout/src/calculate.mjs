@@ -1,6 +1,7 @@
 // Assembles the connection checks. Inputs in kN, kN·m, mm, MPa; internal N, mm.
 import { coneResistance, concreteInteraction, edgeResistance, pulloutResistance, shankArea, steelInteraction, steelShear, studRows, edgeDistances } from './anchors.mjs';
-import { solveBlock, solveComponent } from './equilibrium.mjs';
+import { flangeBearing, solveBlock, solveComponent } from './equilibrium.mjs';
+import { solveFlexible } from './fem/connection-model.mjs';
 import { rebarPositions, studPositions, validateInputs } from './inputs.mjs';
 import { concreteProps, GAMMA, jointStrength, plateProps, studFactors } from './materials.mjs';
 import { rowBending } from './plate.mjs';
@@ -11,6 +12,7 @@ const mm = value => value.toFixed(0) + ' mm';
 const ur = (group, label, ratio, detail, ref) => ({ group, label, ratio, detail, ref, isUR: true, status: ratio <= 1 + 1e-9 ? 'pass' : 'fail' });
 const info = (group, label, status, detail, ref) => ({ group, label, ratio: null, detail, ref, status, hideRatio: true });
 const worst = (items, key) => items.reduce((a, b) => (key(b) > key(a) ? b : a), items[0]);
+const femUplift = (f, point) => f.w[f.mesh.nodes.reduce((a, b) => (Math.hypot(b.x - point.x, b.y - point.y) < Math.hypot(a.x - point.x, a.y - point.y) ? b : a)).id];
 
 export function calculate(raw) {
   const input = validateInputs(raw);
@@ -26,8 +28,14 @@ export function calculate(raw) {
   const bars = rebarPositions(rebars.rows).map(b => ({ ...b, kind: 'rebar', area: barArea(b.d) }));
   const shared = s.tension === 'shared';
   const elements = shared ? [...bars, ...studs] : bars;
-  const eq = o.method === 'component' ? solveComponent(input, elements, grade.fy, fjd, N, M) : solveBlock(input, elements, fjd, N, M);
+  const rigid = o.method === 'component' ? solveComponent(input, elements, grade.fy, fjd, N, M) : solveBlock(input, elements, fjd, N, M);
+  const fem = o.analysis === 'fem';
+  const eq = fem ? { ...solveFlexible(input, elements, concrete, N, M), bearing: flangeBearing(input, grade.fy, fjd, -1), bearingTop: flangeBearing(input, grade.fy, fjd, 1) } : rigid;
   const force = new Map(eq.tensions.map(e => [e.id, e.F]));
+  // Stud springs (steel shank only) are an upper bound on stud stiffness, so the FEM run with studs
+  // under-loads the bars. Bound both: bars also from a run without stud tension; take the larger.
+  const barsOnly = fem && shared && bars.length ? solveFlexible(input, bars, concrete, N, M) : null;
+  if (barsOnly) for (const bar of barsOnly.tensions) force.set(bar.id, Math.max(force.get(bar.id) ?? 0, bar.F));
   const barResults = bars.map(bar => barChecks({ ...bar, F: force.get(bar.id) ?? 0 }, { rebars, plate, plateGrade: grade, concrete }));
   const studLoads = studs.map(stud => ({ ...stud, F: shared ? force.get(stud.id) ?? 0 : 0 }));
   const rows = [];
@@ -36,10 +44,28 @@ export function calculate(raw) {
   const forcesText = eq.allCompression ? 'All compression: C = ' + kN(eq.C) + ', no tension elements needed'
     : 'T = ' + kN(eq.T) + (eq.yT !== null ? ' at y = ' + mm(eq.yT) : '') + ' · C = ' + kN(eq.C)
       + (eq.yC !== null ? ' at y = ' + mm(eq.yC) + ' · z = ' + mm(eq.lever ?? 0) : '');
-  rows.push(eq.unsupported ? info('Load path', 'Equilibrium (rigid plate)', 'incomplete', eq.unsupported, 'Statics')
-    : info('Load path', 'Equilibrium (rigid plate)', 'pass', forcesText + ' · residual ' + Math.abs(eq.residual.Fz).toExponential(1) + ' N', 'Statics; linear strain field'));
+  if (fem) {
+    const f = eq.fem;
+    rows.push(info('Load path', 'Equilibrium (flexible plate, FEM)', f.converged ? 'pass' : 'incomplete', forcesText + ' · ' + f.mesh.nodes.length + ' nodes, '
+      + f.iterations + ' contact iterations · residual ' + Math.abs(eq.residual.Fz).toExponential(1) + ' N' + (f.converged ? '' : ' · contact did not converge'),
+      'MITC4 plate on springs; see help §2b'));
+  } else {
+    rows.push(eq.unsupported ? info('Load path', 'Equilibrium (rigid plate)', 'incomplete', eq.unsupported, 'Statics')
+      : info('Load path', 'Equilibrium (rigid plate)', 'pass', forcesText + ' · residual ' + Math.abs(eq.residual.Fz).toExponential(1) + ' N', 'Statics; linear strain field'));
+  }
   let bearing = null;
-  if (o.method === 'component') {
+  if (fem && eq.C > 0) {
+    const capacity = eq.bearing.FcRd + (eq.allCompression ? eq.bearingTop.FcRd : 0);
+    const area = eq.bearing.area + (eq.allCompression ? eq.bearingTop.area : 0);
+    bearing = { ratio: eq.C / capacity, area, stress: eq.C / area };
+    rows.push(ur('Load path', 'Concrete bearing under compression flange', bearing.ratio,
+      'C = ' + kN(eq.C) + ' (FEM) vs F_c,Rd = ' + kN(capacity) + ' · c = ' + mm(eq.bearing.c) + ' · f_jd = ' + fjd.toFixed(2) + ' MPa',
+      'EN 1993-1-8 §6.2.5, Eq. 6.4–6.6; EN 1992-1-1 Eq. 6.63'));
+    rows.push(info('Load path', 'Peak contact pressure (FEM)', eq.fem.pMax <= fjd ? 'pass' : 'warning', 'p_max = ' + eq.fem.pMax.toFixed(2) + ' MPa vs f_jd = ' + fjd.toFixed(2)
+      + ' MPa' + (eq.fem.pMax > fjd ? '; elastic peak, relies on bearing redistribution' : '') + ' · k_c = ' + eq.fem.kc.toFixed(3) + ' N/mm³', 'EN 1993-1-8 Table 6.11 (k13)'));
+  } else if (fem) {
+    // no bearing: pure tension
+  } else if (o.method === 'component') {
     const demand = Math.max(eq.Cbot ?? eq.C, 0);
     const top = eq.Ctop ? eq.Ctop / eq.bearingTop.FcRd : 0;
     bearing = { ratio: Math.max(demand / eq.bearing.FcRd, top), area: eq.bearing.area, stress: demand / eq.bearing.area };
@@ -50,7 +76,7 @@ export function calculate(raw) {
     bearing = { ratio: eq.x / plate.H, area: eq.block.area, stress: fjd };
     rows.push(ur('Load path', 'Concrete bearing block depth x / H', bearing.ratio, 'x = ' + mm(eq.x) + ' · f_jd = ' + fjd.toFixed(2) + ' MPa over B = ' + mm(plate.B), 'EN 1993-1-8 §6.2.5'));
   }
-  if (o.method === 'block') {
+  if (!fem && o.method === 'block') {
     const c = plate.t * Math.sqrt(grade.fy / (3 * fjd));
     if (plate.B > member.b + 2 * c) {
       rows.push(info('Load path', 'Full-width bearing block', 'warning', 'Plate width ' + mm(plate.B) + ' exceeds b + 2c = ' + mm(member.b + 2 * c)
@@ -99,7 +125,20 @@ export function calculate(raw) {
     else rows.push(ur('Plate', label, row.F / row.FRd, 'm = ' + mm(row.m) + ' · l_eff = ' + mm(row.leff) + ' · t_req = ' + row.tReq.toFixed(1) + ' mm', 'EN 1993-1-8 Table 6.4 patterns; strip M_pl,Rd = l_eff·t²·f_y/4'));
   }
   const cantilevers = plateRows.filter(row => row.kind === 'cantilever');
-  if (cantilevers.length) {
+  if (fem) {
+    const f = eq.fem;
+    const limit = grade.fy / GAMMA.M0;
+    rows.push(info('Plate', 'Plate elastic stress (FEM)', f.vmMax <= limit ? 'pass' : 'warning', 'σ_vM,max = ' + f.vmMax.toFixed(0) + ' MPa vs f_y/γ_M0 = ' + limit.toFixed(0)
+      + ' MPa at (' + f.vmAt.x.toFixed(0) + ', ' + f.vmAt.y.toFixed(0) + ')' + (f.vmMax > limit ? '; local yielding, the yield-line check above governs resistance' : '')
+      + ' · w = ' + f.wMin.toFixed(3) + '…' + f.wMax.toFixed(3) + ' mm', 'EN 1993-1-1 Eq. 6.1 (elastic, element centres)'));
+    if (barsOnly) {
+      rows.push(info('Plate', 'Bar and stud tension bounded', 'pass', 'Bars from the run without stud tension (ΣT_bars = ' + kN(barsOnly.T) + '), studs from the run with stiff stud springs (ΣN = '
+        + kN(eq.tensions.filter(e => e.kind === 'stud').reduce((sum, e) => sum + e.F, 0)) + '); each component is checked for its upper bound', 'Stiffness bounding, see help §2b'));
+    }
+    const ratio = rigid.T > 0 ? eq.T / rigid.T : null;
+    rows.push(info('Plate', 'Flexible vs rigid plate', 'pass', 'ΣT = ' + kN(eq.T) + ' (FEM) vs ' + kN(rigid.T ?? 0) + ' (rigid)' + (ratio ? ' · ratio ' + ratio.toFixed(2) : '')
+      + (eq.lever && rigid.lever ? ' · z = ' + mm(eq.lever) + ' vs ' + mm(rigid.lever) : ''), 'Comparison'));
+  } else if (cantilevers.length) {
     const soft = worst(cantilevers, row => -row.stiffness.ratio);
     rows.push(info('Plate', 'Rigid-plate assumption', soft.stiffness.ratio >= 10 ? 'pass' : 'warning',
       'k_plate / k_bars = ' + soft.stiffness.ratio.toFixed(1) + (soft.stiffness.ratio >= 10 ? ' ≥ 10' : ' < 10: plate bending redistributes bar and stud forces; verify with a plate (FE) model'),
@@ -138,9 +177,9 @@ export function calculate(raw) {
   const NRds = shankArea(s.d) * s.fuk / gammas.MsN;
   let betaN = 0;
   if (!shared) {
-    const inZone = eq.allCompression ? [] : eq.yC === null ? studs : studs.filter(stud => stud.y > eq.yC);
+    const inZone = fem ? studs.filter(stud => femUplift(eq.fem, stud) > 0) : eq.allCompression ? [] : eq.yC === null ? studs : studs.filter(stud => stud.y > eq.yC);
     rows.push(info(g, 'Stud tension', inZone.length ? 'warning' : 'pass', inZone.length
-      ? inZone.map(stud => stud.id).join(', ') + ' lie in the tension zone; their tension is neglected by assumption. Plate deformation will load them; select "Studs share tension" to check them'
+      ? inZone.map(stud => stud.id).join(', ') + (fem ? ' lift off the concrete in the FEM model;' : ' lie in the tension zone;') + ' their tension is neglected by assumption. Plate deformation will load them; select "Studs share tension" to check them'
       : 'All studs lie in the compression zone', 'Design assumption'));
   } else if (tensioned.length) {
     const stud = worst(tensioned, item => item.F);
@@ -178,5 +217,5 @@ export function calculate(raw) {
 
   const status = rows.some(row => row.status === 'fail') ? 'Fail' : rows.some(row => row.status === 'incomplete') ? 'Incomplete'
     : rows.some(row => row.status === 'warning') ? 'Pass with warnings' : 'Pass';
-  return { input, concrete, grade, fjd, gammas, actions: { N, V, M }, eq, bars: barResults, studs: studLoads, plateRows, groupCone, rows, status, Vi, friction };
+  return { input, concrete, grade, fjd, gammas, actions: { N, V, M }, eq, rigid, bars: barResults, studs: studLoads, plateRows, groupCone, rows, status, Vi, friction };
 }
