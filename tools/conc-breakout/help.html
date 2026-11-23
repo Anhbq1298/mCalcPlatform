@@ -25,7 +25,16 @@
 <body>
 <main>
   <h1>mConcBreakout · Calculation Help</h1>
-  <p class="lead">Cast-in steel plate with welded reinforcing bars and headed studs, loaded by N<sub>Ed</sub>, V<sub>Ed</sub> and M<sub>Ed</sub> in one plane. Tags show the basis of each step: <span class="tag code">Code</span> a direct code rule, <span class="tag interp">Method</span> a published method adapted here, <span class="tag assume">Assumption</span> a modelling choice by this tool.</p>
+  <p class="lead">Cast-in steel plate with welded reinforcing bars and headed studs. The spatial model calculates signed anchor forces and preliminary Eurocode checks.</p>
+  <h2>Spatial load application</h2>
+  <p>The plate centre at the concrete interface is O. X points right, Y up and Z outward. Enter X, Y and Z at the load point P, and N, Vx, Vy, Mx, My and Mz. Positive N is tension. Use the right-hand rule for moments. The load table displays the equivalent moment at O as M<sub>O</sub> = M<sub>P</sub> + r × F.</p>
+  <h2>Spatial analysis and verification</h2>
+  <p>The connected member footprint is rigid. The plate is an elastic shell on compression-only concrete springs and tension-only axial fastener springs. The headed-stud shear springs act at the concrete interface and include the displacement from plate rotation. Supply the shear stiffness in N/mm from a justified load–slip model and the source of k<sub>8</sub>. Custom locations can override type-level spring stiffness.</p>
+  <p>Use plan and orthogonal sections to check geometry and load direction. The 3D view displays anchor force vectors, contact pressure, elastic plate stress and exaggerated deformation. The element-force table opens the available stiffness, force and utilization details for each anchor.</p>
+  <p>Review six-component equilibrium and the change in anchor and bearing resultants between meshes. Contact pressure is elastic. Confirm bearing and strut-and-tie transfer through the actual reinforcement. Splitting, directional group edge resistance, node and tie geometry, member welds, and other open checks remain visible in the summary. Spatial designs stay Incomplete while an essential verification is open.</p>
+  <p>See the <a href="https://github.com/Anhbq1298/mCalcPlatform/blob/feature/conc-breakout-3d-verification/tools/conc-breakout/BENCHMARKS.md">benchmark record</a> for the analytical checks and comparisons with ACI and InFaSo.</p>
+  <h2>Historical planar designs</h2>
+  <p>Files saved before schema 4 reopen in the historical mode. The following sections describe that calculation. The equivalent signed inputs are populated when reopening those files.</p>
 
   <h2>1 Coordinates and sign convention</h2>
   <p>The plate face lies in the x–y plane with the origin at the plate centre; y points up and z points into the concrete. N<sub>Ed</sub> &gt; 0 pulls the plate out. V<sub>Ed</sub> acts downward at e<sub>V</sub> from the plate face. The total moment M<sub>Ed</sub> + V<sub>Ed</sub>·e<sub>V</sub> must put the top (+y) in tension. Edge distances are measured from the plate centre to each free edge of the receiving member; a blank edge is far away. h<sub>ef</sub> is measured from the concrete face, so a flush plate adds its thickness to the stud length under the plate.</p>

@@ -1,5 +1,20 @@
 # mConcBreakout: sources and verification
 
+
+## Schema 4 spatial method
+
+See the [benchmark record](BENCHMARKS.md) for published comparisons, independent analytical checks and open cases. The original planar basis is retained below for schema 1–3 projects.
+
+- O is the centre of the plate at the concrete interface. X points right, Y up and Z outward. A signed six-component load at any P is translated by M_O = M_P + r × F. UI inputs are in kN, kN·m and mm. Internal equilibrium uses N and N·mm.
+- The shell couples MITC4 bending and Q4 plane-stress membrane elements through shear springs evaluated at the interface. The plate mid-surface is t/2 outward, so the in-plane anchor slip includes the bending rotations. All six master DOFs describe the rigid I-section or hollow-section weld footprint. Steel is linear elastic. The model omits geometrically nonlinear plate response and nonlinear strength or slip interaction in anchor springs.
+- Contact is unilateral on tributary areas. The Winkler modulus distributes the legacy EN 1993-1-8 Table 6.11 k13 stiffness over the plate. This is a modelling assumption for the local elastic pressure field. Elastic contact peaks and integrated bearing resultants are separate reporting quantities. No ultimate redistribution is assumed.
+- Welded bars and studs contribute axial force in tension only. The default steel and bond spring lengths are the legacy assumptions. The user can override axial stiffness by fastener type and by custom point. Headed-stud shear transfer requires positive explicit stiffness for at least two distinct studs. The shell uses signed X and Y forces from each stud, with friction inactive. Where shear response cannot be solved, the tool shows provisional out-of-plane results and marks the spatial equilibrium incomplete.
+- Resistance screens use measured anchor forces, EN 1992-4:2018 for headed studs, EN 1992-1-1:2004 for bar development and receiving-member transfer, and EN 1993-1-1:2005 / EN 1993-1-8:2005 for plate and weld checks. Recommended values apply. Load-bearing bar weld qualification remains under EN ISO 17660-1:2006. Additional splitting and direction-dependent group checks, weld and local resistance checks and receiving-member verification remain open.
+- For receiving-member verification, use the reported C and nodal pressure field to define bearing zones and compression struts. Use the anchor force vectors to locate ties and establish the force they must develop beyond breakout bodies. Supply the concrete and reinforcement layout, bearing and nodal dimensions, tie area and yield strength, anchorage length and confinement. Check strut and node stress, tie capacity, bond and global transfer to the member supports.
+- Schema 4 keeps `conc-breakout`, `.mcbo` and `.mcalc`. Migration retains N, V, M, e and the historical engine. The new fields initialize to P = (0, 0, e), N = N, Vx = 0, Vy = −V, Mx = M, My = Mz = 0 so Mx,O reproduces M + V·e. This preserves the historical moment effect at its calculation datum. Existing unknown fields are kept. The legacy checks retain their demand and resistance values with incomplete status on unverified load paths.
+
+## Historical planar method
+
 Scope: a cast-in steel plate with welded reinforcing bars and headed studs. Actions N, V (downward) and M lie in one plane. EN 1992-4:2018 for headed fasteners, EN 1992-1-1:2004 for anchorage and bearing, and EN 1993-1-8:2005 for the component method and welds. Recommended values are used; no National Annex is applied.
 
 ## Status
