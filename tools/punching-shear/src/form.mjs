@@ -37,7 +37,7 @@ export const GROUPS = [
     ['code.naConfirmed', 'UK NA values checked against the NA text', 'checkbox', null, s => s.code.profile === 'uk'],
   ]],
   ['Column', [
-    ['column.position', 'Column position', 'select', [option('internal', 'Internal'), option('edge', 'Edge'), option('corner', 'Corner')]],
+    ['column.position', 'Overhang controls', 'select', [option('internal', 'Hidden'), option('edge', 'One edge'), option('corner', 'Two edges')]],
     ...overhangFields,
     ['column.shape', 'Shape', 'select', [option('rectangular', 'Rectangular'), option('circular', 'Circular')]],
     ['column.cx', '$c_x$ (mm)', 'number', null, s => s.column.shape === 'rectangular'],

@@ -120,7 +120,7 @@ function dropForNoLinks(input, betaCap) {
     const e = geo.extents;
     const size = geo.circular ? { diameter: inp.head.diameter }
       : { cx: e.xMax - e.xMin, cy: e.yMax - e.yMin, x: inp.column.x + (e.xMax + e.xMin) / 2, y: inp.column.y + (e.yMax + e.yMin) / 2 };
-    const r = calculate(asColumn({ ...inp, reinforcement: { ...inp.reinforcement, enabled: false } }, size), { betaCap, face: { skip: true } });
+    const r = calculate(asColumn({ ...inp, reinforcement: { ...inp.reinforcement, enabled: false } }, size), { betaCap, dropSection: true, face: { skip: true } });
     return !r.loads?.length || r.loads.some(load => load.required);
   };
   if (!needs(0)) return null;
@@ -258,7 +258,7 @@ export function calculateDesign(raw, forcedKind = null) {
     // for a circular head = Eq. 6.33; rounded rectangle for a rectangular head instead of the equivalent
     // circle of Eq. 6.34/6.35, which has a shorter perimeter); clipped at free edges. See Help.
     const face = { u0: base.u0, d, label: 'Maximum punching stress at u0 (slab d, conservative)' };
-    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, barOrigin, face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
+    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, dropSection: true, barOrigin, face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
     hint(outer);
     return single(outer, { kind: 'small', edge: !internal, columnModel: base.model, ...geo, d, rcont: null, sections: [extSection(outer, geo.circular ? 'Eq. 6.33' : 'Fig. 6.17, 2d from the head outline')] });
   }
@@ -273,7 +273,7 @@ export function calculateDesign(raw, forcedKind = null) {
   let plain = mixed;
   let innerCap = 6;
   const runInner = (scale = 1, layers = null) => calculate(deeper(scaled(withLinks(input, layers, plain && !layers && scale === 1), scale), geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, barOrigin: innerBarOrigin, maxMultiple: innerCap, label: 'Inside the drop (d_H)', ...(layers ? { layerBase: 0 } : zone(split.drop, 0)) });
-  const runOuter = (scale = 1, layers = null, base0 = 0, extra = {}) => calculate(asColumn(scaled(withLinks(input, layers, false), scale), dropAsColumn), { betaCap, barOrigin, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...extra, ...(layers ? { layerBase: base0 } : zone(split.slab, base0)) });
+  const runOuter = (scale = 1, layers = null, base0 = 0, extra = {}) => calculate(asColumn(scaled(withLinks(input, layers, false), scale), dropAsColumn), { betaCap, dropSection: true, barOrigin, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...extra, ...(layers ? { layerBase: base0 } : zone(split.slab, base0)) });
   // Dense to sparse from the column outward over the whole layout: the links inside the drop are no
   // sparser than the first ring of the slab section (its bar multiple caps theirs).
   const slabFirst = runOuter(1, null, 0).layout?.layers?.[0]?.multiple;

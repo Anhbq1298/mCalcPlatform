@@ -3,7 +3,7 @@ import { openingDistance, pathExtent } from './geometry.mjs';
 import { STATES, derivedSection } from './inputs.mjs';
 import { effectiveIntervals, openingShadows } from './perimeters.mjs';
 import { classifyPosition, edgePerimeters } from './position.mjs';
-import { overhangSides, slabOverhang } from './overhang.mjs';
+import { slabOverhang } from './overhang.mjs';
 import { setbackPerimeter } from './setback-perimeter.mjs';
 import { profileFor } from './profile.mjs';
 import { concreteResistance, fywdEffective, maximumResistance, reinforcementRatio } from './resistance.mjs';
@@ -12,15 +12,6 @@ export function positionIssues(input, position, setback) {
   if (position.kind === 'invalid') return [{ state: STATES.unsupportedGeometry, message: position.message }];
   if (setback?.projected && input.openings?.length) return [{ state: STATES.unsupportedGeometry, code: 'set-back-slab-edge', message: 'Openings combined with a setback control perimeter are outside the current calculation scope.' }];
   if (setback?.projected && input.beta.method === 'moment') return [{ state: STATES.unsupportedLoading, code: 'set-back-beta', message: 'For a setback perimeter, use a user-defined β or the simplified β where §6.4.3(6) applies.' }];
-  if (setback) return [];
-  if (position.kind !== input.column.position) {
-    const overhangs = overhangSides(input).map(side => slabOverhang(input, side));
-    if (overhangs.some(value => value > 1 && value < 2 * derivedSection(input).d)) {
-      return [{ state: STATES.unsupportedGeometry, code: 'set-back-slab-edge', message: 'This setback geometry is outside the rectangular, edge-aligned cases evaluated by the tool.' }];
-    }
-    const edges = position.normals.map(normal => normal.edge).join(' and ');
-    return [{ state: STATES.incomplete, code: 'column-position-mismatch', detectedPosition: position.kind, message: `Column position is set to ${input.column.position}, but the geometry is ${position.kind === 'internal' ? 'an internal column' : `${position.kind === 'edge' ? 'an edge' : 'a corner'} column (face flush with slab edge ${edges})`}. Check the column position and actual slab boundaries.` }];
-  }
   return [];
 }
 
@@ -31,7 +22,7 @@ export function createContext(input, options = {}) {
   const { d } = section;
   const u1Offset = options.u1Offset ?? 2 * d;
   const actual = classifyPosition(column, slab);
-  const setback = setbackPerimeter(input, actual, u1Offset);
+  const setback = setbackPerimeter(input, actual, u1Offset, options.dropSection);
   const position = setback?.position ?? actual;
   const rhoX = reinforcementRatio(section.asx, section.dx);
   const rhoY = reinforcementRatio(section.asy, section.dy);
@@ -72,7 +63,7 @@ export function geometryLimits(ctx, reach) {
     ['Y min', !flush.yMin && extent.yMin < slab.yMin], ['Y max', !flush.yMax && extent.yMax > slab.yMax],
   ].filter(([, hit]) => hit).map(([name]) => name);
   if (crossing.length) {
-    issues.push({ state: STATES.unsupportedGeometry, message: `A check perimeter or link layer (up to ${reach.toFixed(0)} mm from the column face) reaches slab edge ${crossing.join(', ')} outside the selected control-perimeter configuration.` });
+    issues.push({ state: STATES.unsupportedGeometry, message: `A check perimeter or link layer (up to ${reach.toFixed(0)} mm from the column face) reaches slab edge ${crossing.join(', ')} outside the detected control-perimeter configuration.` });
   }
   if (ctx.setback?.projected && ctx.setback.sides.some(side => slabOverhang(input, side) < d)) {
     notes.push('Detail special slab-edge reinforcement where the face-to-edge distance is less than d (§6.4.2(5), §9.3.1.4).');

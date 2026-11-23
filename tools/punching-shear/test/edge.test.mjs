@@ -64,16 +64,42 @@ test('edge column links lie on the clipped layers and the design can be complete
   assert.equal(result.status, 'Pass');
 });
 
-test('position must match the geometry; rotated or circular edge columns are unsupported', () => {
-  const mismatch = calculate(edgeInput(input => { input.column.position = 'internal'; }));
-  assert.equal(mismatch.status, 'Incomplete input');
-  assert.match(mismatch.issues[0].message, /edge column/);
+test('geometry determines the position; rotated or circular edge columns are unsupported', () => {
+  const flush = calculate(edgeInput(input => { input.column.position = 'internal'; }));
+  assert.equal(flush.position.kind, 'edge');
   const rotated = calculate(edgeInput(input => { input.column.rotation = 30; input.column.x = 4000 - (200 * Math.cos(Math.PI / 6) + 150 * Math.sin(Math.PI / 6)); }));
   assert.equal(rotated.status, 'Unsupported geometry');
   const round = calculate(edgeInput(input => { input.column = { ...input.column, shape: 'circular', diameter: 400, x: 3800 }; }));
   assert.equal(round.status, 'Unsupported geometry');
   const setback = calculate(edgeInput(input => { input.column.position = 'internal'; input.column.x = 3500; }));
   assert.equal(setback.status, 'Unsupported geometry');
+  assert.equal(setback.position.kind, 'edge');
+  assert.equal(setback.setback.projected, true);
+});
+
+test('slab edge edits rerun perimeter and auto links without changing the overhang controls', () => {
+  const input = edgeInput(value => {
+    Object.assign(value.column, { position: 'internal', x: 0 });
+    value.loads[0].V = 270;
+    value.reinforcement.anchorage = { type: 'hook', mandrelFactor: 4, extension: 75, engaged: true };
+  });
+  const interior = calculate(input);
+  input.slab.xMax = 200;
+  const edge = calculate(input);
+  input.slab.yMax = 150;
+  const corner = calculate(input);
+  input.slab.xMax = 4000;
+  input.slab.yMax = 4000;
+  assert.equal(calculate(input).layout.links.length, 0);
+  assert.equal(input.column.position, 'internal');
+  assert.deepEqual([interior, edge, corner].map(result => result.position.kind), ['internal', 'edge', 'corner']);
+  close(interior.u1, 1400 + 800 * Math.PI);
+  close(edge.u1, 1100 + 400 * Math.PI);
+  close(corner.u1, 700 + 200 * Math.PI);
+  assert.equal(interior.layout.links.length, 0);
+  assert.ok(edge.layout.links.length > 0);
+  assert.ok(corner.layout.links.length > edge.layout.links.length);
+  assert.ok(corner.layout.links.every(link => link.legs.every(leg => leg.x <= 200 + 1e-6 && leg.y <= 150 + 1e-6)));
 });
 
 test('rectangular setbacks return to the slab edge and use the shortest perimeter', () => {

@@ -116,7 +116,7 @@ export function calculate(rawInput, options = {}) {
   const needing = demands.filter(item => item.required);
   if (!options.noLinks && needing.some(item => item.aOut === null)) {
     const issue = { state: STATES.unsupportedGeometry, message: 'The outer perimeter u_out,ef cannot be reached inside the slab.' };
-    return { status: issue.state, issues: [issue], notes: [], profile, loads: [], input };
+    return { status: issue.state, issues: [issue], notes: [], profile, loads: [], input, position: ctx.position };
   }
   const envelope = { aswReq: Math.max(0, ...needing.map(item => item.aswReq)), aOut: Math.max(0, ...needing.map(item => item.aOut)), sr: ctx.envelopeSr };
   envelope.uOut = needing.length && !options.noLinks ? Math.max(...needing.map(item => item.uOut)) : null;

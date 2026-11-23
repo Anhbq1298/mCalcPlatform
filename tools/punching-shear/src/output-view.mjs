@@ -18,7 +18,7 @@ const esc = text => String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': 
 
 // What the inputs make of the design: position, drop class, openings and where the links went.
 function caseLine(result) {
-  const parts = [{ internal: 'Interior', edge: 'Edge', corner: 'Corner' }[result.input?.column?.position] ?? 'Column'];
+  const parts = [];
   const head = result.head;
   if (head?.lH) {
     const lH = Math.min(...head.lH).toFixed(0);
@@ -29,7 +29,7 @@ function caseLine(result) {
   const openings = result.input?.openings?.length ?? 0;
   if (openings) parts.push(`${openings} opening${openings > 1 ? 's' : ''}`);
   const layers = result.layout?.layers ?? [];
-  if (!layers.length) parts.push('no links');
+  if (!layers.length) parts.push(result.loads.some(load => load.required || load.ext?.required) ? 'links required' : 'no links');
   else {
     const where = [...new Set(layers.map(layer => layer.zone))].map(zone => (zone === 'drop' ? 'in the drop' : zone === 'slab' ? 'beyond the drop' : null)).filter(Boolean);
     parts.push(`links ${layers[0].id}–${layers.at(-1).id}${where.length ? ' ' + where.join(' and ') : ''}`);
