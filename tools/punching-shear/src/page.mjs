@@ -129,12 +129,6 @@ function focusField(group, path) {
   form.querySelector(`[data-path="${path}"]`).focus();
 }
 
-function applyPosition() {
-  refreshForm();
-  focusField('Column', 'column.position');
-  clearTimeout(debounce);
-  recalculate();
-}
 // Drawing tabs: one drawing at a time in the centre column.
 const tabs = [...document.querySelectorAll('.drawing-tabs [role="tab"]')];
 for (const tab of tabs) tab.addEventListener('click', () => {
@@ -227,11 +221,14 @@ function render() {
   )));
   combination.value = result.loads.some(load => load.id === current) ? current : result.governing?.loadId ?? '';
   byId('design-basis').textContent = result.profile ? `EN 1992-1-1:2004 · ${result.profile.label}` : '';
+  const detected = { internal: 'Interior', edge: 'Edge', corner: 'Corner' }[result.position?.kind];
+  byId('detected-case').hidden = !detected;
+  byId('detected-case').textContent = detected ? `Detected case: ${detected}` : '';
   renderSummary(document.createElement('div'), byId('design-status'), result, combination.value);
   const summary = byId('column-check-summary');
   if (!result.loads.length && result.issues?.length) summary.replaceChildren();
   else renderCompact(summary, result, combination.value, selectedCheck, id => { selectedCheck = id; byId('plan-tab').click(); render(); });
-  renderMessages(byId('messages'), result, issue => positionActions(issue, state, focusField, applyPosition));
+  renderMessages(byId('messages'), result, issue => positionActions(issue, state, focusField));
   renderDetails(byId('checks'), result, combination.value);
   if (result.profile) renderBasis(byId('code-basis'), result.profile);
   else byId('code-basis').replaceChildren();

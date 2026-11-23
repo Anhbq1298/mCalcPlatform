@@ -460,11 +460,11 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await expect(page.locator('#layers-anchor')).toBeHidden(); // custom table only in custom mode
   await expect(page.locator('#auto-schedule')).toContainText('Auto schedule'); // read-only schedule in auto mode
   await expect(page.locator('#auto-schedule tbody tr')).not.toHaveCount(0);
-  await page.getByLabel('Column position').selectOption('edge');
+  await page.getByLabel('Overhang controls').selectOption('edge');
   await expect(status).toContainText('Design status: Pass');
   await expect(page.getByLabel('Combination shown')).toBeVisible();
-  await page.getByLabel('Column position').selectOption('internal');
-  await expect(page.getByLabel('Column position')).toHaveValue('internal');
+  await page.getByLabel('Overhang controls').selectOption('internal');
+  await expect(page.getByLabel('Overhang controls')).toHaveValue('internal');
   await expect(page.locator('[data-path="slab.xMax"]')).toHaveValue('6000');
   await expect(status).toContainText('Design status: Pass');
   const schedule = page.locator('#layer-schedule tbody tr');
@@ -557,7 +557,13 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await expect(slabEdge).toHaveValue('375');
   await slabEdge.fill('6000');
   await expect(status).toContainText('Pass');
-  await expect(page.getByLabel('Column position')).toHaveValue('edge');
+  const detectedCase = page.locator('#detected-case');
+  await expect(detectedCase).toHaveText('Detected case: Interior');
+  await page.locator('[data-path="slab.yMax"]').fill('200');
+  await expect(detectedCase).toHaveText('Detected case: Edge');
+  await slabEdge.fill('300');
+  await expect(detectedCase).toHaveText('Detected case: Corner');
+  await expect(page.getByLabel('Overhang controls')).toHaveValue('edge');
   await page.getByRole('navigation', { name: 'Design workspace' }).getByRole('button', { name: 'New', exact: true }).click();
   await page.getByRole('button', { name: 'Interior + drop' }).click();
   await expect(status).toContainText('Pass');
