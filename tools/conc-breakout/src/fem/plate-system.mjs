@@ -24,7 +24,7 @@ export function createMesh(xs, ys) {
   return { xs, ys, nx, ny: ys.length, nodes, elements, area };
 }
 
-export function solvePlate({ mesh, t, E, nu, slaves = new Set(), springs = [], masterLoad = [0, 0, 0], nodeLoads = [], maxIterations = 60 }) {
+export function solvePlate({ mesh, t, E, nu, slaves = new Set(), springs = [], masterLoad = [0, 0, 0], nodeLoads = [], maxIterations = 60, allActive = false }) {
   const rig = plateRigidities(E, nu, t);
   const nN = mesh.nodes.length;
   const eq = new Int32Array(3 * nN).fill(-1);
@@ -66,7 +66,7 @@ export function solvePlate({ mesh, t, E, nu, slaves = new Set(), springs = [], m
   const g = masterLoad.slice(0, p);
   for (const { node, Fz } of nodeLoads) for (const [i, c, m] of terms(node, 0)) { if (m) g[i] += c * Fz; else f[i] += c * Fz; }
 
-  const active = springs.map(s => s.mode !== 'tension');
+  const active = springs.map(s => allActive || s.mode !== 'tension');
   let solution;
   let iterations = 0;
   for (; iterations < maxIterations; iterations++) {

@@ -80,6 +80,6 @@ export function sectionSvg(result, { width = 560, height = 520 } = {}) {
   }
   legend.forEach(([color, text], i) => out.push(label(12, height - 14 - (legend.length - 1 - i) * 14, text, { anchor: 'start', color, size: 10, weight: 600 })));
   out.push(label(12, 18, 'SECTION IN THE MOMENT PLANE', { anchor: 'start', weight: 600 }));
-  out.push(label(12, 32, 'Forces from the rigid-plate equilibrium · strut lines are conceptual', { anchor: 'start', size: 10, color: COLORS.muted }));
+  out.push(label(12, 32, (eq.fem ? 'Forces from the flexible-plate solve' : 'Forces from rigid-plate equilibrium') + ' · conceptual strut lines', { anchor: 'start', size: 10, color: COLORS.muted }));
   return frame(v, out.join(''), 'Section through the connection with the tension–compression couple', height);
 }

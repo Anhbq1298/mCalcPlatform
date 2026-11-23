@@ -574,8 +574,11 @@ test('checks an embedded plate connection, saves, reopens and reports', async ({
   const field = path => page.locator(`#breakout-inputs [data-path="${path}"]`);
   await expect(status).toContainText('Design status: Incomplete');
   await expect(page.locator('#column-check-summary')).toContainText('Transfer into the receiving member');
+  await field('loading.model').selectOption('legacy');
+  await field('studs.tension').selectOption('excluded');
   await field('options.loadPathConfirmed').check();
-  await expect(status).toContainText('Design status: Pass with warnings');
+  await expect(status).toContainText('Design status: Incomplete');
+  await expect(page.locator('#column-check-summary')).toContainText('Independent engineering verification');
   await field('actions.V').fill('260');
   await expect(status).toContainText('Design status: Fail');
   await field('actions.V').fill('136.17');
@@ -583,7 +586,7 @@ test('checks an embedded plate connection, saves, reopens and reports', async ({
   await expect(page.locator('#column-check-summary')).toContainText('Concrete cone (tensioned studs)');
   await page.getByRole('button', { name: '+ Row' }).click();
   await expect(page.locator('#bar-rows tbody tr')).toHaveCount(2);
-  await page.getByRole('tab', { name: 'Section' }).click();
+  await page.getByRole('tab', { name: 'Section Y–Y' }).click();
   await expect(page.locator('#section-view svg')).toBeVisible();
   await page.getByRole('tab', { name: '3D' }).click();
   await expect(page.locator('#viewer-3d svg')).toBeVisible();
@@ -629,4 +632,44 @@ test('edits a custom fastener layout: add, convert and delete points', async ({ 
   await expect(rows).toHaveCount(6);
   await expect(page.locator('#design-status')).toContainText('Design status:');
   await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.');
+});
+
+
+test('transports signed spatial loads, recovers anchor forces and reopens the spatial report', async ({ page }) => {
+  await page.goto('./t/conc-breakout/');
+  const input = path => page.locator(`#breakout-inputs [data-path="${path}"]`);
+  await expect(input('loading.model')).toHaveValue('spatial');
+  await input('studs.shearStiffness').fill('45000');
+  await input('loading.point.x').fill('220');
+  await input('loading.point.z').fill('150');
+  await input('loading.applied.Vy').fill('-30');
+  await input('loading.applied.Vx').fill('20');
+  await input('loading.applied.Mz').fill('10');
+  await expect(page.locator('#calculation-status')).toHaveText('Calculation complete.');
+  const moments = page.locator('#equivalent-loads tr').filter({ hasText: 'Mz (kN·m)' });
+  await expect(moments.locator('td').last()).toHaveText('3.4');
+  await expect(page.locator('#design-status')).toContainText('Incomplete');
+  await page.getByRole('tab', { name: 'Section X–X' }).click();
+  await expect(page.locator('#section-x-view svg')).toBeVisible();
+  await page.getByRole('tab', { name: '3D' }).click();
+  await expect(page.locator('#viewer-3d svg')).toContainText('Vx');
+  await page.getByRole('tab', { name: 'Element forces' }).click();
+  await page.locator('#force-table button').filter({ hasText: /^S1$/ }).click();
+  await expect(page.locator('#anchor-detail')).toContainText('Shear stiffness');
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('tab', { name: 'Plan' }).click();
+  await expect(page.locator('#plan-view svg')).toBeVisible();
+  expect(await page.locator('#plan-view svg').evaluate(svg => svg.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
+  await page.setViewportSize(viewport);
+  const shell = page.getByRole('navigation', { name: 'Design workspace' });
+  await shell.getByLabel('Design name').fill('EP-3D regression');
+  await shell.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(shell.getByText('Design saved.')).toBeVisible();
+  await page.reload();
+  await expect(input('loading.applied.Mz')).toHaveValue('10');
+  await expect(moments.locator('td').last()).toHaveText('3.4');
+  await shell.getByRole('button', { name: 'Report', exact: true }).click();
+  await expect(page).toHaveURL(/\/calc\/\?report=/);
+  await expect(page.getByText('EMBEDDED PLATE CONNECTION').first()).toBeVisible();
 });

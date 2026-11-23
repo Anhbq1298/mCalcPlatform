@@ -2,11 +2,12 @@
 // Model axes: x right, y up, z into the concrete. World: X = x, Y = y, Z = −z (out of the wall).
 // Shows the concrete block (translucent), the plate coloured by a FEM field, the steel member stub,
 // welded bars and studs coloured by force, and the breakout bodies that are checked. Pure module.
+import { spatialAnnotations } from './spatial-drawings.mjs';
 import { barPath } from './section-view.mjs';
 import { COLORS, esc } from './svg.mjs';
 
 const FREE = 260;
-export const FIELDS = { stress: 'Plate σ_vM (MPa)', deflection: 'Plate w (mm)', contact: 'Contact pressure (MPa)' };
+export const FIELDS = { stress: 'Plate σ_vM (MPa)', deflection: 'Plate w (mm)', contact: 'Contact pressure (MPa)', utilization: 'Elastic plate utilization' };
 const RAMP = [[49, 54, 149], [69, 117, 180], [116, 173, 209], [254, 224, 144], [244, 109, 67], [165, 0, 38]];
 
 export function rampColor(t) {
@@ -20,18 +21,20 @@ function nodeField(result, field) {
   const f = result.eq.fem;
   if (!f) return null;
   if (field === 'deflection') return Array.from(f.w);
-  if (field === 'contact') return Array.from(f.w, (w, i) => Math.max(0, -w) * f.kc);
+  if (field === 'contact') return Array.from(f.w, w => Math.max(0, -w) * f.kc);
   const sum = new Float64Array(f.mesh.nodes.length);
   const count = new Float64Array(f.mesh.nodes.length);
-  for (const e of f.elements) for (const n of e.nodes) { sum[n] += e.vm; count[n] += 1; }
-  return Array.from(sum, (s, i) => s / count[i]);
+  for (const e of f.elements) for (const n of e.nodes) { sum[n] += e.combinedVm ?? e.vm; count[n] += 1; }
+  const divisor = field === 'utilization' ? result.grade.fy : 1;
+  return Array.from(sum, (s, i) => s / count[i] / divisor);
 }
 
-export function buildScene(result, { field = 'stress', scale = 0 } = {}) {
+export function buildScene(result, { field = 'stress', scale = 0, showLoads = true, showForces = false, showLabels = false } = {}) {
   const { input, eq } = result;
   const { plate, member, concrete, studs: s, rebars } = input;
   const e = concrete.edges;
   const ext = { left: e.left ?? plate.B / 2 + FREE, right: e.right ?? plate.B / 2 + FREE, bottom: e.bottom ?? plate.H / 2 + FREE, top: e.top ?? plate.H / 2 + FREE };
+  const spatial = Boolean(result.loadingResult);
   const h = concrete.thickness;
   const faces = [];
   const lines = [];
@@ -46,7 +49,7 @@ export function buildScene(result, { field = 'stress', scale = 0 } = {}) {
   box(-ext.left, ext.right, -ext.bottom, ext.top, 0, h, { fill: COLORS.concrete, opacity: 0.16, stroke: COLORS.concreteEdge, width: 0.6 });
 
   // Plate: exposed face coloured by the field, deformed by w × scale (rigid model: flat, uniform).
-  const values = nodeField(result, field);
+  const values = field === 'geometry' ? null : nodeField(result, field);
   const f = eq.fem;
   let range = null;
   if (f && values) {
@@ -64,25 +67,28 @@ export function buildScene(result, { field = 'stress', scale = 0 } = {}) {
   } else {
     faces.push({ pts: [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => P(i * plate.B / 2, j * plate.H / 2, 0)), fill: COLORS.steelFill, opacity: 1, stroke: COLORS.steel, width: 1, bias: 1 });
   }
-  box(-plate.B / 2, plate.B / 2, -plate.H / 2, plate.H / 2, 0.01, plate.t, { fill: COLORS.steelFill, opacity: 0.55, stroke: COLORS.steel, width: 0.8 });
+  box(-plate.B / 2, plate.B / 2, -plate.H / 2, plate.H / 2, spatial ? -plate.t : 0.01, spatial ? 0 : plate.t, { fill: COLORS.steelFill, opacity: 0.55, stroke: COLORS.steel, width: 0.8 });
 
   // Steel member stub (I-section, web thickness for display only), moved by the master rotation.
   const lift = f ? y => -(f.master[0] + f.master[1] * y) * scale : () => 0;
-  const len = input.actions.e + 30;
-  const tw = Math.max(6, 0.6 * member.tf);
-  const stub = (x0, x1, y0, y1) => box(x0, x1, y0, y1, -len + lift((y0 + y1) / 2), lift((y0 + y1) / 2), { fill: COLORS.steel, opacity: 0.9, stroke: '#3c4855', width: 0.6 });
+  const len = spatial ? Math.max(plate.t + 80, member.h / 2) : input.actions.e + 30;
+  const tw = spatial && member.tw ? member.tw : Math.max(6, 0.6 * member.tf);
+  const stub = (x0, x1, y0, y1) => box(x0, x1, y0, y1, -len + lift((y0 + y1) / 2), (spatial ? -plate.t : 0) + lift((y0 + y1) / 2), { fill: COLORS.steel, opacity: 0.9, stroke: '#3c4855', width: 0.6 });
   stub(-member.b / 2, member.b / 2, member.h / 2 - member.tf, member.h / 2);
   stub(-member.b / 2, member.b / 2, -member.h / 2, -member.h / 2 + member.tf);
-  stub(-tw / 2, tw / 2, -member.h / 2 + member.tf, member.h / 2 - member.tf);
+  if (spatial && member.profile === 'hss') {
+    stub(-member.b / 2, -member.b / 2 + tw, -member.h / 2 + member.tf, member.h / 2 - member.tf);
+    stub(member.b / 2 - tw, member.b / 2, -member.h / 2 + member.tf, member.h / 2 - member.tf);
+  } else stub(-tw / 2, tw / 2, -member.h / 2 + member.tf, member.h / 2 - member.tf);
 
   // Welded bars and studs, coloured by force relative to their design resistance.
   for (const bar of result.bars) {
-    const path = barPath(input, result.layout.rows[bar.row]).points.map(([z, y]) => P(bar.x, y, z));
+    const path = barPath(input, result.layout.rows[bar.row]).points.map(([z, y]) => P(bar.x, y, spatial ? z - plate.t : z));
     const ur = bar.steel.FRd ? bar.F / bar.steel.FRd : 0;
     for (let k = 1; k < path.length; k++) lines.push({ a: path[k - 1], b: path[k], color: bar.F > 0 ? rampColor(0.5 + ur / 2) : COLORS.rebar, width: Math.max(bar.d / 6, 2) });
   }
   for (const stud of result.studs) {
-    lines.push({ a: P(stud.x, stud.y, plate.t), b: P(stud.x, stud.y, s.hef), color: stud.F > 0 ? COLORS.tension : COLORS.steel, width: Math.max(s.d / 7, 2) });
+    lines.push({ a: P(stud.x, stud.y, spatial ? 0 : plate.t), b: P(stud.x, stud.y, s.hef), color: stud.F > 0 ? COLORS.tension : COLORS.steel, width: Math.max(s.d / 7, 2) });
     lines.push({ a: P(stud.x - s.dh / 2, stud.y, s.hef), b: P(stud.x + s.dh / 2, stud.y, s.hef), color: COLORS.steel, width: 3 });
   }
 
@@ -99,7 +105,7 @@ export function buildScene(result, { field = 'stress', scale = 0 } = {}) {
     const base = [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)], [Math.min(...xs), Math.max(...ys)]].map(([x, y]) => P(x, y, s.hef));
     top.forEach((p, k) => { lines.push({ a: p, b: top[(k + 1) % 4], ...dashed }); lines.push({ a: p, b: base[k], ...dashed }); });
   }
-  if (e.bottom !== null) {
+  if (e.bottom !== null && result.studs.length && !spatial) {
     const rear = Math.max(...result.studs.map(st => st.y));
     const c1 = e.bottom + rear;
     const xs = result.studs.filter(st => st.y === rear).map(st => st.x);
@@ -111,7 +117,13 @@ export function buildScene(result, { field = 'stress', scale = 0 } = {}) {
     const apex = P(0, -e.bottom, depth);
     lines.push({ a: corners[0], b: apex, ...dashed }, { a: corners[3], b: apex, ...dashed });
   }
-  return { faces, lines, range, bounds: { x: [-ext.left, ext.right], y: [-ext.bottom, ext.top], z: [-len, h] } };
+  const marks = spatialAnnotations(result, { showLoads, showForces, showLabels });
+  const points = marks.flatMap(mark => mark.path ?? [mark.point]);
+  return { faces, lines, range, marks, bounds: {
+    x: [Math.min(-ext.left, ...points.map(p => p[0])), Math.max(ext.right, ...points.map(p => p[0]))],
+    y: [Math.min(-ext.bottom, ...points.map(p => p[1])), Math.max(ext.top, ...points.map(p => p[1]))],
+    z: [Math.min(-len, ...points.map(p => -p[2])), Math.max(h, ...points.map(p => -p[2]))],
+  } };
 }
 
 export function renderScene(scene, { yaw = -0.6, pitch = 0.45, zoom = 1, width = 560, height = 460, title = '3D VIEW' } = {}) {
@@ -141,6 +153,15 @@ export function renderScene(scene, { yaw = -0.6, pitch = 0.45, zoom = 1, width =
     items.push({ depth: (a[2] + b[2]) / 2 + 1, svg: `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round"${line.dash ? ` stroke-dasharray="${line.dash}"` : ''}/>` });
   }
   items.sort((p, q) => p.depth - q.depth); // viewer on +z′: far (small z′) first
+  const annotations = (scene.marks ?? []).map(mark => {
+    const pts = mark.path?.map(scr);
+    const [x, y] = pts?.at(-1) ?? scr(mark.point);
+    const path = pts ? `<polyline points="${pts.map(p => p.slice(0, 2).join(',')).join(' ')}" fill="none" stroke="${mark.color}" stroke-width="1.8"/>` : `<circle cx="${x}" cy="${y}" r="2.5" fill="${mark.color}"/>`;
+    const [px, py] = pts?.at(-2) ?? [x, y];
+    const angle = Math.atan2(y - py, x - px);
+    const tip = mark.arrow && Math.hypot(x - px, y - py) > 0.15 ? `<polygon fill="${mark.color}" points="${x},${y} ${[-0.48, 0.48].map(a => [x - 8 * Math.cos(angle + a), y - 8 * Math.sin(angle + a)].join(',')).join(' ')}"/>` : '';
+    return path + tip + (mark.label ? `<text x="${x + 5}" y="${y - 5}" fill="${mark.color}" font-weight="600">${esc(mark.label)}</text>` : '');
+  }).join('');
   let legend = '';
   if (scene.range) {
     const { lo, hi, label } = scene.range;
@@ -150,6 +171,6 @@ export function renderScene(scene, { yaw = -0.6, pitch = 0.45, zoom = 1, width =
       + `<text x="172" y="${height - 6}" font-size="10" text-anchor="end" fill="${COLORS.muted}">${hi.toFixed(Math.abs(hi) < 1 ? 3 : 0)}</text>`;
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="3D view of the connection" font-family="Roboto, system-ui, sans-serif" font-size="11">`
-    + `<rect width="${width}" height="${height}" fill="#ffffff"/>${items.map(item => item.svg).join('')}`
+    + `<rect width="${width}" height="${height}" fill="#ffffff"/>${items.map(item => item.svg).join('')}${annotations}`
     + `<text x="12" y="18" font-weight="600" fill="${COLORS.ink}">${esc(title)}</text>${legend}</svg>`;
 }

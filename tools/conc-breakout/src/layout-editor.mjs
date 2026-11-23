@@ -14,7 +14,7 @@ export function createLayoutEditor(host, getState, onChange) {
         <button type="button" data-act="delete">Delete</button>
         <button type="button" data-act="reset">From grid</button>
       </div>
-      <table class="layer-table point-table"><thead><tr><th scope="col">Sel</th><th scope="col">Type</th><th scope="col">x</th><th scope="col">y</th><th scope="col">Ø</th></tr></thead><tbody></tbody></table>
+      <table class="layer-table point-table"><thead><tr><th scope="col">Sel</th><th scope="col">Type</th><th scope="col">x</th><th scope="col">y</th><th scope="col">Ø</th><th scope="col" data-stiffness>k<sub>N</sub></th><th scope="col" data-stiffness>k<sub>V</sub></th></tr></thead><tbody></tbody></table>
     </div>`;
   const panel = host.querySelector('.layout-editor');
   const body = panel.querySelector('tbody');
@@ -57,6 +57,8 @@ export function createLayoutEditor(host, getState, onChange) {
     if (input.dataset.key === 'type') {
       p.type = input.value;
       if (p.type === 'rebar') p.d = p.d ?? 16;
+    } else if (input.dataset.key.endsWith('Stiffness')) {
+      p[input.dataset.key] = input.value === '' ? null : input.valueAsNumber;
     } else if (input.value !== '') p[input.dataset.key] = input.dataset.key === 'd' ? input.valueAsNumber : snap(input.valueAsNumber);
     changed();
   });
@@ -66,6 +68,8 @@ export function createLayoutEditor(host, getState, onChange) {
     const custom = state.layout.mode === 'custom';
     panel.hidden = !custom;
     if (!custom) return;
+    const spatial = state.loading?.model === 'spatial';
+    for (const head of panel.querySelectorAll('[data-stiffness]')) head.hidden = !spatial;
     body.replaceChildren(...state.layout.points.map((p, i) => {
       const tr = document.createElement('tr');
       tr.dataset.index = i;
@@ -74,6 +78,21 @@ export function createLayoutEditor(host, getState, onChange) {
         + `<td><input type="number" step="5" data-key="x" aria-label="Point ${i + 1} x" value="${p.x}"></td>`
         + `<td><input type="number" step="5" data-key="y" aria-label="Point ${i + 1} y" value="${p.y}"></td>`
         + `<td>${p.type === 'rebar' ? `<input type="number" step="1" data-key="d" aria-label="Point ${i + 1} bar diameter" value="${p.d}">` : `<span class="muted-cell">${state.studs.d}</span>`}</td>`;
+      if (spatial) {
+        for (const name of ['axial', 'shear']) {
+          const cell = tr.insertCell();
+          if (name === 'shear' && p.type === 'rebar') continue;
+          const control = document.createElement('input');
+          control.type = 'number';
+          control.step = 'any';
+          control.min = '0';
+          control.value = p[name + 'Stiffness'] ?? '';
+          control.placeholder = 'Global';
+          control.dataset.key = name + 'Stiffness';
+          control.setAttribute('aria-label', `Point ${i + 1} ${name} stiffness (N/mm)`);
+          cell.append(control);
+        }
+      }
       return tr;
     }));
   }

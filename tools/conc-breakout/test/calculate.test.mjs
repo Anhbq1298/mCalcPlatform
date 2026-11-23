@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
-import { migrateInputs, newDefaults, restoreInputs, validateInputs } from '../src/inputs.mjs';
+import { migrateInputs, newDefaults, restoreInputs, SCHEMA, validateInputs } from '../src/inputs.mjs';
 import { planSvg } from '../src/plan-view.mjs';
 import { sectionSvg } from '../src/section-view.mjs';
 import { buildReport } from '../src/report.mjs';
@@ -59,7 +59,7 @@ test('pure tension shares between symmetric bar rows', () => {
 
 test('studs in the tension zone are flagged when their tension is neglected, and checked when shared', () => {
   const excluded = calculate(make({}));
-  assert.equal(row(excluded, 'Stud tension').status, 'warning');
+  assert.equal(row(excluded, 'Stud tension').status, 'incomplete');
   assert.equal(row(excluded, 'Concrete cone (tensioned studs)'), undefined);
   const shared = calculate(make({ studs: { tension: 'shared' } }));
   assert.ok(row(shared, 'Concrete cone (tensioned studs)').ratio > 0);
@@ -67,10 +67,10 @@ test('studs in the tension zone are flagged when their tension is neglected, and
   assert.ok(shared.studs.some(stud => stud.F > 0));
 });
 
-test('the design cannot pass until the load path into the member is confirmed', () => {
+test('a historical load path confirmation cannot establish design adequacy', () => {
   assert.equal(calculate(make({})).status, 'Incomplete');
   const confirmed = calculate(make({ options: { loadPathConfirmed: true } }));
-  assert.notEqual(confirmed.status, 'Incomplete');
+  assert.equal(confirmed.status, 'Incomplete');
 });
 
 test('edge breakout is off without an edge and governs near one', () => {
@@ -115,7 +115,7 @@ test('restore keeps unknown fields and refuses a newer schema', () => {
   assert.equal(restored.plate.extra, 'x');
   assert.equal(restored.plate.t, 30);
   assert.equal(restored.plate.B, 300);
-  assert.throws(() => migrateInputs({}, 4), /newer/);
+  assert.throws(() => migrateInputs({}, SCHEMA + 1), /newer/);
   assert.equal(restoreInputs(migrateInputs({ plate: { t: 30 } }, 1)).options.analysis, 'rigid');
   assert.equal(restoreInputs({}).options.analysis, 'fem');
 });

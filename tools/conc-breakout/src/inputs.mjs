@@ -1,9 +1,11 @@
-// Input model (schema 1), defaults, restore and validation. Units: mm, kN, kN·m, MPa.
+// Input model, defaults, restore and validation. Units: mm, kN, kN·m, MPa.
 // Coordinates: plate face in the x–y plane, origin at the plate centre, +y up, z into the concrete.
 // M_Ed rotates the top of the plate away from the concrete (tension at +y). V_Ed acts down (−y).
 // Unknown fields are preserved on restore.
 
-export const SCHEMA = 3;
+import { legacyLoading, transformLoads } from './loads.mjs';
+
+export const SCHEMA = 4;
 
 export const PLATE_GRADES = {
   // EN 1993-1-1 Table 3.1, t ≤ 40 mm; β_w from EN 1993-1-8 Table 4.1.
@@ -34,6 +36,15 @@ export const newDefaults = () => ({
   options: { analysis: 'fem', method: 'component', betaJ: 2 / 3, alpha: 1.0, friction: false, loadPathConfirmed: false },
 });
 
+export const newConnectionDefaults = () => {
+  const input = newDefaults();
+  return {
+    ...input,
+    loading: { model: 'spatial', ...legacyLoading(input.actions) },
+    studs: { ...input.studs, tension: 'shared', shearStiffness: null, productReference: '' },
+  };
+};
+
 const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
 function merge(base, saved) {
   if (!isObject(saved)) return base;
@@ -52,6 +63,15 @@ export function migrateInputs(inputs, from = SCHEMA) {
     // Schema 1 designs were checked with the rigid-plate model; keep their results unchanged.
     inputs.options = { ...(inputs.options ?? {}), analysis: inputs.options?.analysis ?? 'rigid' };
   }
+  if (from < 4 && isObject(inputs)) {
+    const legacy = legacyLoading(merge(newDefaults().actions, inputs.actions));
+    inputs.loading = {
+      ...inputs.loading,
+      point: { ...inputs.loading?.point, ...legacy.point },
+      applied: { ...inputs.loading?.applied, ...legacy.applied },
+      model: 'legacy',
+    };
+  }
   return inputs;
 }
 
@@ -65,6 +85,7 @@ function need(condition, message) {
 // Stud positions: symmetric nx × ny grid about the plate centre.
 export function studPositions({ nx, ny, sx, sy }) {
   const points = [];
+  if (!nx || !ny) return points;
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     points.push({ id: 'S' + (points.length + 1), x: (i - (nx - 1) / 2) * sx, y: (j - (ny - 1) / 2) * sy });
   }
@@ -94,20 +115,35 @@ export function validateInputs(input) {
   need(p.t <= 40, 'Plate grades use EN 1993-1-1 Table 3.1 values for t ≤ 40 mm.');
   need(m.b <= p.B && m.h <= p.H, 'The steel member must fit within the plate.');
   need(2 * m.tf < m.h, 'Flange thickness must be less than half the member depth.');
-  need([a.N, a.V, a.e, a.M].every(finite), 'Enter all design actions.');
-  need(a.V >= 0, 'Enter V_Ed as a downward magnitude (≥ 0).');
-  need(a.M + a.V * a.e / 1000 >= 0, 'The total moment must cause tension at the top (+y) of the plate.');
+  if (input.loading?.model === 'spatial') {
+    transformLoads(input.loading.point ?? {}, input.loading.applied ?? {});
+    need(m.profile == null || ['i', 'hss'].includes(m.profile), 'Select a supported member footprint.');
+    need(m.tw == null || (finite(m.tw) && m.tw > 0 && m.tw <= m.b / 2), 'Enter a valid web thickness.');
+    if (m.profile === 'hss') need(2 * (m.tw ?? m.tf) < m.b, 'HSS webs must fit within the member width.');
+    const hasStuds = input.layout?.mode === 'custom' ? input.layout.points?.some(p => p.type === 'stud') : s.nx && s.ny;
+    need(!hasStuds || s.hef < c.thickness, 'Stud embedment must be smaller than the receiving member thickness.');
+    need(r.backCover == null || (finite(r.backCover) && r.backCover >= 0), 'Enter a valid rear cover.');
+    need(finite(r.cd) && r.cd > 0 && finite(r.k) && r.k > 0
+      && (r.shape !== 'bent' || (finite(r.mandrel) && r.mandrel > 0)), 'Enter valid bar cover, tensile strength and bend geometry.');
+  } else {
+    need(!input.loading || input.loading.model === 'legacy', 'Select a supported loading model.');
+    need([a.N, a.V, a.e, a.M].every(finite), 'Enter all design actions.');
+    need(a.V >= 0, 'Enter V_Ed as a downward magnitude (≥ 0).');
+    need(a.M + a.V * a.e / 1000 >= 0, 'The total moment must cause tension at the top (+y) of the plate.');
+  }
   need(s.dh > s.d, 'Head diameter must exceed the shank diameter.');
   need(s.fuk <= 800 && s.fyk < s.fuk, 'Stud steel needs f_yk < f_uk ≤ 800 MPa.');
   if (input.layout?.mode !== 'custom') { // grid layout; a custom layout is checked by validateLayout
-    need(Number.isInteger(s.nx) && Number.isInteger(s.ny) && s.nx >= 1 && s.ny >= 1, 'Stud counts must be whole numbers ≥ 1.');
-    need((s.nx === 1 || s.sx > 0) && (s.ny === 1 || s.sy > 0), 'Enter positive stud spacings.');
+    const minStuds = input.loading?.model === 'spatial' ? 0 : 1;
+    need(Number.isInteger(s.nx) && Number.isInteger(s.ny) && s.nx >= minStuds && s.ny >= minStuds
+      && s.nx <= 100 && s.ny <= 100 && s.nx * s.ny <= 100, `Stud counts must be whole numbers ≥ ${minStuds}, with at most 100 studs.`);
+    need((s.nx <= 1 || s.sx > 0) && (s.ny <= 1 || s.sy > 0), 'Enter positive stud spacings.');
     for (const stud of studPositions(s)) {
       need(Math.abs(stud.x) <= p.B / 2 - s.d && Math.abs(stud.y) <= p.H / 2 - s.d, 'All studs must lie on the plate.');
     }
     need(Array.isArray(r.rows) && (r.rows.length >= 1 || s.tension === 'shared'), 'Add a welded bar row, or let the studs share tension.');
     for (const row of r.rows) {
-      need(Number.isInteger(row.n) && row.n >= 1 && finite(row.d) && row.d >= 8 && row.d <= 40, 'Each bar row needs n ≥ 1 and 8 ≤ Ø ≤ 40 mm.');
+      need(Number.isInteger(row.n) && row.n >= 1 && row.n <= 100 && finite(row.d) && row.d >= 8 && row.d <= 40, 'Each bar row needs n ≥ 1 and 8 ≤ Ø ≤ 40 mm.');
       need(finite(row.y) && Math.abs(row.y) <= p.H / 2 - row.d, 'Bar rows must lie on the plate.');
       need(row.n === 1 || (finite(row.s) && row.s >= 2 * row.d), 'Bar spacing must be at least 2Ø.');
       need((row.n - 1) * (row.s || 0) / 2 <= p.B / 2 - row.d, 'Bars must lie on the plate.');

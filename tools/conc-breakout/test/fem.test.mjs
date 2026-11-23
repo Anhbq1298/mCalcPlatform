@@ -99,7 +99,7 @@ test('studs that share tension pick up force through plate bending', () => {
   assert.ok(top.every(stud => stud.F > 0));
   assert.ok(r.rows.find(row => row.label === 'Concrete cone (tensioned studs)'));
   const excluded = calculate(newDefaults());
-  assert.equal(excluded.rows.find(row => row.label === 'Stud tension').status, 'warning');
+  assert.equal(excluded.rows.find(row => row.label === 'Stud tension').status, 'incomplete');
 });
 
 test('the FEM solve stays fast enough for live updates', () => {
