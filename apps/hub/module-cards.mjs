@@ -1,4 +1,5 @@
 import { emptyToolMessage, filterTools, toolCategories } from '../tool-filters.mjs';
+import { toolStatusBadge } from '../tool-status.mjs';
 import { el, link, qs } from './dom.mjs';
 
 export function thumbnail(tool) {
@@ -38,9 +39,11 @@ function moduleCard(tool, pick, openFile) {
   const card = el(pick ? 'label' : 'article', undefined, 'module-card');
   const info = el('div', undefined, 'module-info');
   info.append(el('h3', title), el('p', tool.name, 'module-app'));
-  if (tool.designCodes?.length) {
+  const status = toolStatusBadge(tool);
+  if (tool.designCodes?.length || status) {
     const badges = el('div', undefined, 'design-codes');
-    badges.append(...tool.designCodes.map(code => el('span', code.label, 'design-code')));
+    if (status) badges.append(status);
+    badges.append(...(tool.designCodes ?? []).map(code => el('span', code.label, 'design-code')));
     info.append(badges);
   }
   info.append(el('p', tool.description, 'muted'));

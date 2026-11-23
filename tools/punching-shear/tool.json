@@ -6,7 +6,8 @@
   "schema": 1,
   "folder": "floors",
   "labels": [
-    "member.slab"
+    "member.slab",
+    "status.wip"
   ],
   "entry": "t/punching-shear/",
   "fileExtension": "mpsh",
