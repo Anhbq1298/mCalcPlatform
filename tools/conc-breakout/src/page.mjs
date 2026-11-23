@@ -1,4 +1,4 @@
-import { renderColumnSummary } from '../../../apps/column-summary.mjs';
+import { renderBreakoutSummary } from './check-summary.mjs';
 import '../../../apps/column-summary.css';
 import { registerPage } from '../../../apps/tool-page.mjs';
 import { A4, PAGE_GAP } from '../../../../src/export/pageGeometry.ts';
@@ -120,7 +120,7 @@ function recalculate() {
     if (result) renderResult();
     else {
       status.textContent = data.error;
-      renderColumnSummary(summary, [], data.error);
+      renderBreakoutSummary(summary, [], data.error);
       byId('design-status').textContent = '';
       for (const id of ['plan-view', 'section-view', 'section-x-view', 'equivalent-loads', 'anchor-detail', 'check-references']) byId(id).replaceChildren();
       byId('force-table').tBodies[0].replaceChildren();
@@ -143,7 +143,7 @@ function renderResult() {
   renderLoads(byId('equivalent-loads'), result);
   viewer.update(result);
   forceRows(result);
-  renderColumnSummary(summary, result.rows);
+  renderBreakoutSummary(summary, result.rows);
   byId('design-status').textContent = 'Design status: ' + result.status + '.';
   byId('check-references').replaceChildren(...result.rows.flatMap(row => {
     const dt = document.createElement('dt');

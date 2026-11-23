@@ -59,7 +59,7 @@ test('pure tension shares between symmetric bar rows', () => {
 
 test('studs in the tension zone are flagged when their tension is neglected, and checked when shared', () => {
   const excluded = calculate(make({}));
-  assert.equal(row(excluded, 'Stud tension').status, 'warning');
+  assert.equal(row(excluded, 'Stud tension').status, 'incomplete');
   assert.equal(row(excluded, 'Concrete cone (tensioned studs)'), undefined);
   const shared = calculate(make({ studs: { tension: 'shared' } }));
   assert.ok(row(shared, 'Concrete cone (tensioned studs)').ratio > 0);
@@ -67,10 +67,10 @@ test('studs in the tension zone are flagged when their tension is neglected, and
   assert.ok(shared.studs.some(stud => stud.F > 0));
 });
 
-test('the design cannot pass until the load path into the member is confirmed', () => {
+test('a historical load path confirmation cannot establish design adequacy', () => {
   assert.equal(calculate(make({})).status, 'Incomplete');
   const confirmed = calculate(make({ options: { loadPathConfirmed: true } }));
-  assert.notEqual(confirmed.status, 'Incomplete');
+  assert.equal(confirmed.status, 'Incomplete');
 });
 
 test('edge breakout is off without an edge and governs near one', () => {

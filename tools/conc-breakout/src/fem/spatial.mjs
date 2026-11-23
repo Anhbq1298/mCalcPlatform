@@ -6,9 +6,9 @@ export function solveSpatial(input, elements, concrete, actions, size) {
   const hasShear = [Vx, Vy, Mz].some(Boolean);
   const valid = studs.every(e => Number.isFinite(e.shearK) && e.shearK > 0);
   const distinct = studs.some(e => Math.hypot(e.x - studs[0].x, e.y - studs[0].y) > 1e-6);
-  const withShell = !input.options.friction && valid && distinct;
+  const withShell = valid && distinct;
   let shearIssue = hasShear && !withShell
-    ? 'The shear model requires positive shear stiffness at two distinct headed studs and excludes friction.' : undefined;
+    ? 'The shear model requires positive shear stiffness at two distinct headed studs.' : undefined;
   let eq;
   try {
     eq = solveFlexible(input, elements, concrete, N, Mx, { My, size, Vx, Vy, Mz, supports: withShell ? studs : [] });

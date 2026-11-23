@@ -140,6 +140,7 @@ export function plateVerification(eq, grade, fjd, t) {
     }
     peak = Math.max(peak, element.combinedVm);
   }
+  eq.fem.combinedVmMax = peak;
   return [
     utilization('Steel plate', 'Elastic bending and membrane stress screen', peak / (grade.fy / GAMMA.M0),
       peak.toFixed(1) + ' MPa at element centres, both surfaces.', 'EN 1993-1-1:2005 Eq. 6.1'),

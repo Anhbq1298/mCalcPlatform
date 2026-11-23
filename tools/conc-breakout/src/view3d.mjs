@@ -7,7 +7,7 @@ import { barPath } from './section-view.mjs';
 import { COLORS, esc } from './svg.mjs';
 
 const FREE = 260;
-export const FIELDS = { stress: 'Plate σ_vM (MPa)', deflection: 'Plate w (mm)', contact: 'Contact pressure (MPa)' };
+export const FIELDS = { stress: 'Plate σ_vM (MPa)', deflection: 'Plate w (mm)', contact: 'Contact pressure (MPa)', utilization: 'Elastic plate utilization' };
 const RAMP = [[49, 54, 149], [69, 117, 180], [116, 173, 209], [254, 224, 144], [244, 109, 67], [165, 0, 38]];
 
 export function rampColor(t) {
@@ -21,11 +21,12 @@ function nodeField(result, field) {
   const f = result.eq.fem;
   if (!f) return null;
   if (field === 'deflection') return Array.from(f.w);
-  if (field === 'contact') return Array.from(f.w, (w, i) => Math.max(0, -w) * f.kc);
+  if (field === 'contact') return Array.from(f.w, w => Math.max(0, -w) * f.kc);
   const sum = new Float64Array(f.mesh.nodes.length);
   const count = new Float64Array(f.mesh.nodes.length);
   for (const e of f.elements) for (const n of e.nodes) { sum[n] += e.combinedVm ?? e.vm; count[n] += 1; }
-  return Array.from(sum, (s, i) => s / count[i]);
+  const divisor = field === 'utilization' ? result.grade.fy : 1;
+  return Array.from(sum, (s, i) => s / count[i] / divisor);
 }
 
 export function buildScene(result, { field = 'stress', scale = 0, showLoads = true, showForces = false, showLabels = false } = {}) {

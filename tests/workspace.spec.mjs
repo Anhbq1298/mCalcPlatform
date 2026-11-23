@@ -544,6 +544,7 @@ test('checks an embedded plate connection, saves, reopens and reports', async ({
   await expect(status).toContainText('Design status: Incomplete');
   await expect(page.locator('#column-check-summary')).toContainText('Transfer into the receiving member');
   await field('loading.model').selectOption('legacy');
+  await field('studs.tension').selectOption('excluded');
   await field('options.loadPathConfirmed').check();
   await expect(status).toContainText('Design status: Incomplete');
   await expect(page.locator('#column-check-summary')).toContainText('Independent engineering verification');
@@ -624,6 +625,12 @@ test('transports signed spatial loads, recovers anchor forces and reopens the sp
   await page.getByRole('tab', { name: 'Element forces' }).click();
   await page.locator('#force-table button').filter({ hasText: /^S1$/ }).click();
   await expect(page.locator('#anchor-detail')).toContainText('Shear stiffness');
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('tab', { name: 'Plan' }).click();
+  await expect(page.locator('#plan-view svg')).toBeVisible();
+  expect(await page.locator('#plan-view svg').evaluate(svg => svg.getBoundingClientRect().right)).toBeLessThanOrEqual(390);
+  await page.setViewportSize(viewport);
   const shell = page.getByRole('navigation', { name: 'Design workspace' });
   await shell.getByLabel('Design name').fill('EP-3D regression');
   await shell.getByRole('button', { name: 'Save', exact: true }).click();

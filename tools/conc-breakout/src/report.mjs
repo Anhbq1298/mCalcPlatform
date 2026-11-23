@@ -54,7 +54,8 @@ export function buildReport(result, { pageHeight, pageGap, designName = 'Embedde
     doc.text(`Flexible-plate analysis: MITC4 plate elements (${f.mesh.elements.length} elements, ${f.mesh.nodes.length} nodes, mesh ≤ ${f.h.toFixed(1)} mm) on compression-only concrete springs k_c = ${f.kc.toFixed(3)} N/mm³ (E_cm = ${(f.Ecm / 1000).toFixed(1)} GPa), tension-only bar and stud springs, steel member as a rigid footprint. Contact ${f.converged ? 'converged' : 'did not converge'} after ${f.iterations} iterations.`, 11);
     if (result.rigid) doc.text(`Rigid-plate comparison: ΣT = ${fmt(result.rigid.T / 1e3, 1)} kN.`, 11);
     doc.value('Peak contact pressure', define('p_{max}', f.pMax, 'MPa'));
-    doc.value('Peak plate stress (elastic)', define(R`\sigma_{vM,max}`, f.vmMax, 'MPa'));
+    doc.value(f.combinedVmMax !== undefined ? 'Peak combined elastic plate stress' : 'Peak elastic plate bending stress',
+      define(R`\sigma_{vM,max}`, f.combinedVmMax ?? f.vmMax, 'MPa'));
   }
   if (result.loadingResult) {
     const equilibrium = Object.entries(eq.residual).map(([key, value]) => [key, value.toExponential(3), key.startsWith('F') ? 'N' : 'N·mm']);

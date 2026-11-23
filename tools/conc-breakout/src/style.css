@@ -82,8 +82,10 @@ dd { margin: 0; }
   #breakout-inputs, .checks { grid-column: 1; grid-row: auto; }
 }
 
-#breakout-inputs [hidden] { display: none; }
 #equivalent-loads { margin: 0.75rem; }
 .spatial-loads td, .spatial-loads th { text-align: right; font-variant-numeric: tabular-nums; }
 .spatial-loads td:first-child, .spatial-loads th:first-child { text-align: left; }
 #anchor-detail { display: block; margin: 0.5rem; }
+
+.column-summary-table .check-group th { background: var(--paper); font-weight: 700; }
+.column-summary-table .check-code { opacity: .8; }

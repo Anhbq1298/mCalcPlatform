@@ -93,8 +93,8 @@ export function calculate(raw) {
     rows.push(ur('Load path', 'Concrete bearing under compression flange', bearing.ratio,
       'C = ' + kN(eq.C) + ' (FEM) vs F_c,Rd = ' + kN(capacity) + ' · c = ' + mm(eq.bearing.c) + ' · f_jd = ' + fjd.toFixed(2) + ' MPa',
       'EN 1993-1-8 §6.2.5, Eq. 6.4–6.6; EN 1992-1-1 Eq. 6.63'));
-    rows.push(info('Load path', 'Peak contact pressure (FEM)', eq.fem.pMax <= fjd ? 'pass' : 'warning', 'p_max = ' + eq.fem.pMax.toFixed(2) + ' MPa vs f_jd = ' + fjd.toFixed(2)
-      + ' MPa' + (eq.fem.pMax > fjd ? '; elastic peak, relies on bearing redistribution' : '') + ' · k_c = ' + eq.fem.kc.toFixed(3) + ' N/mm³', 'EN 1993-1-8 Table 6.11 (k13)'));
+    rows.push(info('Load path', 'Peak contact pressure (FEM)', eq.fem.pMax <= fjd ? 'pass' : 'incomplete', 'p_max = ' + eq.fem.pMax.toFixed(2) + ' MPa vs f_jd = ' + fjd.toFixed(2)
+      + ' MPa' + (eq.fem.pMax > fjd ? '; elastic peak exceeds the joint strength. Independent engineering verification is required.' : '') + ' · k_c = ' + eq.fem.kc.toFixed(3) + ' N/mm³', 'EN 1993-1-8 Table 6.11 (k13)'));
   } else if (fem) {
     // no bearing: pure tension
   } else if (o.method === 'component') {
@@ -212,7 +212,7 @@ export function calculate(raw) {
   let betaN = 0;
   if (!shared) {
     const inZone = fem ? studs.filter(stud => femUplift(eq.fem, stud) > 0) : eq.allCompression ? [] : eq.yC === null ? studs : studs.filter(stud => stud.y > eq.yC);
-    rows.push(info(g, 'Stud tension', inZone.length ? 'warning' : 'pass', inZone.length
+    rows.push(info(g, 'Stud tension', inZone.length ? 'incomplete' : 'pass', inZone.length
       ? inZone.map(stud => stud.id).join(', ') + (fem ? ' lift off the concrete in the FEM model;' : ' lie in the tension zone;') + ' their tension is neglected by assumption. Plate deformation will load them; select "Studs share tension" to check them'
       : 'All studs lie in the compression zone', 'Design assumption'));
   } else if (tensioned.length) {
@@ -227,9 +227,9 @@ export function calculate(raw) {
     const pullRatio = stud.F * gammas.Mp / pull.NRk;
     rows.push(ur(g, 'Pull-out', pullRatio, 'N_Rd,p = ' + kN(pull.NRk / gammas.Mp), 'EN 1992-4 Eq. 7.11–7.12'));
     const AsRe = 0.5 * Ng / (500 / GAMMA.MsRe);
-    rows.push(c.splittingReinforcement && c.cracked
-      ? info(g, 'Splitting', 'pass', 'Omitted: cracked-concrete resistances and reinforcement limiting w_k ≤ 0.3 mm; ΣA_s,re ≥ ' + AsRe.toFixed(0) + ' mm² (k4 = 0.5, f_yk = 500)', 'EN 1992-4 §7.2.1.7(2)b, Eq. 7.22')
-      : info(g, 'Splitting', 'incomplete', 'Not verified: confirm splitting reinforcement with cracked concrete, or check with product data (c_cr,sp)', 'EN 1992-4 §7.2.1.7'));
+    rows.push(info(g, 'Splitting', 'incomplete',
+      'Verify the member and product distances or provide developed splitting reinforcement and a crack-width check. Historical tie area estimate ' + AsRe.toFixed(0) + ' mm².',
+      'EN 1992-4 §7.2.1.7(2)b, Eq. 7.22'));
     const near = tensioned.filter(item => Math.min(...Object.values(edgeDistances(item, c.edges))) <= 0.5 * s.hef);
     rows.push(near.length ? info(g, 'Side-face blow-out', 'incomplete', near.map(item => item.id).join(', ') + ' within 0.5·h_ef of an edge; blow-out is not implemented', 'EN 1992-4 §7.2.1.8')
       : info(g, 'Side-face blow-out', 'pass', 'Not required: c > 0.5·h_ef', 'EN 1992-4 §7.2.1.8'));
@@ -245,20 +245,10 @@ export function calculate(raw) {
       : ur(g, 'Concrete interaction N–V', concreteInteraction(betaN, betaV), text + ' · exponent 1.5', 'EN 1992-4 Eq. 7.55'));
   }
 
-  rows.push(info('Load path', 'Transfer into the receiving member (STM, laps)', o.loadPathConfirmed ? 'pass' : 'incomplete',
-    o.loadPathConfirmed ? 'Confirmed by the engineer' : 'Confirm that the bar ties, the bearing strut and any breakout bodies are carried by the member reinforcement',
+  rows.push(info('Load path', 'Transfer into the receiving member (STM, laps)', 'incomplete',
+    'Independent engineering verification is required for the bar ties, bearing strut and breakout bodies in the receiving member.',
     'EN 1992-1-1 §6.5; §8.7 laps'));
 
-  if (input.loading?.model === 'legacy') {
-    const legacyGates = new Set(['Stud tension', 'Peak contact pressure (FEM)', 'Splitting', 'Transfer into the receiving member (STM, laps)']);
-    for (const row of rows) {
-      if (!legacyGates.has(row.label)) continue;
-      if (row.status === 'warning' || ['Splitting', 'Transfer into the receiving member (STM, laps)'].includes(row.label)) {
-        row.status = 'incomplete';
-        row.detail += ' Historical result. Independent engineering verification is required.';
-      }
-    }
-  }
   const status = rows.some(row => row.status === 'fail') ? 'Fail' : rows.some(row => row.status === 'incomplete') ? 'Incomplete'
     : rows.some(row => row.status === 'warning') ? 'Pass with warnings' : 'Pass';
   return { input, layout, concrete, grade, fjd, gammas, actions: { N, V, M }, eq, rigid, bars: barResults, studs: studLoads, plateRows, groupCone, rows, status, Vi, friction };
