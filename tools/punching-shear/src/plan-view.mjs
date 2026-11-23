@@ -4,6 +4,7 @@ import { pathExtent, pathPolyline, pointAt, toGlobal } from './geometry.mjs';
 import { intervalPolylines } from './perimeters.mjs';
 import { COLORS, DASH, callout, esc, grid, n, polyline, svgDocument, viewport } from './svg.mjs';
 import { compositeLines, headOutline } from './head-drawing.mjs';
+import { layerLines } from './layer-lines.mjs';
 
 // Label position along a path: a fixed fraction of a closed path (labels of different perimeters
 // do not stack), or the middle of the first effective interval of a clipped one.
@@ -27,7 +28,7 @@ function governingGap(result, load, extColumn, checkId) {
   return { layer: worst.layer, gap, column: worst.column, fails: worst.tangential.status === 'Fail' };
 }
 
-export function planSvg(result, { width = 640, height = 600, selected = null, checkId = null, loadId = null } = {}) {
+export function planSvg(result, { width = 640, height = 600, selected = null, checkId = null, loadId = null, layerLines: showLayers = false } = {}) {
   const input = result.input;
   const load = result.loads?.find(entry => entry.id === (loadId ?? result.governing?.loadId));
   const activeRow = load?.rows.find(row => row.id === checkId);
@@ -143,6 +144,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null, ch
     parts.push(`<line x1="${n(view.x(a.x))}" y1="${n(view.y(a.y))}" x2="${n(view.x(b.x))}" y2="${n(view.y(b.y))}" stroke="${COLORS.muted}" stroke-width=".5" stroke-dasharray="${DASH.centre}"/>`);
     parts.push(sectionMark(view.x(a.x), view.y(a.y), view.x(b.x), view.y(b.y), ax ? 'A' : 'B'));
   }
+  if (showLayers) parts.push(layerLines(result, view));
   for (const link of result.layout?.links ?? []) {
     const radius = Math.max(2.4, (link.diameter / 2) * view.scale);
     const isSelected = selected === link.id || selected === link.layerId || (!selected && activeRow?.governing === link.layerId);

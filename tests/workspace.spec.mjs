@@ -456,6 +456,10 @@ test('designs punching shear links, edits a provided layout, saves, reopens and 
   await expect(page.locator('#layout-comparison tbody tr')).toHaveCount(2); // grid and radial
   await page.getByRole('tab', { name: 'Plan' }).click();
   await expect(page.locator('#plan-view [data-link]')).not.toHaveCount(0);
+  await expect(page.locator('#plan-view .layer-line')).toHaveCount(0);
+  await page.getByLabel('Show link layer perimeters').check();
+  await expect(page.locator('#plan-view .layer-line')).not.toHaveCount(0);
+  await page.getByLabel('Show link layer perimeters').uncheck();
   const linkCount = await page.locator('#plan-view [data-link]').count();
   await page.getByLabel('Links', { exact: true }).selectOption('provided');
   await expect(page.locator('#layers-anchor')).toBeVisible();

@@ -112,3 +112,16 @@ test('slab thickness and drop size change the result, the link arrangement and t
   assert.notEqual(small.layout.links.length, large.layout.links.length);
   views(small).forEach((svg, k) => assert.notEqual(svg, views(large)[k]));
 });
+
+test('plan: optional link layer perimeters, thin solid green, one per layer', async () => {
+  const { calculateDesign } = await import('../src/head.mjs');
+  const { newDefaults } = await import('../src/inputs.mjs');
+  const input = newDefaults();
+  input.reinforcement.enabled = true;
+  input.loads = [{ name: 'U', V: 900, Mx: 0, My: 0 }];
+  const result = calculateDesign(input);
+  assert.ok(!planSvg(result).includes('layer-line'));
+  const svg = planSvg(result, { layerLines: true });
+  assert.equal((svg.match(/class="layer-line"/g) || []).length, result.layout.layers.length);
+  assert.ok(svg.includes('stroke="#2e9e44" stroke-width=".5"') && !/layer-line[^>]*dasharray/.test(svg));
+});
