@@ -29,15 +29,38 @@ const resistance = (load, links) => {
   return { v: find('concrete')?.resistance, links: false };
 };
 
+// Composite path by the direction φ of the outward normal (tool method, see Help). Straight parts: a face
+// whose head projection l_H ≥ 2h_H takes the inner crack (length of the column face, at 2d_H, d_H); else
+// the slab section's straight part on that side (length of the head side, at 2d from the head, d).
+// Corners: along φ the head reaches l(φ) = min(l_H,x/cos φ, l_H,y/sin φ) from the column corner; where
+// l(φ) ≥ 2h_H the inner arc (2d_H·dφ, d_H), else the slab section's arc round the head corner (2d·dφ, d).
+// Every face long gives the inner section of Fig. 6.18; every direction short gives the Fig. 6.17 section.
+const CORNERS = [['xMax', 'yMax'], ['xMin', 'yMax'], ['xMin', 'yMin'], ['xMax', 'yMin']];
+const STEPS_PER_CORNER = 180;
+
 function parts({ inner, outer, input, geo, d, dH, whole }) {
   // Whole inner section with d_H (2d_H beyond the head, every face long): the composite has no slab part.
-  if (whole) return { uLong: inner.u1, uRest: 0, sumUd: inner.u1 * dH, long: [], whole: true };
+  if (whole) return { uLong: inner.u1, uRest: 0, sumUd: inner.u1 * dH, long: [], arcs: [], whole: true };
   const e = geo.extents;
   const dropSide = { x: e.xMax - e.xMin, y: e.yMax - e.yMin };
-  const long = Object.keys(FACE).filter(side => geo.lSides[side] >= 2 * geo.hH - 1e-9);
-  const uLong = long.reduce((sum, side) => sum + input.column[FACE[side]], 0);
-  const uRest = outer.u1 - long.reduce((sum, side) => sum + dropSide[SIDE[side]], 0);
-  return { uLong, uRest, sumUd: uLong * dH + uRest * d, long };
+  const reach = 2 * geo.hH - 1e-9;
+  const long = Object.keys(FACE).filter(side => geo.lSides[side] >= reach);
+  let uLong = long.reduce((sum, side) => sum + input.column[FACE[side]], 0);
+  let uRest = Object.keys(FACE).filter(side => !long.includes(side)).reduce((sum, side) => sum + dropSide[SIDE[side]], 0);
+  const arcs = [];
+  const dphi = Math.PI / 2 / STEPS_PER_CORNER;
+  CORNERS.forEach(([xs, ys], k) => {
+    let run = null;
+    for (let j = 0; j < STEPS_PER_CORNER; j += 1) {
+      const phi = (j + 0.5) * dphi;
+      const l = Math.min(geo.lSides[xs] / Math.cos(phi), geo.lSides[ys] / Math.sin(phi));
+      const ok = l >= reach;
+      if (ok) uLong += 2 * dH * dphi; else uRest += 2 * d * dphi;
+      if (ok && !run) run = { corner: k, from: j * dphi };
+      if (run && (!ok || j === STEPS_PER_CORNER - 1)) { run.to = ok ? (j + 1) * dphi : j * dphi; arcs.push(run); run = null; }
+    }
+  });
+  return { uLong, uRest, sumUd: uLong * dH + uRest * d, long, arcs };
 }
 
 // Per load: composite stress (actual loads) and resistance from the two sections (designed runs).
@@ -66,7 +89,7 @@ function evaluate({ demand, inner, outer, d, dH, p, links, fallback = {} }) {
 }
 
 function patch({ inner, geo, d, dH, p, results, links, plain = null }) {
-  inner.compositeSection = p.whole ? null : { uLong: p.uLong, uRest: p.uRest, d, dH, long: p.long };
+  inner.compositeSection = p.whole ? null : { uLong: p.uLong, uRest: p.uRest, d, dH, long: p.long, arcs: p.arcs };
   inner.loads.forEach((load, i) => {
     const r = results[i];
     let k = load.rows.findIndex(entry => entry.id === (links ? 'reinforced' : 'concrete'));
@@ -77,7 +100,7 @@ function patch({ inner, geo, d, dH, p, results, links, plain = null }) {
     const slabLinks = r.rIn.fromSlab ? ' (links of the slab section around the head, within 2d_H of the column: they cross this crack)' : '';
     const detail = p.whole
       ? `Section inside the head at 2d_H with d_H = ${dH.toFixed(1)} mm; 2d_H reaches beyond the head, so its crack ends in the slab: ${what(r.rIn)} = ${r.rIn.v.toFixed(3)} MPa${slabLinks} (tool method, see Help).`
-      : `Composite inner section (tool method, see Help): ${p.uLong.toFixed(0)} mm at 2d_H from the faces with l_H ≥ 2h_H, d_H = ${dH.toFixed(1)} mm, ${what(r.rIn)} = ${r.rIn.v.toFixed(3)} MPa${slabLinks}; ${p.uRest.toFixed(0)} mm at 2d from the head outline, d = ${d.toFixed(1)} mm, ${what(r.rOut)} = ${r.rOut.v.toFixed(3)} MPa. β·V_Ed ≤ Σ v_R·u·d.`;
+      : `Composite inner section (tool method, see Help): ${p.uLong.toFixed(0)} mm at 2d_H where the head reaches 2h_H (faces and corner arcs), d_H = ${dH.toFixed(1)} mm, ${what(r.rIn)} = ${r.rIn.v.toFixed(3)} MPa${slabLinks}; ${p.uRest.toFixed(0)} mm of the slab section at 2d from the head outline elsewhere, d = ${d.toFixed(1)} mm, ${what(r.rOut)} = ${r.rOut.v.toFixed(3)} MPa. β·V_Ed ≤ Σ v_R·u·d.`;
     const fix = ` Not enough even with links designed for up to ${STEPS.at(-1)}× the loads: extend the head to l_H ≥ 2h_H = ${(2 * geo.hH).toFixed(0)} mm on every face, or thicken the slab or head.`;
     load.rows[k] = row(links ? 'reinforced' : 'concrete', `§6.4.2(9), Fig. 6.18 (composite, tool method)${links ? ', Eq. 6.52' : ''}`,
       p.whole ? `Inside the drop (d_H)${links ? ': links of the slab section within 2d_H' : ''}` : `Inside the drop: composite section${links ? ' with links' : ''} (d_H where l_H ≥ 2h_H, d elsewhere)`, r.vEd, r.vRd, r.ok ? STATES.pass : STATES.fail,

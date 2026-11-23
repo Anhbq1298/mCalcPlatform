@@ -32,7 +32,18 @@ export function compositeLines(head, column, view, color, width) {
     const [p, q] = seg[side].map(([x, y]) => toGlobal(column, { x, y }));
     return `<line x1="${n(view.x(p.x))}" y1="${n(view.y(p.y))}" x2="${n(view.x(q.x))}" y2="${n(view.y(q.y))}" stroke="${color}" stroke-width="${width}"/>`;
   });
-  const [x, y] = seg[head.composite.long[0]][1];
+  // Corner arcs at 2d_H where the head reaches 2h_H along the normal.
+  // φ is measured from the x-face normal towards the y face (composite.mjs CORNERS order).
+  const corner = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
+  for (const arc of head.composite.arcs ?? []) {
+    const [sx, sy] = corner[arc.corner];
+    const pts = Array.from({ length: 13 }, (_, j) => arc.from + ((arc.to - arc.from) * j) / 12)
+      .map(t => toGlobal(column, { x: sx * (a + r * Math.cos(t)), y: sy * (b + r * Math.sin(t)) }))
+      .map(p => `${n(view.x(p.x))},${n(view.y(p.y))}`).join(' ');
+    out.push(`<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="${width}"/>`);
+  }
+  const first = head.composite.long[0];
+  const [x, y] = first ? seg[first][1] : [a + r, 0];
   const q = toGlobal(column, { x, y });
   out.push(`<text class="label" x="${n(view.x(q.x) + 4)}" y="${n(view.y(q.y) - 5)}">u1,int composite</text>`);
   return out.join('');

@@ -30,18 +30,29 @@ test('drop sized from the column: l_H on every side; old saves keep their absolu
   assert.deepEqual([old.head.sizeMode, old.head.lx, old.head.ly], ['absolute', 2000, 1800]);
 });
 
-test('mixed rectangular head: composite inner section (d_H on the long faces, slab d elsewhere)', () => {
+test('mixed rectangular head: composite inner section by normal direction (faces and corner arcs)', () => {
   const input = base({ lx: 1300, ly: 1300, depth: 150 }, { column: { shape: 'rectangular', position: 'internal', cx: 300, cy: 900, rotation: 0, x: 0, y: 0 }, loads: [{ name: 'ULS 1', V: 900, Mx: 0, My: 0 }] });
   const result = calculateDesign(input);
   const row = result.loads[0].rows.find(entry => entry.id === 'concrete');
   assert.ok(row.label.includes('composite'));
-  // x faces: l_H = 500 ≥ 300 (long, column face 900 each); y faces: l_H = 200 < 300 (short).
-  const d = 210, dH = 360;
-  const uLong = 2 * 900;
-  const uRest = 4 * 1300 + 2 * Math.PI * 2 * d - 2 * 1300;
-  close(row.demand, (1.15 * 900e3) / (uLong * dH + uRest * d), 1e-6);
+  // x faces: l_H = 500 ≥ 300 (inner, column face 900 each); y faces: l_H = 200 < 300 (slab side 1300 each).
+  // Corners: the head reaches min(500/cos φ, 200/sin φ) ≥ 300 for φ ≤ asin(2/3): inner arc there, slab arc beyond.
+  const d = 210, dH = 360, phi = Math.asin(2 / 3);
+  const uLong = 2 * 900 + 4 * 2 * dH * phi;
+  const uRest = 2 * 1300 + 4 * 2 * d * (Math.PI / 2 - phi);
+  const { composite } = result.head;
+  close(composite.uLong, uLong, 0.01 * uLong);
+  close(composite.uRest, uRest, 0.01 * uRest);
+  close(row.demand, (1.15 * 900e3) / (composite.uLong * dH + composite.uRest * d), 1e-9);
   const large = calculateDesign(base({ lx: 1500, ly: 1500, depth: 150 }, { column: input.column, loads: input.loads }));
   assert.ok(!large.loads[0].rows.find(entry => entry.id === 'concrete').label.includes('composite'));
+});
+
+test('drop growing in both directions: the unreinforced UR does not jump up from Fig. 6.17 to the composite section', () => {
+  const ur = (lx, ly) => Math.max(...calculateDesign(base({ lx, ly, depth: 150 }, { column: { shape: 'rectangular', position: 'internal', cx: 300, cy: 900, rotation: 0, x: 0, y: 0 }, loads: [{ name: 'ULS 1', V: 1000, Mx: 0, My: 0 }] }))
+    .loads[0].rows.filter(row => /concrete$/.test(row.id)).map(row => row.ur));
+  assert.ok(ur(900, 1400) <= ur(700, 1400) + 1e-9); // Fig. 6.17 → composite (x faces reach 2h_H)
+  assert.ok(ur(700, 1500) <= ur(700, 1400) + 1e-9); // Fig. 6.17 → composite (y faces reach 2h_H)
 });
 
 test('mixed rectangular head needing links: composite section with links passes; the long parts are drawn', async () => {
