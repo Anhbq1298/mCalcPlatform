@@ -33,11 +33,14 @@ export const GROUPS = [
     num('rebars.cd', 'Cover c<sub>d</sub> for α<sub>1</sub> (mm)'), check('rebars.goodBond', 'Good bond conditions'),
     num('rebars.throat', 'Bar weld throat a (mm)'),
   ]],
+  ['Fastener layout', [
+    choice('layout.mode', 'Layout', [['grid', 'Grid: stud grid + bar rows'], ['custom', 'Custom points (add / remove / convert)']]),
+  ]],
   ['Headed studs', [
     num('studs.d', 'Shank Ø d (mm)'), num('studs.dh', 'Head Ø d<sub>h</sub> (mm)'), num('studs.hef', 'h<sub>ef</sub> from concrete face (mm)'),
     num('studs.fuk', 'f<sub>uk</sub> (MPa)'), num('studs.fyk', 'f<sub>yk</sub> (MPa)'), check('studs.ductile', 'Ductile steel (A<sub>5</sub> > 8%)'),
-    num('studs.nx', 'Studs across, n<sub>x</sub>', { step: 1, min: 1 }), num('studs.ny', 'Stud rows, n<sub>y</sub>', { step: 1, min: 1 }),
-    num('studs.sx', 's<sub>x</sub> (mm)'), num('studs.sy', 's<sub>y</sub> (mm)'), num('studs.k8', 'k<sub>8</sub> pry-out (product data)', { step: 0.1 }),
+    num('studs.nx', 'Studs across, n<sub>x</sub>', { step: 1, min: 1, gridOnly: true }), num('studs.ny', 'Stud rows, n<sub>y</sub>', { step: 1, min: 1, gridOnly: true }),
+    num('studs.sx', 's<sub>x</sub> (mm)', { gridOnly: true }), num('studs.sy', 's<sub>y</sub> (mm)', { gridOnly: true }), num('studs.k8', 'k<sub>8</sub> pry-out (product data)', { step: 0.1 }),
     choice('studs.tension', 'Stud tension', [['excluded', 'Neglected (bars take tension)'], ['shared', 'Studs share tension']]),
   ]],
   ['Model and confirmations', [
@@ -76,6 +79,7 @@ function field(def) {
     }
   }
   input.dataset.path = def.path;
+  if (def.gridOnly) row.dataset.gridOnly = '';
   row.append(...(def.kind === 'checkbox' ? [input, name] : [name, input]));
   return row;
 }
@@ -89,10 +93,12 @@ export function buildForm(form, getState, onChange) {
     legend.textContent = title;
     group.append(legend, ...defs.map(field));
     if (title === 'Welded reinforcing bars') group.append(rowTable());
+    if (title === 'Fastener layout') group.append(Object.assign(document.createElement('div'), { id: 'layout-editor-host' }));
     form.append(group);
   }
   function rowTable() {
     const wrap = document.createElement('div');
+    wrap.dataset.gridOnly = '';
     wrap.innerHTML = `<p class="table-caption">Bar rows: y from the plate centre, n bars at spacing s across the plate.</p>
       <table class="layer-table" id="bar-rows"><thead><tr><th scope="col">Row</th>${ROW_COLUMNS.map(([, text]) => `<th scope="col">${text}</th>`).join('')}</tr></thead><tbody></tbody></table>
       <div class="layer-buttons"><button type="button" data-add-row>+ Row</button><button type="button" data-remove-row>− Row</button></div>`;
@@ -129,6 +135,7 @@ export function buildForm(form, getState, onChange) {
       if (input.type === 'checkbox') input.checked = Boolean(value);
       else input.value = value ?? '';
     }
+    for (const item of form.querySelectorAll('[data-grid-only]')) item.hidden = state.layout.mode === 'custom';
     const body = form.querySelector('#bar-rows tbody');
     body.replaceChildren(...state.rebars.rows.map((row, index) => {
       const tr = document.createElement('tr');

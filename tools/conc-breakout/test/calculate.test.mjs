@@ -115,7 +115,7 @@ test('restore keeps unknown fields and refuses a newer schema', () => {
   assert.equal(restored.plate.extra, 'x');
   assert.equal(restored.plate.t, 30);
   assert.equal(restored.plate.B, 300);
-  assert.throws(() => migrateInputs({}, 3), /newer/);
+  assert.throws(() => migrateInputs({}, 4), /newer/);
   assert.equal(restoreInputs(migrateInputs({ plate: { t: 30 } }, 1)).options.analysis, 'rigid');
   assert.equal(restoreInputs({}).options.analysis, 'fem');
 });

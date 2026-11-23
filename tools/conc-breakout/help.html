@@ -49,6 +49,10 @@
   </ul>
   <p>What changes physically: a thin plate concentrates bearing under the compression flange and raises the bar force. A thick plate behaves rigidly on the elastic concrete, so bearing moves toward the plate edge and the lever arm grows. The "Flexible vs rigid plate" row reports both.</p>
 
+  <h2>2c Custom fastener layout</h2>
+  <p>"Custom points" replaces the stud grid and bar rows with an editable list, seeded from the current grid. Click the plan to add a stud or a welded bar (whichever tool is active), click a point to select it (Shift for several), then convert it with Stud ↔ Bar or delete it. The table edits type, x, y and the bar Ø; studs share the stud properties above. Bars at the same y (±1 mm) form a row for plate bending, using the smallest bar gap and plate-edge distance in that row. The concrete cone area A<sub>c,N</sub> is the exact union of the projected squares, so any arrangement is covered. Edge breakout uses the lowest stud row (front) and the highest (rear).</p>
+  <p>The "Flexible vs rigid plate" row reports three deviations of the FEM tension forces from the rigid plate: the highest element force, the sum, and the departure from a linear (plane) distribution. These follow the close-to-rigid criteria Hilti publishes for PROFIS Engineering. They are reported without pass limits, because the FEM forces are used for design anyway.</p>
+
   <h2>3 Welded bars</h2>
   <ul>
     <li><span class="tag code">Code</span> Steel: F ≤ A<sub>s</sub>·f<sub>yk</sub>/γ<sub>s</sub>.</li>

@@ -2,7 +2,8 @@
 import { coneResistance, concreteInteraction, edgeResistance, pulloutResistance, shankArea, steelInteraction, steelShear, studRows, edgeDistances } from './anchors.mjs';
 import { flangeBearing, solveBlock, solveComponent } from './equilibrium.mjs';
 import { solveFlexible } from './fem/connection-model.mjs';
-import { rebarPositions, studPositions, validateInputs } from './inputs.mjs';
+import { validateInputs } from './inputs.mjs';
+import { resolveLayout, validateLayout } from './layout.mjs';
 import { concreteProps, GAMMA, jointStrength, plateProps, studFactors } from './materials.mjs';
 import { rowBending } from './plate.mjs';
 import { barArea, barChecks, minMandrel } from './rebar.mjs';
@@ -12,10 +13,38 @@ const mm = value => value.toFixed(0) + ' mm';
 const ur = (group, label, ratio, detail, ref) => ({ group, label, ratio, detail, ref, isUR: true, status: ratio <= 1 + 1e-9 ? 'pass' : 'fail' });
 const info = (group, label, status, detail, ref) => ({ group, label, ratio: null, detail, ref, status, hideRatio: true });
 const worst = (items, key) => items.reduce((a, b) => (key(b) > key(a) ? b : a), items[0]);
+const pct = value => (value >= 0 ? '+' : '') + (100 * value).toFixed(0) + '%';
+// Deviation of FEM tension forces from the rigid plate: highest element, sum, and departure from a
+// linear (plane) distribution fitted to the FEM forces.
+function rigidDeviation(fem, rigid) {
+  const loaded = fem.filter(e => e.F > 0);
+  const maxRigid = Math.max(0, ...rigid.map(e => e.F));
+  if (loaded.length === 0 || !(maxRigid > 0)) return null;
+  const maxFem = Math.max(...loaded.map(e => e.F));
+  const sum = loaded.reduce((s, e) => s + e.F, 0) / rigid.reduce((s, e) => s + e.F, 0) - 1;
+  // Least-squares plane F = a + b·y + c·x (normal equations, small 3 × 3 system).
+  const rowsA = loaded.map(e => [1, e.y, e.x]);
+  const AtA = [0, 1, 2].map(i => [0, 1, 2].map(j => rowsA.reduce((s, r) => s + r[i] * r[j], 0) + (i === j ? 1e-9 : 0)));
+  const Atb = [0, 1, 2].map(i => rowsA.reduce((s, r, k) => s + r[i] * loaded[k].F, 0));
+  const coef = solve3(AtA, Atb);
+  const linearity = Math.max(...loaded.map((e, k) => Math.abs(e.F - rowsA[k].reduce((s, v, i) => s + v * coef[i], 0)))) / maxFem;
+  return { max: maxFem / maxRigid - 1, sum, linearity };
+}
+function solve3(A, b) {
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let c = 0; c < 3; c++) {
+    let p = c;
+    for (let r = c + 1; r < 3; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = 0; r < 3; r++) if (r !== c && M[c][c]) { const f = M[r][c] / M[c][c]; for (let k = c; k < 4; k++) M[r][k] -= f * M[c][k]; }
+  }
+  return M.map((row, i) => (row[i] ? row[3] / row[i] : 0));
+}
 const femUplift = (f, point) => f.w[f.mesh.nodes.reduce((a, b) => (Math.hypot(b.x - point.x, b.y - point.y) < Math.hypot(a.x - point.x, a.y - point.y) ? b : a)).id];
 
 export function calculate(raw) {
   const input = validateInputs(raw);
+  validateLayout(input);
   const { concrete: c, plate, member, actions: a, rebars, studs: s, options: o } = input;
   const concrete = concreteProps(c.fck, c.alphaCc);
   const grade = plateProps(plate.grade);
@@ -24,8 +53,9 @@ export function calculate(raw) {
   const N = a.N * 1e3;
   const V = a.V * 1e3;
   const M = (a.M + a.V * a.e / 1e3) * 1e6;
-  const studs = studPositions(s).map(p => ({ ...p, kind: 'stud', area: shankArea(s.d) }));
-  const bars = rebarPositions(rebars.rows).map(b => ({ ...b, kind: 'rebar', area: barArea(b.d) }));
+  const layout = resolveLayout(input);
+  const studs = layout.studs.map(p => ({ ...p, kind: 'stud', area: shankArea(s.d) }));
+  const bars = layout.bars.map(b => ({ ...b, kind: 'rebar', area: barArea(b.d) }));
   const shared = s.tension === 'shared';
   const elements = shared ? [...bars, ...studs] : bars;
   const rigid = o.method === 'component' ? solveComponent(input, elements, grade.fy, fjd, N, M) : solveBlock(input, elements, fjd, N, M);
@@ -107,16 +137,16 @@ export function calculate(raw) {
     rows.push(ur(g, 'Anchorage length l_bd ≤ l_b,prov', anchor.anchor.ratio, anchor.id + ' · σ_sd = ' + anchor.sigma.toFixed(0) + ' MPa · l_bd = ' + mm(anchor.anchor.lbd) + ' vs ' + mm(rebars.length)
       + ' · f_bd = ' + anchor.anchor.fbd.toFixed(2) + ' MPa · α1 = ' + anchor.anchor.alpha1, 'EN 1992-1-1 §8.4, Eq. 8.2–8.6'));
   }
-  if (rebars.rows.length && rebars.shape === 'straight' && plate.t + rebars.length > c.thickness - 40) {
+  if (layout.rows.length && rebars.shape === 'straight' && plate.t + rebars.length > c.thickness - 40) {
     rows.push(info('Welded bars', 'Straight bar fits in the member', 'fail', 't + l_b,prov = ' + mm(plate.t + rebars.length) + ' exceeds h − 40 mm cover; bend the bars or shorten them', 'Geometry'));
   }
-  if (rebars.rows.length && rebars.shape === 'bent') {
-    const need = Math.max(...rebars.rows.map(row => minMandrel(row.d)));
+  if (layout.rows.length && rebars.shape === 'bent') {
+    const need = Math.max(...layout.rows.map(row => minMandrel(row.d)));
     rows.push(ur('Welded bars', 'Bend mandrel diameter', need / rebars.mandrel, 'φ_m = ' + mm(rebars.mandrel) + ' ≥ ' + mm(need) + '; bearing inside the bend not checked', 'EN 1992-1-1 Table 8.1N'));
   }
 
   // Plate bending
-  const plateRows = rebars.rows.map((row, index) => rowBending({ ...row, index }, barResults, { plate, member, plateGrade: grade, rebars, concrete }));
+  const plateRows = layout.rows.map(row => rowBending(row, barResults, { plate, member, plateGrade: grade, rebars, concrete }));
   for (const row of plateRows) {
     const label = 'Plate bending at bar row ' + (row.index + 1);
     if (row.kind === 'unloaded') continue;
@@ -135,9 +165,11 @@ export function calculate(raw) {
       rows.push(info('Plate', 'Bar and stud tension bounded', 'pass', 'Bars from the run without stud tension (ΣT_bars = ' + kN(barsOnly.T) + '), studs from the run with stiff stud springs (ΣN = '
         + kN(eq.tensions.filter(e => e.kind === 'stud').reduce((sum, e) => sum + e.F, 0)) + '); each component is checked for its upper bound', 'Stiffness bounding, see help §2b'));
     }
-    const ratio = rigid.T > 0 ? eq.T / rigid.T : null;
-    rows.push(info('Plate', 'Flexible vs rigid plate', 'pass', 'ΣT = ' + kN(eq.T) + ' (FEM) vs ' + kN(rigid.T ?? 0) + ' (rigid)' + (ratio ? ' · ratio ' + ratio.toFixed(2) : '')
-      + (eq.lever && rigid.lever ? ' · z = ' + mm(eq.lever) + ' vs ' + mm(rigid.lever) : ''), 'Comparison'));
+    const dev = rigidDeviation(eq.tensions, rigid.tensions ?? []);
+    rows.push(info('Plate', 'Flexible vs rigid plate', 'pass', 'ΣT = ' + kN(eq.T) + ' (FEM) vs ' + kN(rigid.T ?? 0) + ' (rigid)'
+      + (eq.lever && rigid.lever ? ' · z = ' + mm(eq.lever) + ' vs ' + mm(rigid.lever) : '')
+      + (dev ? ' · deviation: max element ' + pct(dev.max) + ', sum ' + pct(dev.sum) + ', non-linearity ' + pct(dev.linearity) : ''),
+      'Close-to-rigid criteria after Hilti (max force, sum, linearity)'));
   } else if (cantilevers.length) {
     const soft = worst(cantilevers, row => -row.stiffness.ratio);
     rows.push(info('Plate', 'Rigid-plate assumption', soft.stiffness.ratio >= 10 ? 'pass' : 'warning',
@@ -217,5 +249,5 @@ export function calculate(raw) {
 
   const status = rows.some(row => row.status === 'fail') ? 'Fail' : rows.some(row => row.status === 'incomplete') ? 'Incomplete'
     : rows.some(row => row.status === 'warning') ? 'Pass with warnings' : 'Pass';
-  return { input, concrete, grade, fjd, gammas, actions: { N, V, M }, eq, rigid, bars: barResults, studs: studLoads, plateRows, groupCone, rows, status, Vi, friction };
+  return { input, layout, concrete, grade, fjd, gammas, actions: { N, V, M }, eq, rigid, bars: barResults, studs: studLoads, plateRows, groupCone, rows, status, Vi, friction };
 }

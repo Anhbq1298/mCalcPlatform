@@ -13,10 +13,10 @@ export function view(bounds, width, height, pad = 46) {
   const scale = Math.min((width - 2 * pad) / (bounds.u1 - bounds.u0), (height - 2 * pad) / (bounds.v1 - bounds.v0));
   const ox = (width - scale * (bounds.u1 - bounds.u0)) / 2 - scale * bounds.u0;
   const oy = (height + scale * (bounds.v1 - bounds.v0)) / 2 + scale * bounds.v0;
-  return { scale, x: u => ox + u * scale, y: v => oy - v * scale, width, height };
+  return { scale, ox, oy, x: u => ox + u * scale, y: v => oy - v * scale, width, height };
 }
 
-export const frame = (v, body, label, height = v.height) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${v.width} ${height}" role="img" aria-label="${esc(label)}" font-family="${CAD_FONT}" font-size="11">`
+export const frame = (v, body, label, height = v.height, attrs = '') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${v.width} ${height}"${attrs} role="img" aria-label="${esc(label)}" font-family="${CAD_FONT}" font-size="11">`
   + `<rect width="${v.width}" height="${height}" fill="#ffffff"/>${body}</svg>`;
 
 export const rect = (v, u0, v0, u1, v1, style) => `<rect x="${n(v.x(Math.min(u0, u1)))}" y="${n(v.y(Math.max(v0, v1)))}" width="${n(Math.abs(u1 - u0) * v.scale)}" height="${n(Math.abs(v1 - v0) * v.scale)}" ${style}/>`;

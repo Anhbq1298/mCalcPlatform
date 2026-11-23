@@ -28,7 +28,7 @@ export function buildReport(result, { pageHeight, pageGap, designName = 'Embedde
   doc.value('Plate yield strength', define('f_{y}', grade.fy, 'MPa'));
   doc.value(`Studs ${s.nx} × ${s.ny}, Ø${s.d}, head Ø${s.dh}`, define('h_{ef}', s.hef, 'mm'));
   doc.value('Stud partial factors, tension / shear', R`\gamma_{Ms,N}\coloneq ` + fmt(gammas.MsN) + R`,\;\gamma_{Ms,V}\coloneq ` + fmt(gammas.MsV));
-  doc.text('Welded bars: ' + escape(rebars.rows.map((row, i) => `row ${i + 1}: ${row.n}Ø${row.d} at y = ${row.y} mm`).join('; ') || 'none') + `; f_yk = ${rebars.fyk} MPa; ${rebars.shape}; l_b,prov = ${rebars.length} mm.`, 11);
+  doc.text('Welded bars: ' + escape(result.layout.rows.map((row, i) => `row ${i + 1}: ${row.n}Ø${row.d} at y = ${row.y} mm`).join('; ') || 'none') + `; f_yk = ${rebars.fyk} MPa; ${rebars.shape}; l_b,prov = ${rebars.length} mm.`, 11);
   doc.text(`Steel member footprint ${member.b} × ${member.h} mm, t_f = ${member.tf} mm. Compression model: ${o.method === 'component' ? 'flange T-stub, EN 1993-1-8 §6.2.5' : 'full-width rectangular block'}. Stud tension: ${s.tension === 'shared' ? 'studs share tension' : 'neglected (bars take tension)'}.`, 11);
   doc.image(planSvg(result, { width: 560, height: 480 }), 560, 480);
   doc.image(sectionSvg(result, { width: 560, height: 480 }), 560, 480);

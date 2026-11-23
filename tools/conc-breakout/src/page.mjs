@@ -9,6 +9,8 @@ import { planSvg } from './plan-view.mjs';
 import { buildReport } from './report.mjs';
 import { sectionSvg } from './section-view.mjs';
 import { createViewer } from './viewer3d.mjs';
+import { createLayoutEditor } from './layout-editor.mjs';
+import { gridToPoints } from './layout.mjs';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
@@ -21,7 +23,21 @@ let state = newDefaults();
 let result = null;
 let debounce;
 
-const refreshForm = buildForm(byId('breakout-inputs'), () => state, schedule);
+let mode = state.layout.mode;
+const refreshForm = buildForm(byId('breakout-inputs'), () => state, () => {
+  if (state.layout.mode !== mode) { // switching layout mode: seed custom points from the grid once
+    mode = state.layout.mode;
+    if (mode === 'custom' && !state.layout.points.length) state.layout.points = gridToPoints(state);
+    refreshForm();
+    editor.refresh();
+  }
+  schedule();
+});
+const editor = createLayoutEditor(byId('layout-editor-host'), () => state, schedule);
+byId('plan-view').addEventListener('click', event => {
+  const svg = byId('plan-view').querySelector('svg');
+  if (svg) editor.planClick(svg, event);
+});
 byId('breakout-inputs').addEventListener('submit', event => event.preventDefault());
 
 const viewer = createViewer(byId('viewer-3d'));
@@ -60,7 +76,7 @@ function recalculate() {
     byId('design-status').textContent = '';
     return;
   }
-  byId('plan-view').innerHTML = planSvg(result);
+  byId('plan-view').innerHTML = planSvg(result, { selected: editor.selected });
   byId('section-view').innerHTML = sectionSvg(result);
   viewer.update(result);
   forceRows(result);
@@ -77,6 +93,7 @@ function recalculate() {
 }
 
 refreshForm();
+editor.refresh();
 recalculate();
 
 registerPage('conc-breakout', {
@@ -84,7 +101,9 @@ registerPage('conc-breakout', {
   migrate: (inputs, from) => restoreInputs(migrateInputs(inputs, from)),
   restore: inputs => {
     state = restoreInputs(inputs);
+    mode = state.layout.mode;
     refreshForm();
+    editor.refresh();
     recalculate();
   },
   report: async () => {

@@ -77,7 +77,7 @@ export function buildScene(result, { field = 'stress', scale = 0 } = {}) {
 
   // Welded bars and studs, coloured by force relative to their design resistance.
   for (const bar of result.bars) {
-    const path = barPath(input, rebars.rows[bar.row]).points.map(([z, y]) => P(bar.x, y, z));
+    const path = barPath(input, result.layout.rows[bar.row]).points.map(([z, y]) => P(bar.x, y, z));
     const ur = bar.steel.FRd ? bar.F / bar.steel.FRd : 0;
     for (let k = 1; k < path.length; k++) lines.push({ a: path[k - 1], b: path[k], color: bar.F > 0 ? rampColor(0.5 + ur / 2) : COLORS.rebar, width: Math.max(bar.d / 6, 2) });
   }

@@ -43,6 +43,12 @@ Sources consulted: EN 1992-4:2018 text (Hilti-hosted copy, partly garbled extrac
 | Bar spring length l_e | Engineering assumption | none (sensitivity is reported in the Flexible vs rigid row) |
 | Equilibrium | Statics | ΣF exact, ΣM within 0.5% (bar springs spread over neighbouring nodes) |
 
+Public sources the FEM model follows: Hilti PROFIS Engineering CBFEM (concrete as compression springs, anchors as tension springs, steel as shells; technical background articles, Hilti Engineering Centre). The close-to-rigid deviations (highest anchor force, sum of forces, linearity) are also from Hilti. **Open:** a numerical comparison with a published flexible-plate example (ACI 349.2R-97 Examples B2(b) and B3(b), the INFASO DM I/II anchor plate examples, Hilti large-anchorage report 5818140) is not yet done, because those documents could not be retrieved in this session.
+
+## Custom layout (`src/layout.mjs`, `test/layout.test.mjs`)
+
+A custom layout seeded from the grid reproduces the grid results exactly (rigid and FEM). Exact union area of cone squares is checked against hand values for L-shaped, disjoint and clipped groups. Irregular bar rows use the smallest gap and edge distance.
+
 ## Benchmarks (`test/anchors.test.mjs`)
 
 | Quantity | Published | Tool | Note |

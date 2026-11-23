@@ -23,8 +23,10 @@ export function rowBending(row, bars, { plate, member, plateGrade, rebars, concr
   if (row.y <= member.h / 2) return { ...base, kind: 'flange' };
   const m = row.y - member.h / 2 - 0.8 * Math.SQRT2 * member.weld;
   if (!(m > 0)) return { ...base, kind: 'flange' };
+  // Irregular rows: the smallest bar gap and the smallest plate-edge distance (conservative).
   const p = row.n > 1 ? row.s : 0;
-  const e = plate.B / 2 - (row.n - 1) * p / 2;
+  const xs = row.xs ?? [];
+  const e = xs.length ? Math.min(plate.B / 2 - Math.max(...xs), plate.B / 2 + Math.min(...xs)) : plate.B / 2 - (row.n - 1) * p / 2;
   const lengths = effectiveLength({ n: row.n, p, m, e, B: plate.B });
   const Mpl = lengths.leff * plate.t ** 2 * plateGrade.fy / (4 * GAMMA.M0);
   const FRd = Mpl / m;

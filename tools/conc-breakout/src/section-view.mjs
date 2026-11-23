@@ -20,8 +20,9 @@ export function sectionSvg(result, { width = 560, height = 520 } = {}) {
   const { plate, member, concrete, studs: s, rebars } = input;
   const e = concrete.edges;
   const h = concrete.thickness;
-  const tails = rebars.rows.map(row => barPath(input, row));
-  const yLow = Math.min(-plate.H / 2 - 120, ...rebars.rows.map((row, i) => row.y - tails[i].tail - 40));
+  const rows = result.layout.rows;
+  const tails = rows.map(row => barPath(input, row));
+  const yLow = Math.min(-plate.H / 2 - 120, ...rows.map((row, i) => row.y - tails[i].tail - 40));
   const yTop = e.top ?? plate.H / 2 + 160;
   const yBot = e.bottom === null ? yLow : -e.bottom;
   const reach = Math.max(input.actions.e + 60, 140);
@@ -38,7 +39,7 @@ export function sectionSvg(result, { width = 560, height = 520 } = {}) {
   const depth = Math.min(h, Math.max(plate.H, ...tails.map(t => plate.t + t.straight)));
   out.push(rect(v, 0, -plate.H / 2 - depth / 2, depth, plate.H / 2 + 40, `fill="none" stroke="${COLORS.muted}" stroke-width=".8" stroke-dasharray="8 4"`));
   out.push(label(v.x(depth) - 4, v.y(-plate.H / 2 - depth / 2) - 5, 'D-region (sketch)', { anchor: 'end', size: 9, color: COLORS.muted }));
-  for (const [i, row] of rebars.rows.entries()) {
+  for (const [i, row] of rows.entries()) {
     const path = tails[i];
     out.push(polyline(v, path.points, `stroke="${COLORS.rebar}" stroke-width="${Math.max(row.d * v.scale, 2)}" stroke-linejoin="round"`));
     if (eq.C > 0 && eq.yC !== null && !eq.allCompression) {
@@ -58,7 +59,7 @@ export function sectionSvg(result, { width = 560, height = 520 } = {}) {
   if (actions.V > 0) out.push(arrow(v.x(-arm), v.y(member.h / 2) - 2, 0, 1, 46, COLORS.shear, 'V_Ed = ' + (actions.V / 1e3).toFixed(1) + ' kN', -1));
   if (actions.N !== 0) out.push(arrow(v.x(-arm - 30) - (actions.N > 0 ? 44 : 0), v.y(-member.h / 4), actions.N > 0 ? -1 : 1, 0, 40, COLORS.tension, 'N_Ed = ' + (actions.N / 1e3).toFixed(1) + ' kN'));
   const legend = [];
-  for (const [index, row] of rebars.rows.entries()) {
+  for (const [index, row] of rows.entries()) {
     const F = result.bars.filter(b => b.row === index).reduce((sum, b) => sum + b.F, 0);
     if (!(F > 0)) continue;
     const tag = 'T' + (index + 1);

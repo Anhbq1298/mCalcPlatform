@@ -3,7 +3,7 @@
 // M_Ed rotates the top of the plate away from the concrete (tension at +y). V_Ed acts down (−y).
 // Unknown fields are preserved on restore.
 
-export const SCHEMA = 2;
+export const SCHEMA = 3;
 
 export const PLATE_GRADES = {
   // EN 1993-1-1 Table 3.1, t ≤ 40 mm; β_w from EN 1993-1-8 Table 4.1.
@@ -30,6 +30,7 @@ export const newDefaults = () => ({
     d: 22, dh: 35, hef: 165, fuk: 450, fyk: 350, ductile: true, k8: 2.0,
     nx: 2, ny: 2, sx: 200, sy: 200, tension: 'excluded',
   },
+  layout: { mode: 'grid', points: [] },
   options: { analysis: 'fem', method: 'component', betaJ: 2 / 3, alpha: 1.0, friction: false, loadPathConfirmed: false },
 });
 
@@ -46,6 +47,7 @@ function merge(base, saved) {
 
 export function migrateInputs(inputs, from = SCHEMA) {
   if (from > SCHEMA) throw new Error('This design was saved by a newer mConcBreakout schema.');
+  // Schema 3 adds the custom fastener layout; older designs keep the grid layout (default).
   if (from < 2 && inputs && typeof inputs === 'object') {
     // Schema 1 designs were checked with the rigid-plate model; keep their results unchanged.
     inputs.options = { ...(inputs.options ?? {}), analysis: inputs.options?.analysis ?? 'rigid' };
@@ -97,17 +99,19 @@ export function validateInputs(input) {
   need(a.M + a.V * a.e / 1000 >= 0, 'The total moment must cause tension at the top (+y) of the plate.');
   need(s.dh > s.d, 'Head diameter must exceed the shank diameter.');
   need(s.fuk <= 800 && s.fyk < s.fuk, 'Stud steel needs f_yk < f_uk ≤ 800 MPa.');
-  need(Number.isInteger(s.nx) && Number.isInteger(s.ny) && s.nx >= 1 && s.ny >= 1, 'Stud counts must be whole numbers ≥ 1.');
-  need((s.nx === 1 || s.sx > 0) && (s.ny === 1 || s.sy > 0), 'Enter positive stud spacings.');
-  for (const stud of studPositions(s)) {
-    need(Math.abs(stud.x) <= p.B / 2 - s.d && Math.abs(stud.y) <= p.H / 2 - s.d, 'All studs must lie on the plate.');
-  }
-  need(Array.isArray(r.rows) && (r.rows.length >= 1 || s.tension === 'shared'), 'Add a welded bar row, or let the studs share tension.');
-  for (const row of r.rows) {
-    need(Number.isInteger(row.n) && row.n >= 1 && finite(row.d) && row.d >= 8 && row.d <= 40, 'Each bar row needs n ≥ 1 and 8 ≤ Ø ≤ 40 mm.');
-    need(finite(row.y) && Math.abs(row.y) <= p.H / 2 - row.d, 'Bar rows must lie on the plate.');
-    need(row.n === 1 || (finite(row.s) && row.s >= 2 * row.d), 'Bar spacing must be at least 2Ø.');
-    need((row.n - 1) * (row.s || 0) / 2 <= p.B / 2 - row.d, 'Bars must lie on the plate.');
+  if (input.layout?.mode !== 'custom') { // grid layout; a custom layout is checked by validateLayout
+    need(Number.isInteger(s.nx) && Number.isInteger(s.ny) && s.nx >= 1 && s.ny >= 1, 'Stud counts must be whole numbers ≥ 1.');
+    need((s.nx === 1 || s.sx > 0) && (s.ny === 1 || s.sy > 0), 'Enter positive stud spacings.');
+    for (const stud of studPositions(s)) {
+      need(Math.abs(stud.x) <= p.B / 2 - s.d && Math.abs(stud.y) <= p.H / 2 - s.d, 'All studs must lie on the plate.');
+    }
+    need(Array.isArray(r.rows) && (r.rows.length >= 1 || s.tension === 'shared'), 'Add a welded bar row, or let the studs share tension.');
+    for (const row of r.rows) {
+      need(Number.isInteger(row.n) && row.n >= 1 && finite(row.d) && row.d >= 8 && row.d <= 40, 'Each bar row needs n ≥ 1 and 8 ≤ Ø ≤ 40 mm.');
+      need(finite(row.y) && Math.abs(row.y) <= p.H / 2 - row.d, 'Bar rows must lie on the plate.');
+      need(row.n === 1 || (finite(row.s) && row.s >= 2 * row.d), 'Bar spacing must be at least 2Ø.');
+      need((row.n - 1) * (row.s || 0) / 2 <= p.B / 2 - row.d, 'Bars must lie on the plate.');
+    }
   }
   need(['straight', 'bent'].includes(r.shape), 'Select the bar shape.');
   need(finite(r.throat) && r.throat > 0 && finite(m.weld) && m.weld > 0, 'Enter positive weld throats.');
@@ -120,6 +124,7 @@ export function validateInputs(input) {
     need(c.edges[side] === null || c.edges[side] >= half[side], `The ${side} edge cuts through the plate.`);
   }
   need(['component', 'block'].includes(o.method), 'Select the compression model.');
+  need(['grid', 'custom'].includes(input.layout?.mode), 'Select the layout mode.');
   need(['fem', 'rigid'].includes(o.analysis), 'Select the plate analysis.');
   need(['excluded', 'shared'].includes(s.tension), 'Select how studs take tension.');
   need(finite(o.betaJ) && o.betaJ > 0 && o.betaJ <= 1, 'β_j must lie in (0, 1].');

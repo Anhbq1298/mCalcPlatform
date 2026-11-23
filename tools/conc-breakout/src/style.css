@@ -53,6 +53,14 @@ dl { display: grid; grid-template-columns: minmax(7rem, 1fr) minmax(0, 1.3fr); g
 dt { color: var(--muted); }
 dd { margin: 0; }
 #design-status { font-weight: 500; color: var(--ink); }
+/* Custom layout editor */
+.layout-editor { margin-top: .4rem; }
+.layout-editor [aria-pressed="true"] { background: var(--steel); border-color: var(--steel); color: #fff; }
+.point-table th:first-child { width: 2.2rem; }
+.point-table select { padding: .2rem; }
+.muted-cell { display: block; text-align: right; color: var(--muted); padding-right: .3rem; }
+#plan-view svg [data-point] { cursor: pointer; }
+
 /* 3D viewer */
 .viewer-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; margin-bottom: .5rem; }
 .viewer-controls label { display: inline-flex; grid-template-columns: none; gap: .35rem; margin: 0; }
