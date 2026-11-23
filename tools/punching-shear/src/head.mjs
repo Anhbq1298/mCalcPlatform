@@ -97,6 +97,9 @@ const deeper = (input, hH) => {
   return { ...input, slab: { ...input.slab, h: input.slab.h + hH, depthMode: 'explicit', dx: dx + hH, dy: dy + hH } };
 };
 const asColumn = (input, size) => ({ ...input, column: { ...input.column, ...size }, openings: [] });
+// The section inside the head needs links that do not fit in the head (two perimeters within l_H − c).
+const cannotFit = run => (run.issues ?? []).some(issue => /outside the drop/.test(issue.message))
+  || (run.loads ?? []).some(load => load.rows.some(row => row.status === STATES.fail && (row.id === 'perimeters' || (row.id === 'concrete' && /cannot fit/.test(row.detail ?? '')))));
 // Loads scaled by `scale` (V and moments, so β is unchanged): used to design links for a larger demand.
 const scaled = (input, scale) => (scale === 1 ? input : { ...input, loads: input.loads.map(load => ({ ...load, V: load.V * scale, Mx: load.Mx * scale, My: load.My * scale })) });
 // Fixed link layers (provided mode), no links (concrete only), or the input as it is.
@@ -253,11 +256,21 @@ export function calculateDesign(raw, forcedKind = null) {
   // through the side of the head, so the inner section there is the slab crack from the head edge. The
   // inner check becomes a composite section (composite.mjs).
   const mixed = geo.straddles && internal && !geo.circular;
-  const runInner = (scale = 1, layers = null) => calculate(deeper(scaled(withLinks(input, layers, mixed && !layers && scale === 1), scale), geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...(layers ? { layerBase: 0 } : zone(split.drop, 0)) });
+  // `plain`: concrete only (the first run of a composite check).
+  let plain = mixed;
+  const runInner = (scale = 1, layers = null) => calculate(deeper(scaled(withLinks(input, layers, plain && !layers && scale === 1), scale), geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...(layers ? { layerBase: 0 } : zone(split.drop, 0)) });
   const runOuter = (scale = 1, layers = null, base0 = 0, extra = {}) => calculate(asColumn(scaled(withLinks(input, layers, false), scale), dropAsColumn), { betaCap, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...extra, ...(layers ? { layerBase: base0 } : zone(split.slab, base0)) });
   let inner = runInner();
   let outer = runOuter(1, null, inner.layout?.layers.length ?? 0);
   if (mixed && inner.loads?.length && outer.loads?.length) ({ inner, outer } = compositeInner({ inner, outer, input, geo, d, dH, runInner, runOuter, provided, linkLimit: geo.lMin - c }));
+  else if (!provided && 2 * dH > geo.lMin + 1e-9 && cannotFit(inner) && outer.loads?.length) {
+    // The inner crack reaches the top beyond the head (2d_H > l_H) and the links it needs do not fit in the
+    // head: the slab links of the section around the head within 2d_H of the column cross that crack and
+    // carry it (composite.mjs, whole inner section with d_H).
+    plain = true;
+    inner = runInner();
+    if (inner.loads?.length) ({ inner, outer } = compositeInner({ inner, outer, input, geo, d, dH, runInner, runOuter, provided, linkLimit: geo.lMin - c, whole: true }));
+  }
   hint(outer);
   const info = {
     kind: 'large', inner: true, columnModel: base.model, edge: !internal, ...geo, d, dH, composite: inner.compositeSection ?? null,
