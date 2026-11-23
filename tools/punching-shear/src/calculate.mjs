@@ -89,8 +89,12 @@ export function calculate(rawInput, options = {}) {
   if (issues.length) return { status: worstState(issues.map(item => item.state)), issues, notes: [], profile, loads: [], input };
   const ctx = createContext(input, options);
   ctx.betaCap = options.betaCap ?? null;
-  const blocking = positionIssues(input, ctx.position);
+  const blocking = positionIssues(input, ctx.position, ctx.setback);
   if (blocking.length) return { status: worstState(blocking.map(item => item.state)), issues: blocking, notes: [], profile, loads: [], input, position: ctx.position };
+  if (ctx.setback?.projected) {
+    options = { ...options, noLinks: 'Concrete resistance is calculated for the setback perimeter. The required link layout must be designed separately.' };
+    ctx.options = options;
+  }
 
   const { d, model } = ctx;
   const { materials, reinforcement } = input;
@@ -109,7 +113,7 @@ export function calculate(rawInput, options = {}) {
     ? `Auto arrangement: s_r = ${sr} mm exceeds 0.75d = ${(P.radialSpacing * d).toFixed(0)} mm (§9.4.3(1)); ${srLimit} mm used.` : null);
   const demands = loads.map(load => demandFor(ctx, load));
   const needing = demands.filter(item => item.required);
-  if (needing.some(item => item.aOut === null)) {
+  if (!ctx.setback?.projected && needing.some(item => item.aOut === null)) {
     const issue = { state: STATES.unsupportedGeometry, message: 'The outer perimeter u_out,ef cannot be reached inside the slab.' };
     return { status: issue.state, issues: [issue], notes: [], profile, loads: [], input };
   }
@@ -216,9 +220,10 @@ export function calculate(rawInput, options = {}) {
   return {
     status: worstState([...results.map(entry => entry.status), ...allIssues.map(entry => entry.state)]),
     issues: allIssues, notes, profile: ctx.profile, input, position: ctx.position, shadows: ctx.shadows,
-    section: ctx.section, resistance: ctx.res, vRdMax: ctx.vRdMax, fywdEf: ctx.fywdEf, u0: ctx.u0, u1: ctx.u1, u1Star: ctx.u1Star, u1Offset: ctx.u1Offset, faceD: ctx.faceD,
+    section: ctx.section, resistance: ctx.res, vRdMax: ctx.vRdMax, fywdEf: ctx.fywdEf, u0: ctx.u0, u1: ctx.u1, u1Star: ctx.u1Star, u1Offset: ctx.u1Offset, faceD: ctx.faceD, setback: ctx.setback,
     envelope, model, loads: results, detailing, compactOuterZone: ctx.compactOuterZone,
     methods: [
+      ...(ctx.setback?.projected ? ['Shortest control perimeter with free-edge returns (Fig. 6.15). The face check uses the reduced flush perimeter of the actual column.'] : []),
       ...(layout.outerEf ? ['Effective outer perimeter from the outer link geometry (Fig. 6.22)'] : []),
       ...(results.some(entry => entry.beta?.note) ? ['Opening shadows with β from the unreduced moment perimeter'] : []),
     ],

@@ -24,6 +24,12 @@ const option = (value, label) => ({ value, label });
 const overhangFields = [['xMin', 'X−'], ['xMax', 'X+'], ['yMin', 'Y−'], ['yMax', 'Y+']].map(([side, label]) =>
   [`overhang.${side}`, `Slab overhang ${label} (mm)`, 'number', null, state => overhangSides(state).includes(side)]);
 
+function editColumn(state, path, value) {
+  const overhangs = overhangSides(state).map(side => [side, slabOverhang(state, side)]);
+  set(state, path, value);
+  for (const [side, overhang] of overhangs) if (Number.isFinite(overhang)) setSlabOverhang(state, side, overhang);
+}
+
 export const GROUPS = [
   ['Design basis', [
     ['code.edition', 'Code edition', 'select', [option('EN 1992-1-1:2004 + AC:2010 + A1:2014', 'EN 1992-1-1:2004 + AC:2010 + A1:2014')]],
@@ -170,6 +176,9 @@ export function buildForm(form, anchors, getState, onChange) {
     if (entry.path.startsWith('overhang.')) {
       if (!Number.isFinite(value)) return;
       setSlabOverhang(state, entry.path.split('.')[1], value);
+    } else if (entry.path.startsWith('column.') && entry.path !== 'column.position' && state.column.position !== 'internal') {
+      if (entry.type === 'number' && !Number.isFinite(value)) return;
+      editColumn(state, entry.path, value);
     } else set(state, entry.path, value);
     refresh();
     onChange(entry.path);

@@ -113,6 +113,12 @@ function edgeBeta(doc, result, load, i, kind) {
 }
 
 function perimeters(doc, result, kind, rect) {
+  if (result.setback?.projected && !result.head) {
+    doc.text('The governing Fig. 6.15 perimeter returns to the slab edge. The face check uses the reduced flush perimeter of the actual column.', 12);
+    doc.math('Loaded perimeter u_0', define('u_{0}', num(result.u0, 3) + unit.mm), { displayUnit: 'mm', precision: 1 });
+    doc.math('Control perimeter u_1', define('u_{1}', num(result.u1, 3) + unit.mm), { displayUnit: 'mm', precision: 1 });
+    return;
+  }
   if (result.head) {
     doc.text('Perimeters of the drop section are measured on the exact geometry by the tool (§6.4.2(8)–(11)).', 12);
     doc.math('Loaded perimeter u_0', define('u_{0}', num(result.u0, 3) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 1 });
@@ -137,7 +143,7 @@ function perimeters(doc, result, kind, rect) {
 
 function outerOffset(result, i, rect) {
   const kind = result.position?.kind ?? 'internal';
-  if (result.shadows?.length || result.head) return num(result.loads[i - 1].aOut, 3) + unit.mm;
+  if (result.shadows?.length || result.head || result.setback?.projected) return num(result.loads[i - 1].aOut, 3) + unit.mm;
   if (kind === 'edge') return R`\frac{u_{out.${i}}-2c_{1}-c_{2}}{\pi}`;
   if (kind === 'corner') return R`\frac{2\left(u_{out.${i}}-c_{1}-c_{2}\right)}{\pi}`;
   return rect ? R`\frac{u_{out.${i}}-2\left(c_{x}+c_{y}\right)}{2\pi}` : R`\frac{\frac{u_{out.${i}}}{\pi}-D}{2}`;

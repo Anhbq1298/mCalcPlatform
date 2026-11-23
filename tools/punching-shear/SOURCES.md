@@ -72,3 +72,9 @@ Published examples are re-run by `scripts/benchmarks.mjs` and asserted by `test/
 Reference cases (`scripts/verification.mjs`, `test/verification.test.mjs`) cover the geometries without a published example: openings, edge and corner columns, drops at all positions, mapped links. Three of them are recomputed by hand outside the engine.
 
 Edge and corner formulas were checked against the Blueprints (MIT) implementations of Eq. 6.44, 6.45 and 6.46, and Eq. 6.45 was re-derived by integrating ∫|e| dl over the edge perimeter.
+
+### Rectangular setbacks
+
+EN 1992-1-1 §6.4.2(4), Fig. 6.15 and the [Ancon Shearfix design manual](https://www.ancon.com.au/downloads/6765/Shearfix_EC2_Design_Manual_AU-Mod.pdf), §7, compare the closed perimeter and the paths returning to one or two free edges. The tool extends the straight runs to the slab edges and excludes the free boundary. The face check takes the reduced flush length of the actual column as a conservative modelling choice. The check uses an eligible simplified β or a user-defined β. Setback shear-link layouts and openings combined with a setback perimeter are outside this method. For drops, the inner and outer sections follow the existing rectangular drop interpretation with the actual clipped drop outline.
+
+`test/edge.test.mjs` compares the generated paths and shear stress with independent sums of straight segments and quarter-circle arcs. A 400 × 300 mm column with d = 200 mm gives u1 = 2506.637 mm with a 75 mm edge overhang and 1528.319 mm with corner overhangs of 75 and 125 mm. The drop fixtures separately compare inner and outer control sections. These are analytical benchmarks, not published design examples for set-back drops.

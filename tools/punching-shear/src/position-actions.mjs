@@ -2,6 +2,7 @@ import { overhangSides } from './overhang.mjs';
 import { classifyPosition } from './position.mjs';
 
 export function positionActions(issue, state, focusField, applyPosition) {
+  if (issue.code === 'set-back-beta') return [['Choose β method', () => focusField('Load increment factor $\\beta$', 'beta.method')]];
   if (!['column-position-mismatch', 'set-back-slab-edge'].includes(issue.code)) return [];
   const side = overhangSides(state)[0];
   const actions = side ? [['Edit slab overhang', () => focusField('Column', `overhang.${side}`)]] : [];

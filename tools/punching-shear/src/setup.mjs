@@ -4,15 +4,19 @@ import { STATES, derivedSection } from './inputs.mjs';
 import { effectiveIntervals, openingShadows } from './perimeters.mjs';
 import { classifyPosition, edgePerimeters } from './position.mjs';
 import { overhangSides, slabOverhang } from './overhang.mjs';
+import { setbackPerimeter } from './setback-perimeter.mjs';
 import { profileFor } from './profile.mjs';
 import { concreteResistance, fywdEffective, maximumResistance, reinforcementRatio } from './resistance.mjs';
 
-export function positionIssues(input, position) {
+export function positionIssues(input, position, setback) {
   if (position.kind === 'invalid') return [{ state: STATES.unsupportedGeometry, message: position.message }];
+  if (setback?.projected && input.openings?.length) return [{ state: STATES.unsupportedGeometry, code: 'set-back-slab-edge', message: 'Openings combined with a setback control perimeter are outside the current calculation scope.' }];
+  if (setback?.projected && input.beta.method === 'moment') return [{ state: STATES.unsupportedLoading, code: 'set-back-beta', message: 'For a setback perimeter, use a user-defined β or the simplified β where §6.4.3(6) applies.' }];
+  if (setback) return [];
   if (position.kind !== input.column.position) {
     const overhangs = overhangSides(input).map(side => slabOverhang(input, side));
     if (overhangs.some(value => value > 1 && value < 2 * derivedSection(input).d)) {
-      return [{ state: STATES.unsupportedGeometry, code: 'set-back-slab-edge', message: 'Slab overhang is captured. The check for a non-flush edge or corner requires the setback perimeter in EN 1992-1-1 Figure 6.15.' }];
+      return [{ state: STATES.unsupportedGeometry, code: 'set-back-slab-edge', message: 'This setback geometry is outside the rectangular, edge-aligned cases evaluated by the tool.' }];
     }
     const edges = position.normals.map(normal => normal.edge).join(' and ');
     return [{ state: STATES.incomplete, code: 'column-position-mismatch', detectedPosition: position.kind, message: `Column position is set to ${input.column.position}, but the geometry is ${position.kind === 'internal' ? 'an internal column' : `${position.kind === 'edge' ? 'an edge' : 'a corner'} column (face flush with slab edge ${edges})`}. Check the column position and actual slab boundaries.` }];
@@ -23,9 +27,12 @@ export function positionIssues(input, position) {
 export function createContext(input, options = {}) {
   const { column, materials, slab } = input;
   const profile = profileFor(input.code?.profile);
-  const position = classifyPosition(column, slab);
   const section = derivedSection(input);
   const { d } = section;
+  const u1Offset = options.u1Offset ?? 2 * d;
+  const actual = classifyPosition(column, slab);
+  const setback = setbackPerimeter(input, actual, u1Offset);
+  const position = setback?.position ?? actual;
   const rhoX = reinforcementRatio(section.asx, section.dx);
   const rhoY = reinforcementRatio(section.asy, section.dy);
   const sigmaCp = ((input.prestress?.sigmaX ?? 0) + (input.prestress?.sigmaY ?? 0)) / 2;
@@ -34,18 +41,17 @@ export function createContext(input, options = {}) {
   const openings = input.openings || [];
   const shadows = openingShadows(column, openings, d);
   const memo = new Map();
-  const model = { column, slab, openings, shadows, legGap: input.reinforcement.legGap };
+  const model = { column: setback?.column ?? column, actualColumn: column, slab, openings, shadows, legGap: input.reinforcement.legGap };
   model.intervalsAt = r => {
     const key = Math.round(r * 1e6) / 1e6;
     if (!memo.has(key)) memo.set(key, effectiveIntervals(model, key));
     return memo.get(key);
   };
   const edge = edgePerimeters(position, d);
-  const u1Offset = options.u1Offset ?? 2 * d;
-  const u1 = model.intervalsAt(u1Offset).total;
+  const u1 = setback?.projected ? setback.length : model.intervalsAt(u1Offset).total;
   const u0 = options.face?.u0 ?? (edge ? edge.u0 : model.intervalsAt(0).total);
   return {
-    input, profile, position, section: { ...section, rhoX, rhoY }, d, res, model, shadows, options, u1Offset,
+    input, profile, position, setback, section: { ...section, rhoX, rhoY }, d, res, model, shadows, options, u1Offset,
     u0, u1, u1Star: edge?.u1Star ?? null, edge, faceD: options.face?.d ?? d,
     vRdMax: maximumResistance({ fck: fckShear, factor: profile.vRdMaxFactor }),
     fywdEf: fywdEffective(materials.fyk, d),
@@ -58,15 +64,18 @@ export function geometryLimits(ctx, reach) {
   const { input, position, shadows, d } = ctx;
   const issues = [];
   const notes = [];
-  const extent = pathExtent(input.column, reach);
+  const extent = pathExtent(ctx.model.column, reach);
   const { slab } = input;
-  const flush = position.flush ?? {};
+  const flush = { ...position.flush, ...Object.fromEntries((ctx.setback?.sides ?? []).map(side => [side, true])) };
   const crossing = [
     ['X min', !flush.xMin && extent.xMin < slab.xMin], ['X max', !flush.xMax && extent.xMax > slab.xMax],
     ['Y min', !flush.yMin && extent.yMin < slab.yMin], ['Y max', !flush.yMax && extent.yMax > slab.yMax],
   ].filter(([, hit]) => hit).map(([name]) => name);
   if (crossing.length) {
-    issues.push({ state: STATES.unsupportedGeometry, message: `A check perimeter or link layer (up to ${reach.toFixed(0)} mm from the column face) reaches slab edge ${crossing.join(', ')}, which is not flush with the column. Fig. 6.15 perimeters for set-back edges are not implemented.` });
+    issues.push({ state: STATES.unsupportedGeometry, message: `A check perimeter or link layer (up to ${reach.toFixed(0)} mm from the column face) reaches slab edge ${crossing.join(', ')} outside the selected control-perimeter configuration.` });
+  }
+  if (ctx.setback?.projected && ctx.setback.sides.some(side => slabOverhang(input, side) < d)) {
+    notes.push('Detail special slab-edge reinforcement where the face-to-edge distance is less than d (§6.4.2(5), §9.3.1.4).');
   }
   (input.openings || []).forEach((opening, index) => {
     const distance = openingDistance(input.column, opening);

@@ -89,7 +89,7 @@ function validateHead(input, base) {
     if (column.rotation) issues.push({ state: STATES.unsupportedGeometry, message: 'Drops at edge or corner columns need an unrotated column (faces parallel to the slab edges).' });
   }
   const flush = side => Math.abs(geo.lSides[side]) <= 1;
-  if (freeSides.some(side => !flush(side))) issues.push({ state: STATES.unsupportedGeometry, message: 'The drop reaches a slab edge that the column is not flush with. Not covered.' });
+  if (freeSides.some(side => !flush(side) && !base.setback?.sides.includes(side))) issues.push({ state: STATES.unsupportedGeometry, message: 'The drop reaches a slab edge outside the selected column control perimeter.' });
   if ((input.openings || []).length) issues.push({ state: STATES.unsupportedGeometry, message: 'Openings combined with a drop are not implemented.' });
   return issues;
 }
