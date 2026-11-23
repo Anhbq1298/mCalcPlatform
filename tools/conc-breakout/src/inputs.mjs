@@ -1,9 +1,11 @@
-// Input model (schema 1), defaults, restore and validation. Units: mm, kN, kN·m, MPa.
+// Input model, defaults, restore and validation. Units: mm, kN, kN·m, MPa.
 // Coordinates: plate face in the x–y plane, origin at the plate centre, +y up, z into the concrete.
 // M_Ed rotates the top of the plate away from the concrete (tension at +y). V_Ed acts down (−y).
 // Unknown fields are preserved on restore.
 
-export const SCHEMA = 3;
+import { legacyLoading, transformLoads } from './loads.mjs';
+
+export const SCHEMA = 4;
 
 export const PLATE_GRADES = {
   // EN 1993-1-1 Table 3.1, t ≤ 40 mm; β_w from EN 1993-1-8 Table 4.1.
@@ -34,6 +36,15 @@ export const newDefaults = () => ({
   options: { analysis: 'fem', method: 'component', betaJ: 2 / 3, alpha: 1.0, friction: false, loadPathConfirmed: false },
 });
 
+export const newConnectionDefaults = () => {
+  const input = newDefaults();
+  return {
+    ...input,
+    loading: { model: 'spatial', ...legacyLoading(input.actions) },
+    studs: { ...input.studs, tension: 'shared', shearStiffness: null, productReference: '' },
+  };
+};
+
 const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
 function merge(base, saved) {
   if (!isObject(saved)) return base;
@@ -51,6 +62,9 @@ export function migrateInputs(inputs, from = SCHEMA) {
   if (from < 2 && inputs && typeof inputs === 'object') {
     // Schema 1 designs were checked with the rigid-plate model; keep their results unchanged.
     inputs.options = { ...(inputs.options ?? {}), analysis: inputs.options?.analysis ?? 'rigid' };
+  }
+  if (from < 4 && isObject(inputs)) {
+    inputs.loading = { ...legacyLoading(merge(newDefaults().actions, inputs.actions)), model: 'legacy' };
   }
   return inputs;
 }
@@ -94,9 +108,14 @@ export function validateInputs(input) {
   need(p.t <= 40, 'Plate grades use EN 1993-1-1 Table 3.1 values for t ≤ 40 mm.');
   need(m.b <= p.B && m.h <= p.H, 'The steel member must fit within the plate.');
   need(2 * m.tf < m.h, 'Flange thickness must be less than half the member depth.');
-  need([a.N, a.V, a.e, a.M].every(finite), 'Enter all design actions.');
-  need(a.V >= 0, 'Enter V_Ed as a downward magnitude (≥ 0).');
-  need(a.M + a.V * a.e / 1000 >= 0, 'The total moment must cause tension at the top (+y) of the plate.');
+  if (input.loading?.model === 'spatial') {
+    transformLoads(input.loading.point ?? {}, input.loading.applied ?? {});
+  } else {
+    need(!input.loading || input.loading.model === 'legacy', 'Select a supported loading model.');
+    need([a.N, a.V, a.e, a.M].every(finite), 'Enter all design actions.');
+    need(a.V >= 0, 'Enter V_Ed as a downward magnitude (≥ 0).');
+    need(a.M + a.V * a.e / 1000 >= 0, 'The total moment must cause tension at the top (+y) of the plate.');
+  }
   need(s.dh > s.d, 'Head diameter must exceed the shank diameter.');
   need(s.fuk <= 800 && s.fyk < s.fuk, 'Stud steel needs f_yk < f_uk ≤ 800 MPa.');
   if (input.layout?.mode !== 'custom') { // grid layout; a custom layout is checked by validateLayout

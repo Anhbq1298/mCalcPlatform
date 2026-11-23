@@ -3,7 +3,7 @@
   "name": "mConcBreakout",
   "version": "0.3.0",
   "apiVersion": 1,
-  "schema": 3,
+  "schema": 4,
   "folder": "connections",
   "labels": [
     "member.connection"
