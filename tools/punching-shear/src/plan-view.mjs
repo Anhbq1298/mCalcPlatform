@@ -2,7 +2,7 @@
 // individual links and legs, and the governing tangential gap. Returns an SVG string.
 import { pathExtent, pathPolyline, pointAt, toGlobal } from './geometry.mjs';
 import { intervalPolylines } from './perimeters.mjs';
-import { COLORS, DASH, dimension, esc, grid, n, polyline, svgDocument, viewport } from './svg.mjs';
+import { COLORS, DASH, callout, esc, grid, n, polyline, svgDocument, viewport } from './svg.mjs';
 import { compositeLines, headOutline } from './head-drawing.mjs';
 
 // Label position along a path: a fixed fraction of a closed path (labels of different perimeters
@@ -95,15 +95,15 @@ export function planSvg(result, { width = 640, height = 600, selected = null, ch
   if (head) parts.push(headOutline(input, view, Math.max(26, (reach - Math.min(...head.lH)) * view.scale * 0.75)));
   if (ext) {
     parts.push(polyline(pathPolyline(ext.model.column, 2 * head.d), view, `fill="none" stroke="${extSelected ? COLORS.governing : COLORS.ink}" stroke-width="${extSelected ? 3 : 1.1}" stroke-dasharray="${DASH.ext}"`, true));
-    const p = toGlobal(ext.model.column, pointAt(ext.model.column, 2 * head.d, 0.09 * ext.u1));
-    parts.push(`<text class="label" x="${n(view.x(p.x) + 4)}" y="${n(view.y(p.y) - 4)}">u1,ext (2d from drop)</text>`);
+    const p = toGlobal(ext.model.column, pointAt(ext.model.column, 2 * head.d, 0.875 * ext.u1)); // lower right
+    parts.push(callout(view.x(p.x), view.y(p.y), 1, 1, 30, ['u1,ext (2d from drop)']));
   }
   if (d > 0 && head?.composite) parts.push(compositeLines(head, pathColumn, view, basicSelected ? COLORS.governing : COLORS.u1, basicSelected ? 3 : 1.6));
   else if (d > 0) {
     parts.push(perimeter(u1Offset, basicSelected ? COLORS.governing : COLORS.u1, DASH.u1, basicSelected ? 3 : 1.3));
-    const u1Label = toGlobal(pathColumn, pointAt(pathColumn, u1Offset, firstEffective(model, u1Offset, head?.kind === 'small' ? 0.1 : 0.3)));
+    const u1At = toGlobal(pathColumn, pointAt(pathColumn, u1Offset, firstEffective(model, u1Offset, 0.125 * model.intervalsAt(u1Offset).u))); // upper right
     const name = outerOnly || head?.kind === 'small' ? 'u1,ext (2d from drop)' : head?.kind === 'large' ? 'u1,int (d_H)' : 'u1 (2d)';
-    parts.push(`<text class="label" x="${n(view.x(u1Label.x) + 4)}" y="${n(view.y(u1Label.y) - 5)}">${esc(name)}</text>`);
+    parts.push(callout(view.x(u1At.x), view.y(u1At.y), 1, -1, 30, [name]));
   }
   for (const [index, layer] of layers.entries()) {
     const m = layer.zone === 'slab' && extModel ? extModel : model;
@@ -133,8 +133,9 @@ export function planSvg(result, { width = 640, height = 600, selected = null, ch
   }
   const outline = column.shape === 'circular' ? pathPolyline(column, 0) : [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => toGlobal(column, { x: sx * column.cx / 2, y: sy * column.cy / 2 }));
   parts.push(polyline(outline, view, `fill="url(#concrete)" stroke="${stroke('max', COLORS.ink)}" stroke-width="${selectedCheck('max') ? 3 : 1.6}"`, true));
-  const u0At = toGlobal(column, column.shape === 'circular' ? { x: column.diameter / 2 * Math.SQRT1_2, y: column.diameter / 2 * Math.SQRT1_2 } : { x: column.cx / 2, y: column.cy / 2 });
-  parts.push(`<text class="label" x="${n(view.x(u0At.x) + 4)}" y="${n(view.y(u0At.y) - 4)}">u0</text>`);
+  // u0 = the column face: leader to the lower left of the face.
+  const u0At = toGlobal(column, column.shape === 'circular' ? { x: -column.diameter / 2 * Math.SQRT1_2, y: -column.diameter / 2 * Math.SQRT1_2 } : { x: -column.cx / 4, y: -column.cy / 2 });
+  parts.push(callout(view.x(u0At.x), view.y(u0At.y), -1, 1, 22, ['u0 (column face)']));
   const reachLine = reach + 0.6 * margin;
   for (const [ax, ay] of [[1, 0], [0, 1]]) {
     const a = toGlobal(column, { x: -ax * reachLine, y: -ay * reachLine });
@@ -157,21 +158,9 @@ export function planSvg(result, { width = 640, height = 600, selected = null, ch
     }
     parts.push(`<g class="link" data-link="${esc(link.id)}"><title>${esc(link.id)} · Ø${link.diameter}</title>${body}</g>`);
   }
-  parts.push(planDimensions(column, view));
   parts.push(axes(height - legendHeight, column));
   parts.push(legend(width, height, legendHeight, { ineffective: (result.layout?.links ?? []).some(link => link.legs.some(leg => !leg.effective)), ext: Boolean(ext), head: Boolean(head), gap: layers.length > 0 }, keyValues({ d, u1Offset, aOut, layers, head, column, input })));
   return svgDocument(width, height, 'Punching shear plan', parts.join(''));
-}
-
-function planDimensions(column, view) {
-  const at = (x, y) => { const p = toGlobal(column, { x, y }); return [view.x(p.x), view.y(p.y)]; };
-  if (column.shape === 'circular') {
-    const r = column.diameter / 2;
-    return dimension(...at(-r, r), ...at(r, r), `D = ${column.diameter}`, -14);
-  }
-  const a = column.cx / 2;
-  const b = column.cy / 2;
-  return dimension(...at(-a, b), ...at(a, b), `c_x = ${column.cx}`, -14) + dimension(...at(-a, -b), ...at(-a, b), `c_y = ${column.cy}`, -14);
 }
 
 // Section cut mark at both ends of a cut line: heavy stub, view arrow (to the left of the cut
@@ -205,8 +194,8 @@ function axes(bottom, column) {
 }
 
 // Key dimensions as one text line in the legend (the plan carries no radial dimension lines).
-function keyValues({ d, u1Offset, aOut, layers, head, input }) {
-  const out = [];
+function keyValues({ d, u1Offset, aOut, layers, head, column, input }) {
+  const out = [column.shape === 'circular' ? `column Ø${column.diameter}` : `column ${column.cx} × ${column.cy}`];
   if (layers.length) {
     out.push(layers[0].zone === 'slab' ? `a1 = ${layers[0].pathOffset.toFixed(0)} from the drop` : `a1 = ${layers[0].offset.toFixed(0)}`);
     const radial = [...new Set(layers.slice(1).filter((layer, i) => layer.zone === layers[i].zone).map(layer => (layer.offset - layers[layers.indexOf(layer) - 1].offset).toFixed(0)))];
@@ -218,7 +207,7 @@ function keyValues({ d, u1Offset, aOut, layers, head, input }) {
   if (head?.kind === 'large') out.push(`l_H + 2d = ${(head.lMin + 2 * head.d).toFixed(0)}`);
   const fromDrop = head && !(head.kind === 'large' && head.inner);
   if (aOut > 0) out.push(`a_out = ${aOut.toFixed(0)}${fromDrop ? ' from the drop' : ''}`);
-  return out.join(' · ') + (out.length ? ' (mm from the column face)' : '');
+  return out.join(' · ') + (out.length > 1 ? ' (mm; offsets from the column face)' : ' mm');
 }
 
 function legend(width, height, legendHeight, show, values = '') {

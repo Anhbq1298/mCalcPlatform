@@ -45,6 +45,6 @@ export function compositeLines(head, column, view, color, width) {
   const first = head.composite.long[0];
   const [x, y] = first ? seg[first][1] : [a + r, 0];
   const q = toGlobal(column, { x, y });
-  out.push(`<text class="label" x="${n(view.x(q.x) + 4)}" y="${n(view.y(q.y) - 5)}">u1,int composite</text>`);
+  out.push(callout(view.x(q.x), view.y(q.y), 1, -1, 30, ['u1,int composite']));
   return out.join('');
 }

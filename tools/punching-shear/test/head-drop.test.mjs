@@ -66,7 +66,7 @@ test('mixed rectangular head needing links: composite section with links passes;
   assert.ok(reinforced.label.includes('composite') && reinforced.status === STATES.pass, reinforced.detail);
   assert.ok(result.layout.links.length > 0);
   assert.deepEqual(result.head.composite.long.sort(), ['xMax', 'xMin']);
-  assert.ok(planSvg(result).includes(' composite<'));
+  assert.ok(planSvg(result).includes('composite'));
 });
 
 test('drop from the column at l_H = 2h_H: the inner section is carried by the slab links within 2d_H (no Fail for lack of room)', () => {
