@@ -5,8 +5,11 @@ export const DEFAULT_VIEW = { yaw: -0.6, pitch: 0.45, zoom: 1 };
 
 export function createViewer(container) {
   container.innerHTML = `<div class="viewer-controls">
-      <label>Colour <select data-3d="field">${Object.entries(FIELDS).map(([value, text]) => `<option value="${value}">${text}</option>`).join('')}</select></label>
+      <label>Colour <select data-3d="field"><option value="geometry">Geometry</option>${Object.entries(FIELDS).map(([value, text]) => `<option value="${value}">${text}</option>`).join('')}</select></label>
       <label>Deformation <input type="range" min="0" max="3" step="0.25" value="0" data-3d="scale" aria-label="Deformation exaggeration"></label>
+      <label><input type="checkbox" data-3d="loads" checked> Loads</label>
+      <label><input type="checkbox" data-3d="forces"> Anchor forces</label>
+      <label><input type="checkbox" data-3d="labels"> Labels</label>
       <button type="button" data-3d="zoom-in" aria-label="Zoom in">+</button><button type="button" data-3d="zoom-out" aria-label="Zoom out">−</button>
       <button type="button" data-3d="reset">Reset view</button>
     </div><div class="drawing viewer-canvas" tabindex="0" aria-label="3D view; drag to rotate, arrow keys to orbit"></div>
@@ -25,11 +28,17 @@ export function createViewer(container) {
   };
   const schedule = () => { if (!frame) frame = requestAnimationFrame(draw); };
   const rebuild = () => {
-    if (!result) return;
-    scene = buildScene(result, { field: control('field').value, scale: Number(control('scale').value) });
+    if (!result) {
+      scene = null;
+      canvas.replaceChildren();
+      return;
+    }
+    scene = buildScene(result, { field: control('field').value, scale: Number(control('scale').value),
+      showLoads: control('loads').checked, showForces: control('forces').checked, showLabels: control('labels').checked });
     schedule();
   };
-  control('field').addEventListener('change', rebuild);
+  control('field').value = 'stress';
+  for (const name of ['field', 'loads', 'forces', 'labels']) control(name).addEventListener('change', rebuild);
   control('scale').addEventListener('input', rebuild);
   control('zoom-in').addEventListener('click', () => { view.zoom = Math.min(view.zoom * 1.2, 6); schedule(); });
   control('zoom-out').addEventListener('click', () => { view.zoom = Math.max(view.zoom / 1.2, 0.3); schedule(); });

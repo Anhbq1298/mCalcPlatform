@@ -12,7 +12,9 @@ export function planSvg(result, { width = 560, height = 520, selected = new Set(
     left: e.left ?? plate.B / 2 + FREE, right: e.right ?? plate.B / 2 + FREE,
     bottom: e.bottom ?? plate.H / 2 + FREE, top: e.top ?? plate.H / 2 + FREE,
   };
-  const v = view({ u0: -ext.left - 40, u1: ext.right + 40, v0: -ext.bottom - 60, v1: ext.top + 30 }, width, height);
+  const load = result.loadingResult;
+  const p = load?.point ?? { x: 0, y: 0 };
+  const v = view({ u0: Math.min(-ext.left, p.x) - 40, u1: Math.max(ext.right, p.x) + 40, v0: Math.min(-ext.bottom, p.y) - 60, v1: Math.max(ext.top, p.y) + 30 }, width, height);
   const out = [];
   out.push(rect(v, -ext.left, -ext.bottom, ext.right, ext.top, `fill="${COLORS.concrete}" stroke="none"`));
   const edgeLine = (u0, w0, u1, w1, free) => line(v, u0, w0, u1, w1, `stroke="${COLORS.concreteEdge}" stroke-width="${free ? 0.8 : 1.6}"${free ? ' stroke-dasharray="10 4 2 4"' : ''}`);
@@ -22,7 +24,7 @@ export function planSvg(result, { width = 560, height = 520, selected = new Set(
   out.push(edgeLine(ext.right, -ext.bottom, ext.right, ext.top, e.right === null));
 
   // Edge breakout: projected failure width on the concrete face for the governing row.
-  if (e.bottom !== null) {
+  if (e.bottom !== null && studs.length && !load) {
     const rear = Math.max(...studs.map(st => st.y));
     const c1 = e.bottom + rear;
     const xs = studs.filter(st => st.y === rear).map(st => st.x);
@@ -41,7 +43,7 @@ export function planSvg(result, { width = 560, height = 520, selected = new Set(
     const w0 = clip(Math.min(...pulled.map(st => st.y)) - r, -ext.bottom, ext.top);
     const w1 = clip(Math.max(...pulled.map(st => st.y)) + r, -ext.bottom, ext.top);
     out.push(rect(v, u0, w0, u1, w1, `fill="none" stroke="${COLORS.failure}" stroke-width="1" stroke-dasharray="3 3"`));
-    out.push(label(v.x(u0) + 4, v.y(w1) + 12, 'A_c,N (cone)', { anchor: 'start', color: COLORS.failure, size: 10 }));
+    out.push(label(v.x(u0) + 4, v.y(w1) + 12, 'Cone projection envelope', { anchor: 'start', color: COLORS.failure, size: 10 }));
   }
 
   out.push(rect(v, -plate.B / 2, -plate.H / 2, plate.B / 2, plate.H / 2, `fill="${COLORS.steelFill}" stroke="${COLORS.steel}" stroke-width="1.6"`));
@@ -49,6 +51,11 @@ export function planSvg(result, { width = 560, height = 520, selected = new Set(
   out.push(rect(v, -member.b / 2, -member.h / 2, member.b / 2, member.h / 2, `fill="none" stroke="${COLORS.steel}" stroke-width="1.2" stroke-dasharray="5 3"`));
   out.push(rect(v, -member.b / 2, member.h / 2 - member.tf, member.b / 2, member.h / 2, `fill="${COLORS.steel}" stroke="none"`));
   out.push(rect(v, -member.b / 2, -member.h / 2, member.b / 2, -member.h / 2 + member.tf, `fill="${COLORS.steel}" stroke="none"`));
+  if (load && member.profile === 'hss') {
+    const tw = member.tw ?? member.tf;
+    out.push(rect(v, -member.b / 2, -member.h / 2, -member.b / 2 + tw, member.h / 2, `fill="${COLORS.steel}"`));
+    out.push(rect(v, member.b / 2 - tw, -member.h / 2, member.b / 2, member.h / 2, `fill="${COLORS.steel}"`));
+  }
   if (eq.bearing && eq.C > 0) {
     const b = eq.bearing;
     out.push(rect(v, -b.width / 2, b.yLo, b.width / 2, b.yHi, `fill="${COLORS.compression}" fill-opacity=".14" stroke="${COLORS.compression}" stroke-width=".8"`));
@@ -73,13 +80,19 @@ export function planSvg(result, { width = 560, height = 520, selected = new Set(
 
   out.push(dim(v, -plate.B / 2, plate.H / 2, plate.B / 2, plate.H / 2, -16, 'B = ' + plate.B));
   out.push(dim(v, plate.B / 2, -plate.H / 2, plate.B / 2, plate.H / 2, 18, 'H = ' + plate.H));
-  if (result.layout.mode === 'grid' && s.nx > 1) out.push(dim(v, studs[0].x, -plate.H / 2, studs[1].x, -plate.H / 2, 16, 's_x = ' + s.sx));
-  if (result.layout.mode === 'grid' && s.ny > 1) out.push(dim(v, -plate.B / 2, studs[0].y, -plate.B / 2, studs[s.nx].y, -18, 's_y = ' + s.sy));
+  if (result.layout.mode === 'grid' && studs.length && s.nx > 1) out.push(dim(v, studs[0].x, -plate.H / 2, studs[1].x, -plate.H / 2, 16, 's_x = ' + s.sx));
+  if (result.layout.mode === 'grid' && studs.length && s.ny > 1) out.push(dim(v, -plate.B / 2, studs[0].y, -plate.B / 2, studs[s.nx].y, -18, 's_y = ' + s.sy));
   if (e.bottom !== null) out.push(dim(v, plate.B / 2 + 70, -e.bottom, plate.B / 2 + 70, 0, 0, 'c_bottom = ' + e.bottom));
   const V = result.actions.V / 1e3;
-  if (V > 0) out.push(arrow(v.x(plate.B / 2) + 52, v.y(0) + 24, 0, 1, 48, COLORS.shear, 'V_Ed = ' + V.toFixed(1) + ' kN', -1));
+  if (load) {
+    out.push(circle(v, p.x, p.y, 4 / v.scale, `fill="${COLORS.tension}"`));
+    out.push(label(v.x(p.x) + 8, v.y(p.y) - 8, 'P', { anchor: 'start' }));
+    if (load.applied.Vx) out.push(arrow(v.x(p.x), v.y(p.y), Math.sign(load.applied.Vx), 0, 35, COLORS.shear, 'Vx'));
+    if (load.applied.Vy) out.push(arrow(v.x(p.x), v.y(p.y), 0, -Math.sign(load.applied.Vy), 35, COLORS.shear, 'Vy'));
+  }
+  if (!load && V > 0) out.push(arrow(v.x(plate.B / 2) + 52, v.y(0) + 24, 0, 1, 48, COLORS.shear, 'V_Ed = ' + V.toFixed(1) + ' kN', -1));
   out.push(label(12, 18, 'PLAN ON PLATE FACE', { anchor: 'start', weight: 600 }));
-  out.push(label(12, 32, 'x →, y ↑ · M_Ed causes tension at +y', { anchor: 'start', size: 10, color: COLORS.muted }));
+  out.push(label(12, 32, load ? 'X →, Y ↑ · +Z out of the plate' : 'x →, y ↑ · M_Ed causes tension at +y', { anchor: 'start', size: 10, color: COLORS.muted }));
   return frame(v, out.join(''), 'Plan on the plate face with studs, welded bars and breakout boundaries', v.height,
     ` data-ox="${v.ox}" data-oy="${v.oy}" data-scale="${v.scale}"`);
 }

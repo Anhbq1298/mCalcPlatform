@@ -81,3 +81,9 @@ dd { margin: 0; }
   .column-layout > :not(:first-child) { border-left: 0; border-top: 1px solid var(--rule); }
   #breakout-inputs, .checks { grid-column: 1; grid-row: auto; }
 }
+
+#breakout-inputs [hidden] { display: none; }
+#equivalent-loads { margin: 0.75rem; }
+.spatial-loads td, .spatial-loads th { text-align: right; font-variant-numeric: tabular-nums; }
+.spatial-loads td:first-child, .spatial-loads th:first-child { text-align: left; }
+#anchor-detail { display: block; margin: 0.5rem; }

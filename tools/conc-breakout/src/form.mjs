@@ -1,5 +1,6 @@
 // Input form: grouped fields bound to paths in the input model, plus the welded-bar row table.
 import { PLATE_GRADES } from './inputs.mjs';
+import { LOAD_KEYS, POINT_KEYS } from './loads.mjs';
 
 const num = (path, label, extra = {}) => ({ path, label, kind: 'number', ...extra });
 const opt = (path, label) => ({ path, label, kind: 'number', optional: true });
@@ -7,7 +8,12 @@ const check = (path, label) => ({ path, label, kind: 'checkbox' });
 const choice = (path, label, options) => ({ path, label, kind: 'select', options });
 
 export const GROUPS = [
-  ['Design actions', [
+  ['Load application', [
+    choice('loading.model', 'Action model', [['spatial', 'Spatial plate analysis'], ['legacy', 'Historical planar analysis']]),
+    ...POINT_KEYS.map(key => num('loading.point.' + key, key.toUpperCase() + ' (mm)', { spatialOnly: true })),
+    ...LOAD_KEYS.map((key, index) => num('loading.applied.' + key, key + (index < 3 ? ' (kN)' : ' (kN·m)'), { spatialOnly: true })),
+  ]],
+  ['Historical design actions', [
     num('actions.N', 'N<sub>Ed</sub> (kN, tension +)'), num('actions.V', 'V<sub>Ed</sub> (kN, downward)', { min: 0 }),
     num('actions.e', 'e<sub>V</sub> from plate face (mm)'), num('actions.M', 'M<sub>Ed</sub> at plate face (kN·m)'),
   ]],
@@ -23,6 +29,8 @@ export const GROUPS = [
   ['Plate and steel member', [
     choice('plate.grade', 'Plate grade', Object.keys(PLATE_GRADES).map(value => [value, value])),
     num('plate.B', 'Plate width B (mm)'), num('plate.H', 'Plate height H (mm)'), num('plate.t', 'Plate thickness t (mm)', { max: 40 }),
+    { ...choice('member.profile', 'Member footprint', [['i', 'I-section'], ['hss', 'Rectangular hollow section']]), spatialOnly: true },
+    { ...opt('member.tw', 'Web thickness (mm)'), spatialOnly: true },
     num('member.b', 'Member flange width b (mm)'), num('member.h', 'Member depth h<sub>m</sub> (mm)'),
     num('member.tf', 'Flange thickness t<sub>f</sub> (mm)'), num('member.weld', 'Member weld throat a<sub>w</sub> (mm)'),
   ]],
@@ -31,6 +39,8 @@ export const GROUPS = [
     choice('rebars.shape', 'Bar shape', [['bent', 'Bent (90°)'], ['straight', 'Straight']]),
     num('rebars.length', 'Anchorage length l<sub>b,prov</sub> (mm)'), num('rebars.mandrel', 'Mandrel φ<sub>m</sub> (mm)'),
     num('rebars.cd', 'Cover c<sub>d</sub> for α<sub>1</sub> (mm)'), check('rebars.goodBond', 'Good bond conditions'),
+    { ...opt('rebars.axialStiffness', 'Axial stiffness per bar (N/mm)'), spatialOnly: true },
+    { ...opt('rebars.backCover', 'Rear cover (mm)'), spatialOnly: true },
     num('rebars.throat', 'Bar weld throat a (mm)'),
   ]],
   ['Fastener layout', [
@@ -39,11 +49,15 @@ export const GROUPS = [
   ['Headed studs', [
     num('studs.d', 'Shank Ø d (mm)'), num('studs.dh', 'Head Ø d<sub>h</sub> (mm)'), num('studs.hef', 'h<sub>ef</sub> from concrete face (mm)'),
     num('studs.fuk', 'f<sub>uk</sub> (MPa)'), num('studs.fyk', 'f<sub>yk</sub> (MPa)'), check('studs.ductile', 'Ductile steel (A<sub>5</sub> > 8%)'),
-    num('studs.nx', 'Studs across, n<sub>x</sub>', { step: 1, min: 1, gridOnly: true }), num('studs.ny', 'Stud rows, n<sub>y</sub>', { step: 1, min: 1, gridOnly: true }),
+    num('studs.nx', 'Studs across, n<sub>x</sub>', { step: 1, min: 0, gridOnly: true }), num('studs.ny', 'Stud rows, n<sub>y</sub>', { step: 1, min: 0, gridOnly: true }),
     num('studs.sx', 's<sub>x</sub> (mm)', { gridOnly: true }), num('studs.sy', 's<sub>y</sub> (mm)', { gridOnly: true }), num('studs.k8', 'k<sub>8</sub> pry-out (product data)', { step: 0.1 }),
+    { ...opt('studs.axialStiffness', 'Axial stiffness per stud (N/mm)'), spatialOnly: true },
+    { ...opt('studs.shearStiffness', 'Shear stiffness per stud (N/mm)'), spatialOnly: true },
+    { path: 'studs.productReference', label: 'Stud data reference', kind: 'text', spatialOnly: true },
     choice('studs.tension', 'Stud tension', [['excluded', 'Neglected (bars take tension)'], ['shared', 'Studs share tension']]),
   ]],
   ['Model and confirmations', [
+    { ...opt('options.meshSize', 'Target mesh size (mm)'), spatialOnly: true },
     choice('options.analysis', 'Plate analysis', [['fem', 'Flexible plate (FEM)'], ['rigid', 'Rigid plate']]),
     choice('options.method', 'Compression model', [['component', 'Flange T-stub (EN 1993-1-8)'], ['block', 'Full-width block']]),
     num('options.betaJ', 'β<sub>j</sub>', { step: 0.01 }), num('options.alpha', 'α spread factor (EC2 Eq. 6.63)', { min: 1, max: 3, step: 0.1 }),
@@ -80,6 +94,9 @@ function field(def) {
   }
   input.dataset.path = def.path;
   if (def.gridOnly) row.dataset.gridOnly = '';
+  if (def.spatialOnly) row.dataset.spatialOnly = '';
+  if (['options.analysis', 'options.method', 'options.friction', 'options.loadPathConfirmed', 'studs.tension',
+    'concrete.splittingReinforcement', 'concrete.edgeReinforcement', 'concrete.denseReinforcement'].includes(def.path)) row.dataset.legacyOnly = '';
   row.append(...(def.kind === 'checkbox' ? [input, name] : [name, input]));
   return row;
 }
@@ -92,6 +109,21 @@ export function buildForm(form, getState, onChange) {
     const legend = document.createElement('legend');
     legend.textContent = title;
     group.append(legend, ...defs.map(field));
+    if (title === 'Historical design actions') group.dataset.legacyOnly = '';
+    if (title === 'Load application') {
+      const note = document.createElement('p');
+      note.className = 'table-caption';
+      note.dataset.spatialOnly = '';
+      note.textContent = 'Origin at the plate–concrete interface. +Z outward, +N tension. Moments use the right-hand rule.';
+      const reset = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Reset point to origin' });
+      reset.dataset.spatialOnly = '';
+      reset.addEventListener('click', () => {
+        getState().loading.point = { x: 0, y: 0, z: 0 };
+        refresh();
+        onChange();
+      });
+      group.append(note, reset);
+    }
     if (title === 'Welded reinforcing bars') group.append(rowTable());
     if (title === 'Fastener layout') group.append(Object.assign(document.createElement('div'), { id: 'layout-editor-host' }));
     form.append(group);
@@ -133,8 +165,10 @@ export function buildForm(form, getState, onChange) {
     for (const input of form.querySelectorAll('[data-path]')) {
       const value = get(state, input.dataset.path);
       if (input.type === 'checkbox') input.checked = Boolean(value);
-      else input.value = value ?? '';
+      else input.value = value ?? (input.dataset.path === 'member.profile' ? 'i' : '');
     }
+    for (const item of form.querySelectorAll('[data-spatial-only]')) item.hidden = state.loading.model !== 'spatial';
+    for (const item of form.querySelectorAll('[data-legacy-only]')) item.hidden = state.loading.model !== 'legacy';
     for (const item of form.querySelectorAll('[data-grid-only]')) item.hidden = state.layout.mode === 'custom';
     const body = form.querySelector('#bar-rows tbody');
     body.replaceChildren(...state.rebars.rows.map((row, index) => {
