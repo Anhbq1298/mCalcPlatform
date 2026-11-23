@@ -37,7 +37,7 @@ export function resolveLayout(input) {
     return { mode: 'grid', studs: studPositions(input.studs), bars, rows };
   }
   const points = input.layout.points;
-  const studs = points.filter(p => p.type === 'stud').map((p, i) => ({ id: 'S' + (i + 1), x: p.x, y: p.y, index: points.indexOf(p) }));
+  const studs = points.filter(p => p.type === 'stud').map((p, i) => ({ id: 'S' + (i + 1), x: p.x, y: p.y, index: points.indexOf(p), ...(p.shearStiffness != null ? { shearStiffness: p.shearStiffness } : {}) }));
   const bars = points.filter(p => p.type === 'rebar').map(p => ({ x: p.x, y: p.y, d: p.d, index: points.indexOf(p) }));
   const rows = rowsOf(bars);
   const count = new Map();
@@ -54,8 +54,9 @@ export function validateLayout(input) {
   const { plate, studs: s, layout } = input;
   if (layout?.mode !== 'custom') return;
   const points = layout.points;
-  if (!Array.isArray(points) || !points.some(p => p.type === 'stud')) throw new Error('Place at least one headed stud for the shear transfer.');
-  if (!points.some(p => p.type === 'rebar') && s.tension !== 'shared') throw new Error('Add a welded bar, or let the studs share tension.');
+  if (!Array.isArray(points) || points.length > 100) throw new Error('Custom layouts support up to 100 points.');
+  if (input.loading?.model !== 'spatial' && !points.some(p => p.type === 'stud')) throw new Error('Place at least one headed stud for the shear transfer.');
+  if (input.loading?.model !== 'spatial' && !points.some(p => p.type === 'rebar') && s.tension !== 'shared') throw new Error('Add a welded bar, or let the studs share tension.');
   const size = p => (p.type === 'stud' ? s.dh : p.d);
   points.forEach((p, i) => {
     const label = `Point ${i + 1}`;

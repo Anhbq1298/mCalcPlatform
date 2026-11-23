@@ -79,6 +79,7 @@ function need(condition, message) {
 // Stud positions: symmetric nx × ny grid about the plate centre.
 export function studPositions({ nx, ny, sx, sy }) {
   const points = [];
+  if (!nx || !ny) return points;
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     points.push({ id: 'S' + (points.length + 1), x: (i - (nx - 1) / 2) * sx, y: (j - (ny - 1) / 2) * sy });
   }
@@ -119,14 +120,16 @@ export function validateInputs(input) {
   need(s.dh > s.d, 'Head diameter must exceed the shank diameter.');
   need(s.fuk <= 800 && s.fyk < s.fuk, 'Stud steel needs f_yk < f_uk ≤ 800 MPa.');
   if (input.layout?.mode !== 'custom') { // grid layout; a custom layout is checked by validateLayout
-    need(Number.isInteger(s.nx) && Number.isInteger(s.ny) && s.nx >= 1 && s.ny >= 1, 'Stud counts must be whole numbers ≥ 1.');
-    need((s.nx === 1 || s.sx > 0) && (s.ny === 1 || s.sy > 0), 'Enter positive stud spacings.');
+    const minStuds = input.loading?.model === 'spatial' ? 0 : 1;
+    need(Number.isInteger(s.nx) && Number.isInteger(s.ny) && s.nx >= minStuds && s.ny >= minStuds
+      && s.nx <= 100 && s.ny <= 100 && s.nx * s.ny <= 100, `Stud counts must be whole numbers ≥ ${minStuds}, with at most 100 studs.`);
+    need((s.nx <= 1 || s.sx > 0) && (s.ny <= 1 || s.sy > 0), 'Enter positive stud spacings.');
     for (const stud of studPositions(s)) {
       need(Math.abs(stud.x) <= p.B / 2 - s.d && Math.abs(stud.y) <= p.H / 2 - s.d, 'All studs must lie on the plate.');
     }
     need(Array.isArray(r.rows) && (r.rows.length >= 1 || s.tension === 'shared'), 'Add a welded bar row, or let the studs share tension.');
     for (const row of r.rows) {
-      need(Number.isInteger(row.n) && row.n >= 1 && finite(row.d) && row.d >= 8 && row.d <= 40, 'Each bar row needs n ≥ 1 and 8 ≤ Ø ≤ 40 mm.');
+      need(Number.isInteger(row.n) && row.n >= 1 && row.n <= 100 && finite(row.d) && row.d >= 8 && row.d <= 40, 'Each bar row needs n ≥ 1 and 8 ≤ Ø ≤ 40 mm.');
       need(finite(row.y) && Math.abs(row.y) <= p.H / 2 - row.d, 'Bar rows must lie on the plate.');
       need(row.n === 1 || (finite(row.s) && row.s >= 2 * row.d), 'Bar spacing must be at least 2Ø.');
       need((row.n - 1) * (row.s || 0) / 2 <= p.B / 2 - row.d, 'Bars must lie on the plate.');

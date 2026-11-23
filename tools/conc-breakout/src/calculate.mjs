@@ -5,6 +5,7 @@ import { solveFlexible } from './fem/connection-model.mjs';
 import { validateInputs } from './inputs.mjs';
 import { resolveLayout, validateLayout } from './layout.mjs';
 import { concreteProps, GAMMA, jointStrength, plateProps, studFactors } from './materials.mjs';
+import { calculateSpatial } from './spatial-calculate.mjs';
 import { rowBending } from './plate.mjs';
 import { barArea, barChecks, minMandrel } from './rebar.mjs';
 
@@ -45,6 +46,7 @@ const femUplift = (f, point) => f.w[f.mesh.nodes.reduce((a, b) => (Math.hypot(b.
 export function calculate(raw) {
   const input = validateInputs(raw);
   validateLayout(input);
+  if (input.loading?.model === 'spatial') return calculateSpatial(input);
   const { concrete: c, plate, member, actions: a, rebars, studs: s, options: o } = input;
   const concrete = concreteProps(c.fck, c.alphaCc);
   const grade = plateProps(plate.grade);
@@ -247,6 +249,16 @@ export function calculate(raw) {
     o.loadPathConfirmed ? 'Confirmed by the engineer' : 'Confirm that the bar ties, the bearing strut and any breakout bodies are carried by the member reinforcement',
     'EN 1992-1-1 §6.5; §8.7 laps'));
 
+  if (input.loading?.model === 'legacy') {
+    const legacyGates = new Set(['Stud tension', 'Peak contact pressure (FEM)', 'Splitting', 'Transfer into the receiving member (STM, laps)']);
+    for (const row of rows) {
+      if (!legacyGates.has(row.label)) continue;
+      if (row.status === 'warning' || ['Splitting', 'Transfer into the receiving member (STM, laps)'].includes(row.label)) {
+        row.status = 'incomplete';
+        row.detail += ' Historical result. Independent engineering verification is required.';
+      }
+    }
+  }
   const status = rows.some(row => row.status === 'fail') ? 'Fail' : rows.some(row => row.status === 'incomplete') ? 'Incomplete'
     : rows.some(row => row.status === 'warning') ? 'Pass with warnings' : 'Pass';
   return { input, layout, concrete, grade, fjd, gammas, actions: { N, V, M }, eq, rigid, bars: barResults, studs: studLoads, plateRows, groupCone, rows, status, Vi, friction };

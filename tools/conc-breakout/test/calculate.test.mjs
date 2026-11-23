@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
-import { migrateInputs, newDefaults, restoreInputs, validateInputs } from '../src/inputs.mjs';
+import { migrateInputs, newDefaults, restoreInputs, SCHEMA, validateInputs } from '../src/inputs.mjs';
 import { planSvg } from '../src/plan-view.mjs';
 import { sectionSvg } from '../src/section-view.mjs';
 import { buildReport } from '../src/report.mjs';
@@ -115,7 +115,7 @@ test('restore keeps unknown fields and refuses a newer schema', () => {
   assert.equal(restored.plate.extra, 'x');
   assert.equal(restored.plate.t, 30);
   assert.equal(restored.plate.B, 300);
-  assert.throws(() => migrateInputs({}, 4), /newer/);
+  assert.throws(() => migrateInputs({}, SCHEMA + 1), /newer/);
   assert.equal(restoreInputs(migrateInputs({ plate: { t: 30 } }, 1)).options.analysis, 'rigid');
   assert.equal(restoreInputs({}).options.analysis, 'fem');
 });
