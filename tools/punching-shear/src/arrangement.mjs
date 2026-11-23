@@ -183,7 +183,7 @@ function pathGap(model, layer) {
 // u_out,ef (§9.4.3(4) and the Note to §6.4.5(4)), at least two perimeters. With uReq (Fig. 6.22 applies)
 // layers are added until the effective outer perimeter reaches the length Eq. 6.54 requires. Radial lines
 // are added in pairs from the entered n_tang (a minimum) until s_t ≤ 1.5d inside u1 and u_out,ef is reached.
-export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false, extra = 0, maxOffset = Infinity, barOrigin = null }) {
+export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false, extra = 0, maxOffset = Infinity, barOrigin = null, maxMultiple = 6 }) {
   if (!(sr > 0)) return { layers: [], reason: 'Enter a radial spacing s_r > 0.' };
   if (type === 'grid' && !(st > 0)) return { layers: [], reason: 'Enter a grid spacing s_t > 0.' };
   const column = model.column;
@@ -248,21 +248,15 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, 
         const limit = (layer.offset <= 2 * d ? 1.5 : 2) * d;
         return layer.points.length && g <= limit + 1e-9 && layer.points.length * legArea >= aswReq - 1e-6 && legArea1 >= (0.08 * Math.sqrt(fck) / fyk) * (sr * g) / 1.5 - 1e-9;
       };
-      // The first ring sets the base spacing m₁ (every m₁-th bar); every other ring takes a whole multiple
-      // j·m₁ of it, the widest that passes, so the outer rings stay on the first ring's bars. m₁ is the
-      // largest for which every ring has a passing multiple (j ≥ 1).
-      const MAX = 6;
+      // Dense to sparse from the column outward: M_k is the widest multiple ring k passes with on its own;
+      // ring k takes the largest whole multiple of the first ring's m₁ not above min(M_k, M_k+1, …), so the
+      // multiples never decrease outward and every ring stays on the first ring's bars (m₁ = min of all M).
+      const MAX = Math.max(1, Math.min(6, maxMultiple));
       const ring = (k, m) => build(layers.length, m)[k];
-      const pick = (k, base) => {
-        for (let m = Math.floor(MAX / base) * base; m >= base; m -= base) { const trial = ring(k, m); if (ok(trial)) return trial; }
-        return null;
-      };
-      for (let base = 6; base >= 1; base -= 1) {
-        const first = ok(ring(0, base)) ? ring(0, base) : null;
-        if (!first) continue;
-        const rest = layers.slice(1).map((_, i) => pick(i + 1, base));
-        if (rest.every(Boolean)) { layers = [first, ...rest]; break; }
-      }
+      const widest = layers.map((_, k) => { for (let m = MAX; m >= 2; m -= 1) if (ok(ring(k, m))) return m; return 1; });
+      const cap = widest.map((_, k) => Math.min(...widest.slice(k)));
+      const m1 = cap[0];
+      if (m1 > 1 || cap.some(c => c > 1)) layers = layers.map((layer, k) => { const m = Math.floor(cap[k] / m1) * m1; return m > 1 ? ring(k, m) : layer; });
     } else if (type === 'grid' && thin && !(onBars && Math.abs(column.rotation || 0) > 1e-9)) {
       // span: the effective stretches of a ring cut by a slab edge or an opening shadow (null when closed).
       const span = layer => {

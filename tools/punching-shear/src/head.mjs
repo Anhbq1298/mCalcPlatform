@@ -269,8 +269,13 @@ export function calculateDesign(raw, forcedKind = null) {
   const mixed = geo.straddles && internal && !geo.circular;
   // `plain`: concrete only (the first run of a composite check).
   let plain = mixed;
-  const runInner = (scale = 1, layers = null) => calculate(deeper(scaled(withLinks(input, layers, plain && !layers && scale === 1), scale), geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, barOrigin: innerBarOrigin, label: 'Inside the drop (d_H)', ...(layers ? { layerBase: 0 } : zone(split.drop, 0)) });
+  let innerCap = 6;
+  const runInner = (scale = 1, layers = null) => calculate(deeper(scaled(withLinks(input, layers, plain && !layers && scale === 1), scale), geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, barOrigin: innerBarOrigin, maxMultiple: innerCap, label: 'Inside the drop (d_H)', ...(layers ? { layerBase: 0 } : zone(split.drop, 0)) });
   const runOuter = (scale = 1, layers = null, base0 = 0, extra = {}) => calculate(asColumn(scaled(withLinks(input, layers, false), scale), dropAsColumn), { betaCap, barOrigin, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...extra, ...(layers ? { layerBase: base0 } : zone(split.slab, base0)) });
+  // Dense to sparse from the column outward over the whole layout: the links inside the drop are no
+  // sparser than the first ring of the slab section (its bar multiple caps theirs).
+  const slabFirst = runOuter(1, null, 0).layout?.layers?.[0]?.multiple;
+  innerCap = Number.isFinite(slabFirst) ? slabFirst : 6;
   let inner = runInner();
   let outer = runOuter(1, null, inner.layout?.layers.length ?? 0);
   if (mixed && inner.loads?.length && outer.loads?.length) ({ inner, outer } = compositeInner({ inner, outer, input, geo, d, dH, runInner, runOuter, provided, linkLimit: geo.lMin - c }));
