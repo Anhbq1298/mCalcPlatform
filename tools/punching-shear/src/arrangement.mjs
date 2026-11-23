@@ -126,14 +126,17 @@ const MAX_LAYERS = 60;
 // each bar direction), then expressed in the column frame; offsets are measured from that rectangle.
 // Bar set-out for the grid: bars split evenly about the column centre lines (x = ±s/2, ±3s/2, …) unless
 // head.mjs passes the origin of a drop section. The first ring goes on the first bar line beyond each face
-// that lies 0.3d–0.5d from it, so the links sit at bar intersections; where there is none, the ring keeps
+// that lies 0.3d–0.5d from it (0.1d–0.3d when relaxed), so the links sit at bar intersections; where there is none, the ring keeps
 // its exact offset with the links along the bars (a link can sit anywhere along the bar it hooks).
-function barSetOut(column, s, origin, d) {
+function barSetOut(column, s, origin, d, relax = false) {
+  // First choice: a bar line 0.3d–0.5d beyond the face. Relaxed (not in the SG compact link zone, where
+  // 0.3d is a code limit; elsewhere it is guidance only): the first bar line 0.1d–0.3d beyond the face.
   const pick = (half, o) => {
     for (const shift of origin.fixed ? [0] : [0, s / 2]) {
       const start = o + shift;
-      const x = start + Math.ceil((half + 0.3 * d - start) / s - 1e-9) * s;
-      if (x - half <= 0.5 * d + 1e-9) return { line: x, shift };
+      const at = lo => start + Math.ceil((half + lo * d - start) / s - 1e-9) * s;
+      if (at(0.3) - half <= 0.5 * d + 1e-9) return { line: at(0.3), shift };
+      if (relax && at(0.1) - half < 0.3 * d - 1e-9) return { line: at(0.1), shift };
     }
     return { line: null, shift: 0 };
   };
@@ -183,7 +186,7 @@ function pathGap(model, layer) {
 // u_out,ef (§9.4.3(4) and the Note to §6.4.5(4)), at least two perimeters. With uReq (Fig. 6.22 applies)
 // layers are added until the effective outer perimeter reaches the length Eq. 6.54 requires. Radial lines
 // are added in pairs from the entered n_tang (a minimum) until s_t ≤ 1.5d inside u1 and u_out,ef is reached.
-export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false, extra = 0, maxOffset = Infinity, barOrigin = null, maxMultiple = 6 }) {
+export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, first, outerK, legGap = 0, uReq = null, aswReq = 0, thin = false, fck = 30, fyk = 500, onBars = false, extra = 0, maxOffset = Infinity, barOrigin = null, maxMultiple = 6, relaxFirst = false }) {
   if (!(sr > 0)) return { layers: [], reason: 'Enter a radial spacing s_r > 0.' };
   if (type === 'grid' && !(st > 0)) return { layers: [], reason: 'Enter a grid spacing s_t > 0.' };
   const column = model.column;
@@ -200,7 +203,7 @@ export function arrangedLayers({ model, d, aOut, type, sr, st, diameter, shape, 
   const legArea1 = (Math.PI * diameter * diameter) / 4; // one leg
   const legArea = legArea1 * (shape === 'double' ? 2 : 1); // one link
   const place = corner => {
-    const bars = onBars && column.shape !== 'circular' && Math.abs(column.rotation || 0) < 1e-9 ? barSetOut(column, st, barOrigin ?? { x: st / 2, y: st / 2, fixed: true }, d) : null;
+    const bars = onBars && column.shape !== 'circular' && Math.abs(column.rotation || 0) < 1e-9 ? barSetOut(column, st, barOrigin ?? { x: st / 2, y: st / 2, fixed: true }, d, relaxFirst) : null;
     const build = (count, multiple = 1) => {
       const offsets = Array.from({ length: count }, (_, i) => first + i * sr);
       return offsets.map((offset, k) => ({
