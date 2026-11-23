@@ -14,6 +14,8 @@
 // shows heads only at internal columns, so this is a geometric interpretation (see help.html).
 import { calculate, worstState } from './calculate.mjs';
 import { STATES, derivedSection, groupLayers, layersToGroups, restoreInputs } from './inputs.mjs';
+
+const derivedBarSpacing = input => (Math.abs((input.flexure?.sX ?? 0) - (input.flexure?.sY ?? 0)) < 1e-6 ? input.flexure.sX : 0);
 import { compositeInner } from './composite.mjs';
 
 const positive = value => typeof value === 'number' && Number.isFinite(value) && value > 0;
@@ -215,6 +217,15 @@ export function calculateDesign(raw, forcedKind = null) {
   const dropAsColumn = geo.circular ? { diameter: input.head.diameter }
     : { cx: e.xMax - e.xMin, cy: e.yMax - e.yMin, x: input.column.x + (e.xMax + e.xMin) / 2, y: input.column.y + (e.yMax + e.yMin) / 2 };
   const dH = d + geo.hH;
+  // Slab bars are set out from the column (a bar line through its centre); for a section around the drop
+  // that origin is expressed from the drop centre.
+  // One bar set-out for every section: bars split evenly about the column centre lines (±s/2, ±3s/2, …),
+  // expressed from the drop centre for the section around the drop.
+  const s = derivedBarSpacing(input);
+  const sx = s > 0 ? s / 2 : 0;
+  const sy = sx;
+  const barOrigin = geo.circular ? null : { x: sx + input.column.x - dropAsColumn.x, y: sy + input.column.y - dropAsColumn.y, fixed: true };
+  const innerBarOrigin = { x: sx, y: sy, fixed: true };
   // Fig. 6.18: the section inside the head (d_H, 2d_H from the column) is always checked (§6.4.2(9)), also
   // when 2d_H reaches beyond the head outline: the crack through d_H then ends in the slab part above.
   const inside = geo.kind === 'large';
@@ -245,7 +256,7 @@ export function calculateDesign(raw, forcedKind = null) {
     // for a circular head = Eq. 6.33; rounded rectangle for a rectangular head instead of the equivalent
     // circle of Eq. 6.34/6.35, which has a shorter perimeter); clipped at free edges. See Help.
     const face = { u0: base.u0, d, label: 'Maximum punching stress at u0 (slab d, conservative)' };
-    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
+    const outer = calculate(asColumn(input, dropAsColumn), { betaCap, barOrigin, face, label: 'Slab outside the drop at 2d', ...zone(split.slab, 0) });
     hint(outer);
     return single(outer, { kind: 'small', edge: !internal, columnModel: base.model, ...geo, d, rcont: null, sections: [extSection(outer, geo.circular ? 'Eq. 6.33' : 'Fig. 6.17, 2d from the head outline')] });
   }
@@ -258,8 +269,8 @@ export function calculateDesign(raw, forcedKind = null) {
   const mixed = geo.straddles && internal && !geo.circular;
   // `plain`: concrete only (the first run of a composite check).
   let plain = mixed;
-  const runInner = (scale = 1, layers = null) => calculate(deeper(scaled(withLinks(input, layers, plain && !layers && scale === 1), scale), geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, label: 'Inside the drop (d_H)', ...(layers ? { layerBase: 0 } : zone(split.drop, 0)) });
-  const runOuter = (scale = 1, layers = null, base0 = 0, extra = {}) => calculate(asColumn(scaled(withLinks(input, layers, false), scale), dropAsColumn), { betaCap, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...extra, ...(layers ? { layerBase: base0 } : zone(split.slab, base0)) });
+  const runInner = (scale = 1, layers = null) => calculate(deeper(scaled(withLinks(input, layers, plain && !layers && scale === 1), scale), geo.hH), { u1Offset: 2 * dH, linkLimit: geo.lMin - c, dropBox, barOrigin: innerBarOrigin, label: 'Inside the drop (d_H)', ...(layers ? { layerBase: 0 } : zone(split.drop, 0)) });
+  const runOuter = (scale = 1, layers = null, base0 = 0, extra = {}) => calculate(asColumn(scaled(withLinks(input, layers, false), scale), dropAsColumn), { betaCap, barOrigin, face: { skip: true }, label: 'Slab outside the drop at u1,ext', ...extra, ...(layers ? { layerBase: base0 } : zone(split.slab, base0)) });
   let inner = runInner();
   let outer = runOuter(1, null, inner.layout?.layers.length ?? 0);
   if (mixed && inner.loads?.length && outer.loads?.length) ({ inner, outer } = compositeInner({ inner, outer, input, geo, d, dH, runInner, runOuter, provided, linkLimit: geo.lMin - c }));

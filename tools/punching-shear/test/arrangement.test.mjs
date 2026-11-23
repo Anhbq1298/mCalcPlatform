@@ -127,9 +127,14 @@ test('auto grid follows the flexural bars: links on bar lines at the bar spacing
   const run = edit => { const input = newDefaults(); input.reinforcement.enabled = true; input.reinforcement.thin = false; input.loads = [{ name: 'U', V: 800, Mx: 0, My: 0 }]; edit(input); return calculateDesign(input); };
   const on = run(input => { input.flexure.sX = input.flexure.sY = 125; });
   assert.equal(on.envelope.sr, 125);
-  const xs = [...new Set(on.layout.layers.flatMap(layer => layer.points.map(p => Math.round(p.x * 1e3) / 1e3)))].sort((a, b) => a - b);
-  const steps = xs.slice(1).map((x, i) => x - xs[i]).filter(step => Math.abs(step - 125) > 1e-6);
-  assert.ok(steps.length <= 2, String(steps)); // bar spacing everywhere except the closing bar at the centre
+  // One bar grid, bars split about the column centre lines (±62.5, ±187.5, … every 125 mm): every link sits on
+  // a bar line in one direction (along the bar its position is the exact ring offset, or a bar too).
+  const onBar = v => Math.abs((v - 62.5) / 125 - Math.round((v - 62.5) / 125)) < 1e-6;
+  assert.ok(on.layout.links.every(link => onBar(link.position.x) || onBar(link.position.y)));
+  // Same bar lines in every ring: ring side links at the same y (x-bars) across rings.
+  const rows = layer => { const side = Math.max(...layer.points.map(p => Math.abs(p.x))); return new Set(layer.points.filter(p => Math.abs(Math.abs(p.x) - side) < 1e-6).map(p => p.y)); };
+  const [r1, r2] = on.layout.layers.map(rows);
+  assert.ok([...r1].every(y => onBar(y)) && [...r2].every(y => onBar(y)));
   const off = run(input => { input.flexure.sX = 150; input.flexure.sY = 200; });
   assert.ok(off.notes.some(note => note.includes('Grid not on the flexural bars')));
 });

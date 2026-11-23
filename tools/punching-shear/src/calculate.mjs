@@ -152,7 +152,7 @@ export function calculate(rawInput, options = {}) {
     const uReq = fig622 ? envelope.uOut : null;
     const generated = !needing.length
       ? { layers: [], reason: 'No punching reinforcement required.' }
-      : arrangedLayers({ model, d, aOut: ctx.compactOuterZone ? 0 : dropEdgeOut, maxOffset: ctx.compactOuterZone ? Math.min(linkLimit ?? Infinity, 1.5 * d) : Infinity, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, extra: reinforcement.extra ?? 0, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk });
+      : arrangedLayers({ model, d, aOut: ctx.compactOuterZone ? 0 : dropEdgeOut, maxOffset: ctx.compactOuterZone ? Math.min(linkLimit ?? Infinity, 1.5 * d) : Infinity, type, sr: ctx.envelopeSr, st: barGrid.on ? barGrid.spacing : reinforcement.st, onBars: barGrid.on, aswReq: envelope.aswReq, extra: reinforcement.extra ?? 0, diameter: reinforcement.diameter, shape: reinforcement.shape, first, outerK: P.outerK, legGap: reinforcement.legGap, uReq, thin: reinforcement.thin !== false, fck: materials.fck, fyk: materials.fyk, barOrigin: options.barOrigin });
     layout = { mode: 'auto', arrangement: type, fig622, layers: generated.layers, reason: generated.layers.length ? null : generated.reason };
     if (generated.note) limitNotes.push(generated.note);
     if (srNote && needing.length) limitNotes.push(srNote);
