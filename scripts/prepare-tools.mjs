@@ -9,7 +9,7 @@ function replaceOnce(text, needle, replacement) {
 
 async function patch(root, path, edits) {
   const file = join(root, path);
-  let source = await readFile(file, 'utf8');
+  let source = (await readFile(file, 'utf8')).replaceAll('\r\n', '\n');
   for (const [needle, replacement] of edits) source = replaceOnce(source, needle, replacement);
   await writeFile(file, source);
 }

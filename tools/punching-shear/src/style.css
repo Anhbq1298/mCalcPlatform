@@ -23,7 +23,7 @@ h2 { font-size: .9375rem; margin: 0 0 .5rem; font-weight: 500; }
 h3 { font-size: .82rem; margin: .75rem 0 .25rem; font-weight: 500; }
 p { color: var(--muted); font-size: .82rem; margin: .5rem 0 0; }
 #calculation-status { margin-left: auto; color: var(--muted); }
-.column-layout { display: grid; grid-template-columns: minmax(17rem, 21rem) minmax(18rem, 1fr) minmax(16rem, 22rem); }
+.column-layout { display: grid; grid-template-columns: minmax(17rem, 21rem) minmax(18rem, 1fr) minmax(16rem, 22rem); max-inline-size: 105rem; margin-inline: auto; }
 .column-layout > * { padding: .875rem 1.125rem; min-width: 0; }
 .column-layout > :not(:first-child) { border-left: 1px solid var(--rule); }
 fieldset { margin: 0 0 .75rem; padding: .5rem 0; min-width: 0; border: 0; border-bottom: 1px solid var(--rule); }
@@ -60,7 +60,7 @@ dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 
 /* mPunchingShear additions */
 .table-caption { margin: .25rem 0 .35rem; font-size: .75rem; }
-.drawing svg { display: block; width: 100%; height: auto; background: white; border: 1px solid var(--rule); }
+.drawing svg { display: block; width: 100%; height: auto; max-block-size: clamp(18rem, 62dvh, 38rem); background: white; border: 1px solid var(--rule); }
 #view-3d { display: block; width: 100%; height: clamp(16rem, 34vw, 24rem); background: white; border: 1px solid var(--rule); cursor: grab; touch-action: none; }
 .view-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .8rem; margin-bottom: .4rem; font-size: .75rem; }
 .view-controls label { display: inline-flex; gap: .3rem; margin: 0; }

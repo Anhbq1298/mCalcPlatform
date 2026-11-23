@@ -10,6 +10,7 @@ import { LINK_DIAMETERS, derivedSection } from './inputs.mjs';
 import { SUMMARY } from './form-summary.mjs';
 import { htmlSubscripts } from './subscript.mjs';
 import { labelHtml, labelText } from './tex.mjs';
+import { overhangSides, slabOverhang, setSlabOverhang } from './overhang.mjs';
 
 const get = (state, path) => path.split('.').reduce((value, key) => value?.[key], state);
 function set(state, path, value) {
@@ -20,6 +21,8 @@ function set(state, path, value) {
 
 const yes = () => true;
 const option = (value, label) => ({ value, label });
+const overhangFields = [['xMin', 'X−'], ['xMax', 'X+'], ['yMin', 'Y−'], ['yMax', 'Y+']].map(([side, label]) =>
+  [`overhang.${side}`, `Slab overhang ${label} (mm)`, 'number', null, state => overhangSides(state).includes(side)]);
 
 export const GROUPS = [
   ['Design basis', [
@@ -28,7 +31,8 @@ export const GROUPS = [
     ['code.naConfirmed', 'UK NA values checked against the NA text', 'checkbox', null, s => s.code.profile === 'uk'],
   ]],
   ['Column', [
-    ['column.position', 'Column position', 'select', [option('internal', 'Internal'), option('edge', 'Edge (face flush with slab edge)'), option('corner', 'Corner (faces flush with two edges)')]],
+    ['column.position', 'Column position', 'select', [option('internal', 'Internal'), option('edge', 'Edge'), option('corner', 'Corner')]],
+    ...overhangFields,
     ['column.shape', 'Shape', 'select', [option('rectangular', 'Rectangular'), option('circular', 'Circular')]],
     ['column.cx', '$c_x$ (mm)', 'number', null, s => s.column.shape === 'rectangular'],
     ['column.cy', '$c_y$ (mm)', 'number', null, s => s.column.shape === 'rectangular'],
@@ -147,7 +151,7 @@ export function buildForm(form, anchors, getState, onChange) {
       control.dataset.path = path;
       control.setAttribute('aria-label', labelText(label));
       row.append(name, control);
-      if (type === 'checkbox' || path === 'reinforcement.mode' || type === 'select' && options.some(entry => entry.label.length > 18)) row.classList.add('wide');
+      if (type === 'checkbox' || path === 'column.position' || path === 'reinforcement.mode' || type === 'select' && options.some(entry => entry.label.length > 18)) row.classList.add('wide');
       body.append(row);
       rows.push({ row, control, path, type, options, visible });
     }
@@ -163,7 +167,10 @@ export function buildForm(form, anchors, getState, onChange) {
     if (entry.type === 'checkbox') value = entry.control.checked;
     else if (entry.type === 'number') value = entry.control.valueAsNumber;
     else value = typeof entry.options[0].value === 'number' ? Number(entry.control.value) : entry.control.value;
-    set(state, entry.path, value);
+    if (entry.path.startsWith('overhang.')) {
+      if (!Number.isFinite(value)) return;
+      setSlabOverhang(state, entry.path.split('.')[1], value);
+    } else set(state, entry.path, value);
     refresh();
     onChange(entry.path);
   });
@@ -178,7 +185,8 @@ export function buildForm(form, anchors, getState, onChange) {
     for (const entry of rows) {
       entry.row.hidden = !entry.visible(state);
       if (entry.type === 'heading') continue;
-      const value = get(state, entry.path);
+      const value = entry.path.startsWith('overhang.')
+        ? slabOverhang(state, entry.path.split('.')[1]) : get(state, entry.path);
       if (entry.type === 'checkbox') entry.control.checked = Boolean(value);
       else if (document.activeElement !== entry.control) entry.control.value = value ?? '';
     }

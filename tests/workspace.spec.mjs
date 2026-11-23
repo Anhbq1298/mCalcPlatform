@@ -539,6 +539,16 @@ test('loads the punching shear worked cases, including drop panels', async ({ pa
   await page.getByLabel('Show all inputs').check();
   const slabEdge = page.locator('[data-path="slab.xMax"]');
   await expect(slabEdge).toHaveValue('200');
+  const plan = page.locator('#plan-view svg');
+  expect((await plan.boundingBox()).height).toBeLessThanOrEqual(page.viewportSize().height * 0.65);
+  const overhang = page.getByLabel('Slab overhang X+ (mm)', { exact: true });
+  await expect(overhang).toHaveValue('0');
+  await overhang.fill('75');
+  await expect(slabEdge).toHaveValue('275');
+  await expect(status).toContainText('Unsupported geometry');
+  await expect(page.locator('#plan-view')).toContainText('SLAB EDGE');
+  await overhang.fill('0');
+  await expect(status).toContainText('Pass');
   await slabEdge.fill('6000');
   await expect(status).toContainText('Incomplete input');
   await page.getByRole('button', { name: 'Review slab edges' }).click();

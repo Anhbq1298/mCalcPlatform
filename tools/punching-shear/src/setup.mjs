@@ -3,12 +3,17 @@ import { openingDistance, pathExtent } from './geometry.mjs';
 import { STATES, derivedSection } from './inputs.mjs';
 import { effectiveIntervals, openingShadows } from './perimeters.mjs';
 import { classifyPosition, edgePerimeters } from './position.mjs';
+import { overhangSides, slabOverhang } from './overhang.mjs';
 import { profileFor } from './profile.mjs';
 import { concreteResistance, fywdEffective, maximumResistance, reinforcementRatio } from './resistance.mjs';
 
 export function positionIssues(input, position) {
   if (position.kind === 'invalid') return [{ state: STATES.unsupportedGeometry, message: position.message }];
   if (position.kind !== input.column.position) {
+    const overhangs = overhangSides(input).map(side => slabOverhang(input, side));
+    if (overhangs.some(value => value > 1 && value < 2 * derivedSection(input).d)) {
+      return [{ state: STATES.unsupportedGeometry, code: 'set-back-slab-edge', message: 'Slab overhang is captured. The check for a non-flush edge or corner requires the setback perimeter in EN 1992-1-1 Figure 6.15.' }];
+    }
     const edges = position.normals.map(normal => normal.edge).join(' and ');
     return [{ state: STATES.incomplete, code: 'column-position-mismatch', detectedPosition: position.kind, message: `Column position is set to ${input.column.position}, but the geometry is ${position.kind === 'internal' ? 'an internal column' : `${position.kind === 'edge' ? 'an edge' : 'a corner'} column (face flush with slab edge ${edges})`}. Check the column position and actual slab boundaries.` }];
   }

@@ -12,7 +12,7 @@ import { buildForm } from './form.mjs';
 import { htmlSubscripts } from './subscript.mjs';
 import { LINK_DIAMETERS, layersToGroups, restoreInputs } from './inputs.mjs';
 import { planSvg } from './plan-view.mjs';
-import { classifyPosition } from './position.mjs';
+import { positionActions } from './position-actions.mjs';
 import { renderCompact } from './output-view.mjs';
 import { renderArrangementComparison, renderAutoSchedule, renderBasis, renderDetails, renderMessages, renderSchedule, renderSummary } from './results-view.mjs';
 import { sectionSvg } from './section-view.mjs';
@@ -129,23 +129,11 @@ function focusField(group, path) {
   form.querySelector(`[data-path="${path}"]`).focus();
 }
 
-function positionActions(issue) {
-  if (issue.code !== 'column-position-mismatch') return [];
-  const detected = classifyPosition(state.column, state.slab);
-  if (detected.kind !== issue.detectedPosition || detected.kind === state.column.position) return [];
-  const name = detected.kind === 'internal' ? 'interior' : detected.kind;
-  return [
-    [`Use ${name} position`, () => {
-      // The editor remains live while checks are queued. Apply only the position still indicated by the geometry.
-      if (classifyPosition(state.column, state.slab).kind !== detected.kind) return;
-      state.column.position = detected.kind;
-      refreshForm();
-      focusField('Column', 'column.position');
-      clearTimeout(debounce);
-      recalculate();
-    }],
-    ['Review slab edges', () => focusField('Slab', 'slab.xMin')],
-  ];
+function applyPosition() {
+  refreshForm();
+  focusField('Column', 'column.position');
+  clearTimeout(debounce);
+  recalculate();
 }
 // Drawing tabs: one drawing at a time in the centre column.
 const tabs = [...document.querySelectorAll('.drawing-tabs [role="tab"]')];
@@ -243,7 +231,7 @@ function render() {
   const summary = byId('column-check-summary');
   if (!result.loads.length && result.issues?.length) summary.replaceChildren();
   else renderCompact(summary, result, combination.value, selectedCheck, id => { selectedCheck = id; byId('plan-tab').click(); render(); });
-  renderMessages(byId('messages'), result, positionActions);
+  renderMessages(byId('messages'), result, issue => positionActions(issue, state, focusField, applyPosition));
   renderDetails(byId('checks'), result, combination.value);
   if (result.profile) renderBasis(byId('code-basis'), result.profile);
   else byId('code-basis').replaceChildren();
@@ -253,7 +241,8 @@ function render() {
     htmlSubscripts(comparisonHost);
   }
   const drawable = Boolean(result.section);
-  byId('plan-view').innerHTML = drawable ? planSvg(result, { selected, checkId: selectedCheck, loadId: combination.value, layerLines: byId('layer-lines')?.checked }) : '';
+  const preview = result.issues?.some(issue => issue.code === 'set-back-slab-edge');
+  byId('plan-view').innerHTML = drawable || preview ? planSvg(result, { selected, checkId: selectedCheck, loadId: combination.value, layerLines: drawable && byId('layer-lines')?.checked }) : '';
   byId('sign-view').innerHTML = drawable ? signSvg(result) : '';
   byId('stress-view').innerHTML = drawable && result.loads?.length ? stressSvg(result, { load: result.loads.find(item => item.id === combination.value) }) : '';
   byId('section-view').innerHTML = drawable ? sectionSvg(result, { axis: 'x' }) : '';
