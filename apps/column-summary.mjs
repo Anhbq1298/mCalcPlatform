@@ -4,12 +4,13 @@ export function governingRow(rows, getRatio) {
   return rows.reduce((worst, row) => !worst || getRatio(row) > getRatio(worst) ? row : worst, null);
 }
 
-export function renderColumnSummary(panel, checks = [], message = 'Awaiting results') {
+export function renderColumnSummary(panel, checks = [], message = 'Awaiting results', ratioTitle = 'UR / ratio') {
   const governing = governingRow(checks.filter(row => row.isUR && row.ratio != null), row => row.ratio);
   const incomplete = checks.some(row => row.status === 'incomplete');
   const failed = checks.some(row => row.status === 'fail');
-  const status = failed ? 'fail' : incomplete ? 'incomplete' : 'pass';
-  const statusLabel = failed ? 'FAIL' : incomplete ? 'INCOMPLETE' : 'PASS';
+  const warning = checks.some(row => row.status === 'warning');
+  const status = failed ? 'fail' : incomplete ? 'incomplete' : warning ? 'warning' : 'pass';
+  const statusLabel = failed ? 'FAIL' : incomplete ? 'INCOMPLETE' : warning ? 'WARNING' : 'PASS';
 
   const headline = document.createElement('div');
   headline.className = 'column-summary-verdict';
@@ -18,23 +19,26 @@ export function renderColumnSummary(panel, checks = [], message = 'Awaiting resu
     ratio.dataset.overallUr = '';
     ratio.dataset.tone = status;
     ratio.textContent = formatRatio(governing.ratio);
+    headline.append(ratio);
+  }
+  if (checks.length) {
     const badge = document.createElement('span');
     badge.dataset.tone = status;
     badge.textContent = statusLabel;
-    headline.append(ratio, badge);
+    headline.append(badge);
   }
   const note = document.createElement('p');
   note.className = 'column-summary-note';
   note.textContent = governing
     ? (incomplete ? 'Governing available UR · ' : 'Governing UR · ') + governing.label + (governing.detail ? ' · ' + governing.detail : '')
-    : message;
+    : checks.length ? 'Review the checks below.' : message;
   panel.replaceChildren(headline, note);
   if (!checks.length) return;
 
   const table = document.createElement('table');
   table.className = 'column-summary-table';
   const header = table.createTHead().insertRow();
-  for (const title of ['Check', 'UR / ratio', 'Status']) {
+  for (const title of ['Check', ratioTitle, 'Status']) {
     const cell = document.createElement('th');
     cell.scope = 'col';
     cell.textContent = title;
@@ -53,10 +57,10 @@ export function renderColumnSummary(panel, checks = [], message = 'Awaiting resu
       label.append(detail);
     }
     row.append(label);
-    row.insertCell().textContent = formatRatio(check.ratio);
+    row.insertCell().textContent = check.hideRatio ? '' : formatRatio(check.ratio);
     const cell = row.insertCell();
     cell.dataset.tone = check.status;
-    cell.textContent = check.statusLabel ?? { pass: 'Pass', fail: 'Fail', incomplete: 'Unavailable', off: 'Off' }[check.status];
+    cell.textContent = check.statusLabel ?? { pass: 'Pass', fail: 'Fail', incomplete: 'Unavailable', warning: 'Warning', off: 'Off' }[check.status];
   }
   panel.append(table);
 }

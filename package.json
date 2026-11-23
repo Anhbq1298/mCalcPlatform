@@ -12,9 +12,10 @@
   "scripts": {
     "dev": "node scripts/build.mjs --dev",
     "build": "node scripts/build.mjs",
-    "test": "node --test \"packages/*/test/*.test.mjs\" \"tools/*/test/*.test.mjs\"",
+    "test": "node --test \"packages/*/test/*.test.mjs\" \"tools/*/test/*.test.mjs\" \"tests/*.test.mjs\"",
     "check-boundaries": "node scripts/check-boundaries.mjs",
     "test:legacy": "npm --prefix vendor/calccanvas run typecheck && npm --prefix vendor/calccanvas run lint && npm --prefix vendor/calccanvas test && npm --prefix vendor/calccanvas run test:e2e",
-    "test:browser": "node vendor/calccanvas/node_modules/@playwright/test/cli.js test --config tests/playwright.config.mjs"
+    "test:browser": "node vendor/calccanvas/node_modules/@playwright/test/cli.js test --config tests/playwright.config.mjs",
+    "test:punching-canvas": "node vendor/calccanvas/node_modules/vitest/vitest.mjs run --config tools/punching-shear/crosscheck/vitest.config.mjs"
   }
 }

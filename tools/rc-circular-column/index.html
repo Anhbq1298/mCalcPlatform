@@ -11,27 +11,73 @@
     <output id="calculation-status" aria-live="polite">Preparing worksheet</output>
   </header>
   <main class="column-layout">
-    <form id="column-inputs" aria-label="Column inputs"></form>
+    <form id="column-inputs" aria-label="Column inputs">
+      <fieldset id="layer-inputs">
+        <legend>Longitudinal Reinforcement</legend>
+        <table class="layer-table" id="longitudinal-table">
+          <thead><tr><th scope="col">Layer</th><th scope="col">Bars</th><th scope="col">Bar Ø</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="layer-buttons">
+          <button type="button" data-add-layer aria-label="Add reinforcement layer">+ Layer</button>
+          <button type="button" data-remove-layer aria-label="Remove innermost reinforcement layer">− Layer</button>
+        </div>
+        <details id="coordinate-editor">
+          <summary>Advanced reinforcement coordinates</summary>
+          <table class="layer-table" id="coordinate-table">
+            <thead><tr><th scope="col">Layer</th><th scope="col">Offset (°)</th><th scope="col">Radius (mm)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p>Leave radius blank for automatic positioning.</p>
+        </details>
+      </fieldset>
+      <fieldset id="transverse-inputs">
+        <legend>Transverse Reinforcement</legend>
+        <label class="mode-choice"><input type="radio" name="transverse" value="links">Circular Stirrups (Closed Links)</label>
+        <label class="mode-choice"><input type="radio" name="transverse" value="spirals">Continuous Spiral (Helix)</label>
+        <table class="layer-table" id="transverse-table">
+          <thead><tr><th scope="col">Layer</th><th scope="col">Diameter (mm)</th><th id="transverse-interval" scope="col">Spacing (mm)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="layer-buttons">
+          <button type="button" data-add-pair>+ Paired layer</button>
+          <button type="button" data-remove-pair>− Paired layer</button>
+        </div>
+        <p>Layers are paired from outside to inside. Automatic radii reserve the larger transverse diameter across both modes.</p>
+        <label><span>Maximum aggregate size (mm)</span><input id="aggregate" type="number" min="1" step="any"></label>
+        <label><span>Cage height (mm)</span><input id="height" type="number" min="1" step="any"></label>
+      </fieldset>
+      <fieldset id="slenderness-inputs">
+        <legend>Slenderness</legend>
+        <label><span>Effective length X (mm)</span><input id="effectiveLengthX" type="number" min="1" step="any"></label>
+        <label><span>Effective length Y (mm)</span><input id="effectiveLengthY" type="number" min="1" step="any"></label>
+        <details>
+          <summary>Creep and action basis</summary>
+          <label><span>Effective creep ratio φef</span><input id="creepRatio" type="number" min="0" step="any"></label>
+          <label><span>Entered moments include externally assessed second-order effects</span><input id="secondOrderIncluded" type="checkbox"></label>
+        </details>
+      </fieldset>
+    </form>
     <section class="section-view" aria-labelledby="section-title">
-      <h2 id="section-title">Section — circular closed links</h2>
-      <div id="circular-section" role="img" aria-label="Circular concrete section" aria-describedby="section-legend"></div>
+      <h2 id="section-title">Reinforcement section</h2>
+      <svg id="circular-section" viewBox="0 0 500 460" role="img" aria-label="Circular concrete section" aria-describedby="section-legend"></svg>
       <p id="section-legend"></p>
     </section>
     <section class="checks" aria-labelledby="results-title">
       <h2 id="results-title">Check summary</h2>
-      <p>PMM/shear: EC2:2023 · Detailing: EC2:2004 · Project NA requires review</p>
+      <p>Section resistance · 2004 recommended detailing screen</p>
       <div id="column-check-summary" aria-live="polite"></div>
-      <h2 class="detail-title">Shear details</h2>
-      <dl id="checks"></dl>
     </section>
     <section class="interaction" aria-labelledby="interaction-title">
-      <div class="charthead">
-        <h2 id="interaction-title">P–M at governing angle</h2>
-        <label><span>Grid P (kN)</span><input id="gridPmP" aria-label="Grid P (kN)" type="number" min="0" step="500" placeholder="auto"></label>
-        <label><span>M (kNm)</span><input id="gridPmM" aria-label="Grid M (kNm)" type="number" min="0" step="50" placeholder="auto"></label>
+      <h2 id="interaction-title">P–M at governing angle</h2>
+      <div class="interaction-grid">
+        <label>Grid P (kN) <input id="plot-grid-p" type="number" min="0" step="any" placeholder="auto"></label>
+        <label>M (kNm) <input id="plot-grid-m" type="number" min="0" step="any" placeholder="auto"></label>
       </div>
-      <canvas id="interaction-curve" role="img" aria-label="Axial force versus moment about the applied bending direction"></canvas>
-      <p id="pm-caption"></p>
+      <div class="interaction-axis" id="plot-axis-p">P (kN)</div>
+      <canvas id="interaction-curve" role="img" aria-labelledby="interaction-title" aria-describedby="plot-axis-p plot-axis-m interaction-caption"></canvas>
+      <div class="interaction-axis interaction-axis-m" id="plot-axis-m">M (kNm)</div>
+      <p id="interaction-caption"></p>
     </section>
   </main>
   <script type="module" src="/platform/tools/rc-circular-column/src/page.mjs"></script>

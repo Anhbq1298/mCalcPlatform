@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mPunchingShear</title>
+</head>
+<body>
+  <header class="titlebar">
+    <h1>mPunchingShear <span>Slab–Column Punching Shear</span></h1>
+    <a class="help-link" href="help.html" target="_blank" rel="noopener">Help</a>
+    <output id="calculation-status" aria-live="polite">Preparing</output>
+  </header>
+  <section id="template-picker" class="template-picker" aria-labelledby="template-title" hidden>
+    <h2 id="template-title">Choose a punching shear template</h2>
+    <p>Select the column position and whether the slab has a drop panel. You can edit the geometry, loads and design basis after opening a template.</p>
+    <div id="example-cards" class="example-cards" role="group" aria-label="Punching shear templates"></div>
+  </section>
+  <main id="design-inputs" class="column-layout punching-layout" hidden>
+    <form id="punching-inputs" aria-label="Punching shear inputs">
+      <fieldset>
+        <legend id="active-template">Calculation inputs</legend>
+        <label class="show-all"><input type="checkbox" id="show-all-inputs"><span>Show all inputs</span></label>
+      </fieldset>
+      <div id="openings-anchor">
+        <p class="table-caption">Openings (centre X, Y and size in mm)</p>
+      </div>
+      <div id="loads-anchor">
+        <label><span>V_Ed basis</span>
+          <select id="load-type" aria-label="V_Ed basis">
+            <option value="net">Net punching force</option>
+            <option value="reaction">Support reaction (no reduction)</option>
+          </select></label>
+        <p class="table-caption">Concurrent combinations: V in kN, M in kN·m. The punching force resultant lies at e_x = M_y/V, e_y = M_x/V from the column centroid; enter signs so that e points toward the resultant.</p>
+      </div>
+      <div id="layers-anchor">
+        <div class="arrangement-head">
+          <span class="card-subhead">Custom layout</span>
+        </div>
+        <p class="table-caption" id="arrangement-caption">One row per layer: s from the previous layer (L1 from the column face), links at spacing s<sub>t</sub> along the layer.</p>
+        <div class="layer-buttons">
+          <button type="button" id="omit-link" disabled>Omit selected link</button>
+          <button type="button" id="restore-links" disabled>Restore layer</button>
+        </div>
+      </div>
+    </form>
+    <section class="section-view drawing-views" aria-labelledby="plan-title">
+      <h2 id="plan-title" class="visually-hidden">Drawings</h2>
+      <div class="drawing-tabs" role="tablist" aria-label="Drawings">
+        <button type="button" id="plan-tab" role="tab" data-tab="plan" aria-selected="true">Plan</button>
+        <button type="button" role="tab" data-tab="loading" aria-selected="false">Loading</button>
+        <button type="button" role="tab" data-tab="section-a" aria-selected="false">Section A–A</button>
+        <button type="button" role="tab" data-tab="section-b" aria-selected="false">Section B–B</button>
+        <button type="button" role="tab" data-tab="stress" aria-selected="false">Stress</button>
+        <button type="button" role="tab" data-tab="schedule" aria-selected="false">Schedule</button>
+        <button type="button" role="tab" data-tab="compare" aria-selected="false">Compare layouts</button>
+      </div>
+      <div class="tab-panel" data-panel="plan">
+        <label class="plan-toggle"><input type="checkbox" id="layer-lines"> Show link layer perimeters</label>
+        <div id="plan-view" class="drawing" role="img" aria-label="Plan of column, control perimeters and links"></div>
+        <p id="selection-info">Select a link in the plan to inspect it.</p>
+      </div>
+      <div class="tab-panel" data-panel="loading" hidden>
+        <div id="sign-view" class="drawing" role="img" aria-label="Loading plan and sign convention"></div>
+      </div>
+      <div class="tab-panel" data-panel="section-a" hidden>
+        <div id="section-view" class="drawing" role="img" aria-label="Section A–A along the local x-axis"></div>
+      </div>
+      <div class="tab-panel" data-panel="section-b" hidden>
+        <div id="section-view-b" class="drawing" role="img" aria-label="Section B–B along the local y-axis"></div>
+      </div>
+      <div class="tab-panel" data-panel="stress" hidden>
+        <div id="stress-view" class="drawing" role="img" aria-label="Shear stress along u0, u1 and u_out"></div>
+      </div>
+      <div class="tab-panel" data-panel="schedule" hidden>
+        <div class="schedule-wrap">
+          <table id="layer-schedule" class="column-summary-table">
+            <thead><tr><th scope="col">Layer</th><th scope="col">s from face</th><th scope="col">Ø</th><th scope="col">Shape</th><th scope="col">Links</th><th scope="col">Eff. legs</th><th scope="col">A_sw (mm²)</th><th scope="col">s_r</th><th scope="col">Spacing</th><th scope="col">s_t max ≤ limit</th><th scope="col">Reinforcement</th><th scope="col">Detailing</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tab-panel schedule-wrap" data-panel="compare" id="layout-comparison" hidden></div>
+    </section>
+    <section class="checks" aria-labelledby="results-title">
+      <h2 id="results-title">Check summary</h2>
+      <p id="design-basis"></p>
+      <label class="combination-select"><span>Combination</span><select id="combination" aria-label="Combination shown"></select></label>
+      <div id="column-check-summary" aria-live="polite"></div>
+      <p id="design-status"></p>
+      <div id="messages"></div>
+      <details class="all-values">
+        <summary>All intermediate values</summary>
+        <dl id="checks"></dl>
+      </details>
+      <details class="all-values">
+        <summary>Code basis &amp; assumptions</summary>
+        <div id="code-basis"></div>
+      </details>
+    </section>
+  </main>
+  <script type="module" src="/platform/tools/punching-shear/src/page.mjs"></script>
+</body>
+</html>

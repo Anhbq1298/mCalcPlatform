@@ -1,7 +1,6 @@
 import { createDesign, duplicateDesign } from './documents.mjs';
 import { exportPackage, hashReport } from './package-file.mjs';
 import { createStore } from './storage.mjs';
-import { migrateToolInputs } from './migrations.mjs';
 
 function download(blob, name) {
   const url = URL.createObjectURL(blob);
@@ -61,8 +60,7 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
       return { ...owner, report: snapshot };
     }
     const doc = previous ? { ...previous, inputs, meta: { ...previous.meta, name } } : createDesign(tool, name, inputs);
-    if (previous && previous.schema < tool.schema) {
-      if (!adapter.migrate) throw new Error('This tool cannot migrate the saved design schema.');
+    if (previous && adapter.migrate && previous.schema < tool.schema) {
       doc.schema = tool.schema;
       doc.toolVersion = tool.version;
     }
@@ -194,7 +192,12 @@ export function mountToolShell({ tool, getAdapter, home, reportUrl, reportOwner 
         if (current.pending) {
           await adapter.reset?.();
           message('Save to keep your calculation inputs.');
-        } else await adapter.restore(await migrateToolInputs(current, tool, adapter));
+        } else {
+          const raw = structuredClone(current.inputs);
+          const inputs = adapter.migrate && current.schema < tool.schema
+            ? await adapter.migrate(raw, current.schema) : raw;
+          await adapter.restore(inputs);
+        }
       } else if (location.searchParams.has('new')) {
         await getAdapter()?.reset?.();
       }

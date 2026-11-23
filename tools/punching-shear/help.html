@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mPunchingShear · Calculation Help</title>
+  <style>
+    body { margin: 0; background: #f4f6f5; color: #141414; font: 15px/1.6 Roboto, system-ui, sans-serif; }
+    main { max-width: 860px; margin: 0 auto; padding: 32px 24px 64px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: 32px 0 8px; }
+    p.lead { color: #56636a; margin: 0 0 24px; }
+    figure { margin: 16px 0; background: #fff; border: 1px solid #d6dbd9; border-radius: 6px; padding: 12px; }
+    figcaption { font-size: 13px; color: #56636a; margin-top: 6px; }
+    svg { width: 100%; height: auto; display: block; }
+    figure.drawing svg { max-width: 520px; margin: 0 auto; }
+    @font-face { font-family: 'osifont'; src: url('./src/fonts/osifont.ttf') format('truetype'); }
+    svg text { font: 12px 'ISOCPEUR', 'isocpeur', 'osifont', 'Roboto Mono', monospace; fill: #141414; }
+    svg .muted { fill: #6b7076; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; background: #fff; }
+    th, td { border: 1px solid #d6dbd9; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #eef1f0; }
+    h3 { font-size: 16px; margin: 22px 0 2px; }
+    .src { margin: 0 0 6px; font-size: 13px; color: #4a5650; }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+    .code { background: #dcefe3; color: #1b5733; }
+    .interp { background: #fbecd2; color: #7a4508; }
+    ul { padding-left: 20px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>mPunchingShear calculation help</h1>
+  <p class="lead">How mPunchingShear checks slab–column connections, places shear links and presents the governing result to EN 1992-1-1:2004.</p>
+  <p><b>Check summary.</b> The summary shows the selected code profile and combination. Select a check to highlight its perimeter or governing link layer on the plan. When concrete resistance is exceeded and no links are provided, the reported utilisation uses the concrete resistance at the basic control perimeter.</p>
+  <p><b>Compare layouts.</b> With links enabled and required in a slab without a drop, compare the grid and radial arrangements using the current actions and detailing constraints (each with its own least-steel auto arrangement). The table shows link count, link steel ΣA<sub>sw</sub>, tangential spacing, required and effective outer lengths where available, and the governing combination.</p>
+  <p><b>Custom layout.</b> When an empty Custom layout is opened from Auto, the rows start with the calculated link positions. Adjusting a row's tangential spacing redistributes that row evenly along its path. Adjusting a radial spacing rebuilds that row and those beyond it. Select a link in the plan to omit it or restore a layer's links.</p>
+
+  <h2>1 Which sections are checked</h2>
+  <figure>
+    <svg viewBox="0 0 680 230" role="img" aria-label="Decision chart: l_H &lt; 2h_H on every side gives one slab section at 2d from the head outline; otherwise (l_H ≥ 2h_H) gives a slab section at 2d from the drop edge plus a section inside the drop at 2d_H.">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#141414"/></marker></defs>
+      <rect x="250" y="10" width="180" height="40" rx="4" fill="#fff" stroke="#141414"/>
+      <text x="340" y="34" text-anchor="middle">l_H vs 2h_H</text>
+      <path d="M300 50L170 92" stroke="#141414" fill="none" marker-end="url(#a)"/>
+      <path d="M380 50L510 92" stroke="#141414" fill="none" marker-end="url(#a)"/>
+      <text x="205" y="70" class="muted">l_H &lt; 2h_H, all sides</text>
+      <text x="440" y="70" class="muted">l_H ≥ 2h_H, any side</text>
+      <rect x="40" y="94" width="260" height="56" rx="4" fill="#dcefe3" stroke="#1b5733"/>
+      <text x="170" y="116" text-anchor="middle">Fig. 6.17: slab only</text>
+      <text x="170" y="134" text-anchor="middle">2d from the head outline</text>
+      <rect x="380" y="94" width="260" height="56" rx="4" fill="#fbecd2" stroke="#7a4508"/>
+      <text x="510" y="116" text-anchor="middle">Fig. 6.18: slab section</text>
+      <text x="510" y="134" text-anchor="middle">2d from drop edge, slab d</text>
+      <path d="M510 150L510 172" stroke="#141414" fill="none" marker-end="url(#a)"/>
+      <rect x="380" y="174" width="260" height="46" rx="4" fill="#fbecd2" stroke="#7a4508"/>
+      <text x="510" y="194" text-anchor="middle">+ inner section at 2d_H, d_H</text>
+      <text x="510" y="210" text-anchor="middle">composite if a face has l_H &lt; 2h_H</text>
+    </svg>
+    <figcaption>Green: code rule for both circular and rectangular heads. Amber: EN 1992-1-1 states Eq. 6.36/6.37 for circular columns only; rectangular drops use the same geometric construction.</figcaption>
+  </figure>
+
+  <h2>2 Control perimeters in plan (l_H &gt; 2h_H)</h2>
+  <figure class="drawing">
+    <svg viewBox="0 0 420 380" overflow="visible" role="img" aria-label="Plan: column 500 × 500, drop 2400 × 2400, u1,int at 2d_H = 720 from the column face, u1,ext at 2d = 420 from the drop edge.">
+      <defs><pattern id="h" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#141414" stroke-width=".6"/></pattern></defs>
+      <rect x="48" y="28" width="324" height="324" rx="42" fill="none" stroke="#141414" stroke-dasharray="16 4 3 4 3 4"/>
+      <rect x="90" y="70" width="240" height="240" fill="none" stroke="#141414" stroke-dasharray="6 4"/>
+      <rect x="113" y="93" width="194" height="194" rx="72" fill="none" stroke="#141414" stroke-width="1.3" stroke-dasharray="14 5"/>
+      <rect x="185" y="165" width="50" height="50" fill="url(#h)" stroke="#141414" stroke-width="1.6"/>
+      <line x1="30" y1="190" x2="390" y2="190" stroke="#6b7076" stroke-width=".5" stroke-dasharray="18 4 3 4"/>
+      <line x1="210" y1="12" x2="210" y2="368" stroke="#6b7076" stroke-width=".5" stroke-dasharray="18 4 3 4"/>
+      <text x="240" y="160">column</text>
+      <text x="92" y="64" class="muted">drop outline</text>
+      <text x="150" y="88">u1,int (2d_H)</text>
+      <text x="96" y="22">u1,ext (2d from drop)</text>
+      <g stroke="#141414" stroke-width=".6"><line x1="235" y1="250" x2="307" y2="250"/><line x1="235" y1="246" x2="235" y2="254"/><line x1="307" y1="246" x2="307" y2="254"/>
+      <line x1="330" y1="330" x2="372" y2="330"/><line x1="330" y1="326" x2="330" y2="334"/><line x1="372" y1="326" x2="372" y2="334"/></g>
+      <text x="246" y="264">2d_H</text>
+      <text x="336" y="346">2d</text>
+    </svg>
+    <figcaption>Rounded rectangles: each perimeter is the outline of its loaded area offset by 2d (§6.4.2(1)), with d_H inside the drop (§6.4.2(10)). Corners are arcs of radius 2d_H or 2d.</figcaption>
+  </figure>
+
+  <h2>3 Half section</h2>
+  <figure class="drawing">
+    <svg viewBox="0 0 420 210" role="img" aria-label="Half section through the column and drop showing d_H inside the drop and d in the slab, with the 26.6° spread lines meeting the control sections.">
+      <defs><pattern id="c" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="#9aa0a6" stroke-width=".5"/></pattern></defs>
+      <path d="M40 60H400V105H256V132H85V185H40Z" fill="url(#c)"/>
+      <path d="M40 20H85V60H400M400 105H256V132H85V185" fill="none" stroke="#141414" stroke-width="1.4"/>
+      <rect x="40" y="20" width="45" height="40" fill="url(#c)"/>
+      <line x1="40" y1="10" x2="40" y2="195" stroke="#6b7076" stroke-width=".5" stroke-dasharray="18 4 3 4"/>
+      <line x1="85" y1="132" x2="215" y2="60" stroke="#6b7076" stroke-dasharray="5 3"/>
+      <line x1="256" y1="105" x2="332" y2="62" stroke="#6b7076" stroke-dasharray="5 3"/>
+      <line x1="215" y1="48" x2="215" y2="140" stroke="#141414" stroke-dasharray="14 5"/>
+      <line x1="332" y1="48" x2="332" y2="115" stroke="#141414" stroke-dasharray="16 4 3 4 3 4"/>
+      <text x="219" y="46">u1,int</text>
+      <text x="336" y="46">u1,ext</text>
+      <g stroke="#141414" stroke-width=".6"><line x1="268" y1="60" x2="268" y2="132"/><line x1="264" y1="60" x2="272" y2="60"/><line x1="264" y1="132" x2="272" y2="132"/>
+      <line x1="390" y1="60" x2="390" y2="105"/><line x1="386" y1="60" x2="394" y2="60"/><line x1="386" y1="105" x2="394" y2="105"/>
+      <line x1="85" y1="160" x2="215" y2="160"/><line x1="85" y1="156" x2="85" y2="164"/><line x1="215" y1="156" x2="215" y2="164"/>
+      <line x1="256" y1="160" x2="332" y2="160"/><line x1="256" y1="156" x2="256" y2="164"/><line x1="332" y1="156" x2="332" y2="164"/></g>
+      <text x="272" y="126">h + h_H</text>
+      <text x="396" y="88">h</text>
+      <text x="130" y="176">2d_H</text>
+      <text x="284" y="176">2d</text>
+      <text x="110" y="120" class="muted">26.6°</text>
+    </svg>
+    <figcaption>Inside the drop the effective depth is d_H = d + h_H; in the slab beyond the drop edge it is d. Each control section is where a 26.6° (1 : 2) spread from its loaded area meets the top surface.</figcaption>
+  </figure>
+
+  <h2>4 Drop-panel calculation basis</h2>
+  <table>
+    <tr><th>Item</th><th>Basis</th><th>Status</th></tr>
+    <tr><td>Check only in the slab when l_H &lt; 2h_H on every face, at 2d from the head outline with the slab d: a circle for a circular head (= Eq. 6.33), a rounded rectangle for a rectangular head. Eq. 6.34/6.35 replace a rectangular head by an equivalent circle (0.56 = 1/√π, equal area) with a shorter perimeter; the tool follows the crack from the head edge instead.</td><td>§6.4.2(8), Fig. 6.17</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Two sections when l_H &gt; 2h_H; d_H = d + h_H inside the head</td><td>§6.4.2(9), (10)</td><td><span class="tag code">Code rule</span></td></tr>
+    <tr><td>r_cont,ext = l_H + 2d + 0.5c, r_cont,int = 2(d + h_H) + 0.5c</td><td>§6.4.2(11), circular columns</td><td><span class="tag code">Code rule</span></td></tr>
+    <tr><td>Rectangular drop with l_H &gt; 2h_H: perimeters built as offsets of the column and the drop outline (2d_H, 2d)</td><td>Geometric extension of Fig. 6.18; documented by Tekla Structural Designer</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Inner section (d_H at 2d_H) always checked when l_H ≥ 2h_H, also when 2d_H reaches beyond the head: the crack from the column face crosses the full d_H. If a face has l_H &lt; 2h_H, the crack there leaves through the side of the head, so the inner section is composite, built by the direction φ of the outward normal: where the head reaches l(φ) ≥ 2h_H (on a face its l_H; at a corner min(l_H,x/cos φ, l_H,y/sin φ) from the column corner) the inner crack at 2d_H with d_H (straight parts the length of the column face, arcs 2d_H·dφ), elsewhere the slab section at 2d from the head outline with d (straight parts the length of the head side, arcs 2d·dφ). With every face long it is the Fig. 6.18 inner section, with every direction short the Fig. 6.17 section; β·V ≤ Σ v_R,i·u_i·d_i. When the concrete does not suffice, each part takes the resistance of its own section with links (v_Rd,cs by Eq. 6.52 with d_H for the long parts, links inside the head within l_H,min − c and at least two perimeters, otherwise none there; v_Rd,cs of the slab section around the head for the rest); both sections are designed for the loads scaled up step by step (to 2.5×) until the composite passes, and their own checks use the actual loads. The plan shows the long parts as straight lines at 2d_H. When 2d_H reaches beyond the head and the links the inner section needs do not fit in the head (two perimeters within l_H − c), the slab links of the section around the head that lie within 2d_H of the column cross the inner crack and carry it: their Eq. 6.52 steel term, 1.5·A_sw·f_ywd,ef/(s_r·u), is used with the concrete term of d_H, capped at k_max·v_Rd,c(d_H); no separate links are placed in the head.</td><td>§6.4.2(9), Fig. 6.18</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Face check: column perimeter with d_H (l_H &gt; 2h_H) or with the slab d (l_H ≤ 2h_H, conservative)</td><td>§6.4.5(3), §6.4.2(10)</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Slab overhang is measured from the column face to the slab edge. Edge uses the nearest side, and Corner uses the nearest side on each axis. Use the Slab inputs to edit the absolute edge coordinates. Flush edges use the implemented checks. Set-back edges that require the Figure 6.15 perimeter are shown in plan and flagged as unsupported.</td><td>§6.4.2(4), Fig. 6.15</td><td><span class="tag interp">Scope</span></td></tr>
+    <tr><td>Drop at an edge or corner column: the drop is clipped to the slab (flush with the free edges the column is flush with). Inside: the edge or corner column with d_H (Fig. 6.15 / 6.20 perimeters). Outside: the clipped drop as an edge or corner loaded area at 2d. For l_H ≤ 2h_H only the outer section is checked.</td><td>Extension of Figs. 6.15, 6.17, 6.18 and 6.20; EN 1992-1-1 shows heads at internal columns only</td><td><span class="tag interp">Interpretation</span></td></tr>
+    <tr><td>Links beyond the drop: the slab section takes the drop as the loaded area and is designed like an ordinary column (Eq. 6.52, 6.54, §9.4.3) with d. A layer at s from the column face lies beyond the drop when s &gt; l<sub>H,min</sub> and follows the drop outline at t = s − l<sub>H,min</sub>; inside the drop a layer needs s ≤ l<sub>H,min</sub> − c. Layers on the step in between are rejected.</td><td>Extension of §6.4.2(9) with §6.4.5; Tekla Structural Designer treats the head as the loaded area for the outer section</td><td><span class="tag interp">Interpretation</span></td></tr>
+      </table>
+  <p><b>Why 2h<sub>H</sub>.</b> The punching crack rises from the column face at θ = arctan(1/2) = 26.6°, so it climbs h<sub>H</sub> over a horizontal 2h<sub>H</sub>. Where the head projects l<sub>H</sub> &lt; 2h<sub>H</sub>, that crack would leave through the side of the head before crossing its depth; it cannot form, the head works with the column, and the crack starts at the head edge through the slab d, reaching the top at 2d from the head outline (Fig. 6.17). Where l<sub>H</sub> ≥ 2h<sub>H</sub> (AC2), a crack from the column face crosses the full d<sub>H</sub> and reaches the top at 2d<sub>H</sub>, and the crack from the head edge through the slab is also possible: both sections are checked (Fig. 6.18). The control section follows the shape of the loaded area (column or head), as for Fig. 6.13. A head with some faces below and some at or beyond 2h<sub>H</sub> is checked by Fig. 6.18 with a composite inner section (table above). Both figures use θ = 26.6°.</p>
+
+  <h2>5 Not covered</h2>
+  <ul>
+    <li>Drops combined with openings, drops offset from the column, circular or rotated columns with a drop at a slab edge, and a drop that reaches an edge the column is set back from.</li>
+  </ul>
+
+  <h2>6 Input: total drop thickness and link arrangement</h2>
+  <p>The drop size is entered <b>from the column</b> by default: the projection l<sub>H</sub> beyond every column face, the same in both directions, so a 300 × 900 column with l<sub>H</sub> = 300 has a 900 × 1500 drop (a circular column gets a circular drop of diameter c + 2l<sub>H</sub>). Choose <i>Absolute size</i> to enter l<sub>x</sub> × l<sub>y</sub> or D<sub>H</sub> instead; designs saved before this choice open with their absolute size.</p>
+  <p>The drop is entered by its total thickness h<sub>tot</sub> (slab plus drop); the projection below the slab is h<sub>H</sub> = h<sub>tot</sub> − h and d<sub>H</sub> = d + h<sub>H</sub>. Designs saved with the older depth input open with h<sub>tot</sub> = h + h<sub>H</sub>.</p>
+  <p>Provided links are entered one row per layer (L1, L2, …): the radial spacing s from the previous layer (L1 from the column face), the bar, the number of legs and the tangential spacing s<sub>t</sub> (link centre to centre along the layer). The number of links per layer follows from s<sub>t</sub>: ceil(u / s<sub>t</sub>) on a complete layer, ceil(length / s<sub>t</sub>) on each part of a layer cut by a free edge or an opening, so no gap exceeds s<sub>t</sub> and longer outer layers get more links. Auto arrangement runs the automatic design and writes one row per layer with s<sub>t</sub> = the largest designed gap rounded down to 5 mm, so the arrangement never has fewer links than the design. With a drop, the arrangement runs straight across the drop edge: layers inside the drop belong to the section with d<sub>H</sub>, layers beyond it to the section around the drop with d.</p>
+  <p><b>Auto arrangement — constraints first.</b> The user sets the arrangement, the smallest and largest link bar Ø (default up to 16 mm), the link shape, the maximum radial spacing s<sub>r</sub> and the top flexural bars (in the same Reinforcement card). Two arrangements, both with links: the <b>grid arrangement</b>, links on the slab bar grid (one grid for the whole layout, inside and outside a drop: bars split evenly about the column centre lines, at ±s/2, ±3s/2, …; the first ring goes on the first bar line beyond each face that lies 0.3d–0.5d from it, or, outside the SG compact link zone (where 0.3d is a code limit; elsewhere it is guidance only), 0.1d–0.3d from it, so its links sit at bar intersections, and the rings follow at s<sub>r</sub>, a multiple of the bar spacing; where no bar line falls in that window the ring keeps its exact offset and its links sit along the bars, a link being free to slide along the bar it hooks; dense to sparse from the column outward: each ring's widest passing multiple M<sub>k</sub> (every M-th bar, keeping s<sub>t</sub>, Eq. 6.52 and Eq. 9.11) is capped by those of the rings outside it, m₁ is the smallest, and every ring takes the largest whole multiple of m₁ within its cap, so the multiples never decrease outward and all rings stay on the first ring's bars; with a drop, the links inside the drop are no sparser than the first ring of the slab around it; the schedule shows this spacing as @ m·s; with <i>wider ring spacing</i> a ring keeps only every m-th grid line, counted from the ring corners on each side (plus the middle line where the two counts leave a wider gap), while s<sub>t</sub> as the straight gap between neighbouring links (≤ 1.5d within 2d, ≤ 2d beyond), Eq. 6.52, Eq. 9.11 and u<sub>out,ef</sub> still hold; this applies at internal, edge and corner columns, inside a drop and in the slab around it, and a ring cut by a slab edge or an opening shadow keeps the links either side of the cut) and the <b>radial arrangement</b>, links on radial lines (the layout DECON / The Concrete Centre use for stud rails, here with links: lines perpendicular to each face first — the outer two in line with the column edges, the others evenly at ≤ 1.5d and ≥ 100 mm; corner lines fanning out at equal angles are added only on the perimeters where the corner gap without them exceeds the s<sub>t</sub> limit, or where u<sub>out,ef</sub> needs them, never for A<sub>sw</sub>). On the grid s<sub>t</sub> is a design variable (wider ring spacing on the outer rings); on the radial arrangement s<sub>t</sub> follows from the number of lines and grows with the distance from the face, so it is controlled by adding lines. Without corner lines the corner gap is √2 times the distance from the face, so it exceeds 1.5d from about 1.06d out, normally from the second perimeter; an orthogonal-only layout is therefore not offered. Proprietary headed stud rails are designed to their ETA, not to §6.4.5, and are not covered. The first perimeter is at s<sub>0</sub> = max(0.3d, 0.4d rounded down to 5 mm); perimeters follow at s<sub>r</sub> until the outermost is within 1.5d of u<sub>out,ef</sub>, and the lines are extended until u<sub>out,ef</sub> ≥ u<sub>out,req</sub>.</p>
+  <p><b>When the layout does not pass,</b> every combination within the constraints is tried: (1) bar Ø from the minimum to the maximum, while the hook still fits the slab; (2) radial lines — 0 to 4 more lines per face (for b/h &gt; 2 on the short faces first), for the grid with and without ring widening; (3) s<sub>r</sub> — 0.75d rounded down to 5 mm (or the entered maximum), then 25 mm steps down to 0.4d, on the bar grid the multiples of the bar spacing, if a smaller s<sub>r</sub> is allowed. Of the layouts that pass every check, the one with the <b>least link steel</b> ΣA<sub>sw</sub> (all legs, π·Ø²/4 each, including any links filling a drop) is kept; ties go to fewer links, then the smaller Ø, then the larger s<sub>r</sub>. For each s<sub>r</sub> and line count the sizes are tried from the smallest up and stop at the first that passes, or once a failure is one a larger bar cannot fix (s<sub>t</sub>, u<sub>out,ef</sub>, s<sub>0</sub>), since the same layout in a larger bar only adds steel. Failures that links cannot fix (v<sub>Rd,max</sub> at u0, k<sub>max</sub> at u1) end the search at once. If nothing passes, the layout with the lowest governing UR is shown with a note. The choice is stated in a note (for example "Ø10, 1 extra radial line per face, s<sub>r</sub> = 150 mm — least link steel of 16 layouts tried"). The same search runs at internal, edge and corner columns and, with a drop, separately for the links inside the drop and for the slab around it (u<sub>1,ext</sub>). At edge and corner columns, with openings and around a drop, Fig. 6.22 is not used, so on the radial arrangement corner lines are added until s<sub>t</sub> ≤ 2d also holds outside u<sub>1</sub>. The b/h split and the 100 mm minimum line spacing are tool choices, not EC2 rules.</p>
+  <p><b>Required and effective outer perimeter (internal columns without openings or a drop).</b> The required length u<sub>out,req</sub> = β·V<sub>Ed</sub>/(v<sub>Rd,c</sub>·d) (Eq. 6.54) depends only on the load and the concrete. The effective perimeter u<sub>out,ef</sub> depends on the arrangement: it runs 1.5d outside the polygon through the outermost links (Fig. 6.22 A), and where two adjacent outer links are more than 2d apart only d beyond each of them counts (Fig. 6.22 B). The tool takes u<sub>out,ef</sub> = Σ min(L<sub>i</sub>, 2d) + 2π·1.5d, L<sub>i</sub> the distances between adjacent outer links around the column — an interpretation of the figure, which gives no formula. The lines are extended until u<sub>out,ef</sub> ≥ u<sub>out,req</sub>; when gaps that count only 2d stop the perimeter from growing before the slab edge, the arrangement stays at the a<sub>out</sub> length and the outer check fails with a note. With the radial arrangement the tool then tries more corner lines, and the remedies of the search above. The plan draws the control perimeters u<sub>0</sub>, u<sub>1</sub> and u<sub>1,ext</sub> only; u<sub>out,req</sub> and u<sub>out,ef</sub> are reported in the checks and the worksheet.</p>
+  <p><b>Tangential spacing s<sub>t</sub> (§9.4.3(1)).</b> Inside u<sub>1</sub> (≤ 2d from the face) s<sub>t</sub> ≤ 1.5d is a check, measured along the control path at the layer (grid points beyond a column corner are projected onto the rounded path). For the radial arrangement the corner gap is checked like any other gap; corner lines are added where it would exceed the limit. Outside u<sub>1</sub> a gap larger than 2d is not a failure: that part of the perimeter is excluded from u<sub>out,ef</sub> (§9.4.3(1): "where that part of the perimeter is assumed to contribute"), and Eq. 9.11 is evaluated with s<sub>t</sub> = 2d for the legs that do count. At edge and corner columns, with openings or a drop, the outer perimeter stays the clipped path at a<sub>out</sub> and s<sub>t</sub> ≤ 2d outside u<sub>1</sub> remains a check. Auto designs saved before the arrangement choice reopen on the grid. With a drop (l<sub>H</sub> &gt; 2h<sub>H</sub>) and the option <i>Links out to the drop edge</i> ticked (off by default; EN 1992-1-1 does not require it) the rings inside the drop continue to within one s<sub>r</sub> of the drop edge, and on the grid further links on the same lines fill the drop out to its edge less cover on every side, at whole multiples of the grid step as for the outer rings (never denser than the last ring; ≤ 1.5d within 2d of the face, ≤ 2d beyond, both ways), so the outer zone of the drop is reinforced up to the depth change. On the radial arrangement every radial line of the last perimeter continues outward at s<sub>r</sub> to the drop edge less cover (face lines perpendicular to their face, corner lines away from the column corner), with one more link on the edge when the gap left exceeds s<sub>r</sub>/4. These extra links are detailing: they are not part of any perimeter in Eq. 6.52 or §9.4.3.</p>
+  <p>Flexural reinforcement is entered as bar Ø and spacing in each direction. Designs saved with an area per metre open with the equivalent spacing for the stored bar Ø, so A<sub>s</sub> is unchanged.</p>
+
+  <h2>7 Shear stress figure</h2>
+  <p>The stress figure shows v<sub>Ed</sub> along u<sub>0</sub>, u<sub>1</sub> and u<sub>out,ef</sub> (or u<sub>1,ext</sub> for a drop). The mean value is V<sub>Ed</sub>/(u·d). When β comes from moments at an internal column (Eq. 6.39, 6.42 or 6.43) the fence is the fully plastic distribution of Fig. 6.19 that Eq. 6.39 is derived from: v<sub>Ed</sub>(s) = v<sub>V</sub> ± Σ v<sub>M,i</sub>, with v<sub>V</sub> = V<sub>Ed</sub>/(u·d) and, for each axis, v<sub>M,i</sub> = k·V<sub>Ed</sub>·e<sub>i</sub>/(W<sub>1</sub>·d) added on the side the moment pushes down and removed on the other, a step at the centroid axis. W<sub>1</sub> = ∫|x| dl is taken for the perimeter drawn (Eq. 6.40) and k from Table 6.1; a circular column takes one term about the resultant eccentricity with k = 0.6 (Eq. 6.42). For one moment the peak v<sub>V</sub> + v<sub>M</sub> at u<sub>1</sub> equals β·v<sub>V</sub> of Eq. 6.39. For moments about both axes the tool checks with Eq. 6.43, so the sum of the two plastic terms can differ from β·v<sub>V</sub>; each panel prints both, and the check always uses β·v<sub>V</sub>. Fence height uses one scale for all panels; colour runs from blue at the lowest to red at the highest stress of each panel. With the simplified or a user β, and at edge and corner columns, the figure shows the uniform envelope β·V<sub>Ed</sub>/(u·d). The check itself always uses β·V<sub>Ed</sub>/(u·d).</p>
+
+  <h2>8 Benchmarks against published examples</h2>
+  <p>Each published example is entered with its own data and run through the tool. <span class="tag code">Same rule</span> rows must agree within the rounding of the published value (test <code>test/benchmarks.test.mjs</code>); <span class="tag interp">Different rule</span> rows rest on another National Annex, another β method or a pre-A1:2014 text, and the reason is given. Reproduce with <code>node tools/punching-shear/scripts/benchmarks.mjs</code>.</p>
+  <p>Summary: every value computed under the same rule agrees within 0.1 % (v<sub>min</sub> of EUR 26566 within its two-decimal rounding). The differences come from β for biaxial moments (CSI sums Eq. 6.39 over both axes, the tool uses Eq. 6.43), the s<sub>r</sub> rounding to 5 mm, the A1:2014 limit k<sub>max</sub>·v<sub>Rd,c</sub> and the German National Annex in the Dlubal examples. No published example with a column head, an opening or an edge or corner column has been found yet; those parts are checked against hand calculation only (reference cases in <code>scripts/verification.mjs</code>, listed in SOURCES.md).</p>
+  <h3>CSI SAFE, Eurocode 2-04 RC-PN-001 (300 × 900 column, biaxial moments)</h3>
+  <p class="src">Source: <a href="https://docs.csiamerica.com/manuals/safe/Verification/Design%20Verification/Eurocode%202-04/Eurocode%202-04%20RC-PN-001.pdf">CSI, SAFE Software Verification, Example Eurocode 2-04 RC-PN-001, Slab punching shear design (Grid B-2, CEN default NA)</a>. Tool status for this input: Fail.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>d</td><td>mm</td><td>218</td><td>218.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>u<sub>1</sub></td><td>mm</td><td>5139.468</td><td>5139.5</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>k</td><td>—</td><td>1.9578</td><td>1.958</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>ρ<sub>l</sub></td><td>—</td><td>0.004955</td><td>0.004955</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>min</sub></td><td>MPa</td><td>0.525</td><td>0.5252</td><td>0.03 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Rd,c</sub></td><td>MPa</td><td>0.5777</td><td>0.5777</td><td>-0.01 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed</sub></td><td>MPa</td><td>1.099</td><td>1.053</td><td>-4.22 %</td><td><span class="tag interp">Different rule</span> β: the source adds Eq. 6.39 terms of both axes, 1 + M2·u1/(V·W1,2) + M3·u1/(V·W1,3) = 1.1075 with k·M taken from SAFE; the tool uses Eq. 6.43 (SRSS, 1.8 factor) for biaxial moments, β = 1.0605.</td></tr>
+    <tr><td>D/C = v<sub>Ed</sub>/v<sub>Rd,c</sub></td><td>—</td><td>1.9</td><td>1.822</td><td>-4.09 %</td><td><span class="tag interp">Different rule</span> Follows v<sub>Ed</sub> (β basis above).</td></tr>
+  </table>
+  <h3>CSI SAFE RC-PN-001 with the source β</h3>
+  <p class="src">Source: <a href="https://docs.csiamerica.com/manuals/safe/Verification/Design%20Verification/Eurocode%202-04/Eurocode%202-04%20RC-PN-001.pdf">Same CSI example, β = 1.1075 taken from the source as a user value, to compare the downstream stress and D/C</a>. Tool status for this input: Fail.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>v<sub>Ed</sub></td><td>MPa</td><td>1.099</td><td>1.099</td><td>0.03 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>D/C = v<sub>Ed</sub>/v<sub>Rd,c</sub></td><td>—</td><td>1.9</td><td>1.903</td><td>0.16 %</td><td><span class="tag code">Same rule</span></td></tr>
+  </table>
+  <h3>JRC EUR 26566, flat slab column B2 (500 × 500, links)</h3>
+  <p class="src">Source: <a href="https://law.resource.org/pub/eu/eurocode/guidance/1110_WS_EC2.pdf">European Commission JRC, Eurocode 2: Background &amp; Applications — Design of concrete buildings, Worked examples, Report EUR 26566 EN (2014), §3.2.2.3 Punching shear — column B2</a>. Tool status for this input: Fail.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>d</td><td>mm</td><td>164</td><td>164.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>u<sub>0</sub></td><td>mm</td><td>2000</td><td>2000.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed,0</sub> = βV/(u<sub>0</sub> d)</td><td>MPa</td><td>2.47</td><td>2.472</td><td>0.07 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Rd,max</sub></td><td>MPa</td><td>3.6</td><td>3.600</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>u<sub>1</sub></td><td>mm</td><td>4061</td><td>4060.9</td><td>-0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed,1</sub></td><td>MPa</td><td>1.22</td><td>1.217</td><td>-0.22 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>k</td><td>—</td><td>2</td><td>2.000</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Rd,c</sub></td><td>MPa</td><td>0.66</td><td>0.6595</td><td>-0.08 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>min</sub></td><td>MPa</td><td>0.49</td><td>0.4950</td><td>1.02 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>f<sub>ywd,ef</sub></td><td>MPa</td><td>291</td><td>291.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>s<sub>r</sub></td><td>mm</td><td>123</td><td>120.0</td><td>-2.44 %</td><td><span class="tag interp">Different rule</span> The tool rounds 0.75d = 123 mm down to 120 mm.</td></tr>
+    <tr><td>A<sub>sw</sub> per perimeter</td><td>mm²</td><td>830</td><td>806.9</td><td>-2.79 %</td><td><span class="tag interp">Different rule</span> Scales with s<sub>r</sub>: about 830 × 120/123 = 810 mm² (tool 807 with unrounded v<sub>Ed,1</sub>).</td></tr>
+    <tr><td>u<sub>out,ef</sub></td><td>mm</td><td>7490</td><td>7495.9</td><td>0.08 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>a<sub>out</sub> (outer perimeter from the column face)</td><td>mm</td><td>874</td><td>874.7</td><td>0.08 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>Design status</td><td>—</td><td>links OK</td><td>Fail</td><td>—</td><td><span class="tag interp">Different rule</span> v<sub>Ed,1</sub> = 1.22 > k<sub>max</sub>·v<sub>Rd,c</sub> = 1.5 × 0.66 = 0.99 MPa: the A1:2014 limit (§6.4.5(1) Note) makes the tool Fail; the source does not apply it.</td></tr>
+  </table>
+  <h3>Dlubal VE 1023, axis B/2 (450 × 450)</h3>
+  <p class="src">Source: <a href="https://www.dlubal.com/en/downloads-and-information/examples-and-tutorials/verification-examples/001023">Dlubal, RFEM Verification Example 1023 — Punching shear design of a point-supported slab (DIN EN 1992-1-1), axis B/2, analytical solution</a>. Tool status for this input: Fail.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>u<sub>1</sub></td><td>mm</td><td>4188</td><td>4187.6</td><td>-0.01 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed</sub></td><td>MPa</td><td>1.088</td><td>1.088</td><td>0.04 %</td><td><span class="tag code">Same rule</span></td></tr>
+  </table>
+  <h3>Dlubal VE 1028, circular column D = 300</h3>
+  <p class="src">Source: <a href="https://www.dlubal.com/en/downloads-and-information/examples-and-tutorials/verification-examples/001028">Dlubal, RFEM 6 Verification Example 1028 — Punching shear design for central column in flat slab according to EC2 (DIN EN 1992-1-1), analytical solution column</a>. Tool status for this input: Pass.</p>
+  <table>
+    <tr><th>Quantity</th><th>Unit</th><th>Published</th><th>Tool</th><th>Difference</th><th>Basis</th></tr>
+    <tr><td>d</td><td>mm</td><td>210</td><td>210.0</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>u<sub>1</sub></td><td>mm</td><td>3581</td><td>3581.4</td><td>0.01 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Ed</sub></td><td>MPa</td><td>0.731</td><td>0.7313</td><td>0.04 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>k</td><td>—</td><td>1.976</td><td>1.976</td><td>-0.01 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>ρ<sub>l</sub></td><td>—</td><td>0.005</td><td>0.005000</td><td>0.00 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>Rd,c</sub></td><td>MPa</td><td>0.585</td><td>0.5848</td><td>-0.04 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>v<sub>min</sub></td><td>MPa</td><td>0.532</td><td>0.5324</td><td>0.08 %</td><td><span class="tag code">Same rule</span></td></tr>
+    <tr><td>Max. resistance with links</td><td>MPa</td><td>0.819</td><td>0.8771</td><td>7.10 %</td><td><span class="tag interp">Different rule</span> DIN NA: 1.4·v<sub>Rd,c</sub>; the tool uses the CEN value k<sub>max</sub> = 1.5 (A1:2014).</td></tr>
+    <tr><td>u<sub>out,ef</sub></td><td>mm</td><td>5372</td><td>4478.9</td><td>-16.63 %</td><td><span class="tag interp">Different rule</span> The source uses v<sub>Rd,c</sub> with the required longitudinal reinforcement (DIN NA, 0.4875 MPa); the tool uses v<sub>Rd,c</sub> of the provided reinforcement (Eq. 6.54).</td></tr>
+  </table>
+
+  <p><b>Effective outer perimeter of a cruciform layout.</b> Ancon Shearfix Punching Shear Reinforcement, EC2 Design Manual, Example 16.1 (internal 600 × 400 column, d = 204 mm, outer stud lines 804 and 604 mm wide) gives u<sub>out,ef</sub> = 2(y<sub>sr0</sub> + 2d + 0.75πd + z<sub>sr0</sub> + 2d + 0.75πd) = 6371 mm. The tool's rule Σ min(L<sub>i</sub>, 2d) + 2π·1.5d gives 6371 mm for the same outer studs (test/arrangement.test.mjs), so the interpretation of Fig. 6.22 B agrees with the manufacturer's procedure. Only the perimeter formula is compared: the manual's rail layout (main and secondary rails, 3 studs per rail) and its u<sub>out,req</sub> inputs are not re-run. The manual also notes that more than three studs per rail do not increase u<sub>out,ef</sub>, as found here. </p>
+  <h2>9 How mPunchingShear calculates results</h2>
+  <p><b>Result status.</b> Pass and Fail show the outcome of the applicable checks against the selected design basis. Software methods such as the composite inner section of a mixed head are identified alongside the result. Incomplete input and Unsupported geometry or loading identify conditions outside the calculation. Links required indicates that the concrete demand exceeds its resistance.</p>
+  <p><b>Singapore National Annex.</b> The face resistance uses 0.5ν<i>f</i><sub>cd</sub>, and the upper resistance with links uses 2.0<i>v</i><sub>Rd,c</sub>. Where the required outer control perimeter is closer than 3<i>d</i> to the loaded area, place links in the zone from 0.3<i>d</i> to 1.5<i>d</i>, with the first layer no further out than 0.5<i>d</i>. The first-layer and zone checks use each link leg’s shortest distance to the loaded area, including at corners. Auto layout omits first-layer positions beyond 0.5<i>d</i> and checks the steel area and spacing of the remaining legs.</p>
+  <p><b>Defaults.</b> New designs use the Singapore National Annex, β from moments and effective depths derived from the slab thickness, cover and flexural bar layers. Punching links are off when a design starts. When enabled, the default arrangement is an orthogonal grid with spacing inputs of 150 mm.</p>
+  <h3>Benchmark results</h3>
+  <table><thead><tr><th>Quantity</th><th>Source</th><th>Agreement</th></tr></thead><tbody>
+    <tr><td>v<sub>Rd,c</sub> (Eq. 6.47), k, ρ<sub>l</sub>, v<sub>min</sub> (Eq. 6.3N)</td><td>CSI SAFE RC-PN-001, JRC EUR 26566 B2, Dlubal VE 1028</td><td>≤ 0.1 % (v<sub>min</sub> JRC 1 %, source rounding)</td></tr>
+    <tr><td>u0, u1, v<sub>Ed</sub> = βV/(u·d)</td><td>CSI SAFE, JRC B2, Dlubal VE 1023 / 1028</td><td>≤ 0.22 %</td></tr>
+    <tr><td>v<sub>Rd,max</sub> (Eq. 6.53), f<sub>ywd,ef</sub></td><td>JRC B2</td><td>0.00 %</td></tr>
+    <tr><td>u<sub>out</sub> (Eq. 6.54), a<sub>out</sub></td><td>JRC B2</td><td>0.08 %</td></tr>
+    <tr><td>A<sub>sw</sub> per perimeter (Eq. 6.52)</td><td>JRC B2 (830 mm² at s<sub>r</sub> = 123)</td><td>Same at equal s<sub>r</sub> (the tool rounds s<sub>r</sub> down to 5 mm)</td></tr>
+    <tr><td>u<sub>out,ef</sub> of a cruciform layout (Fig. 6.22 B)</td><td>Ancon Shearfix EC2 manual, Example 16.1</td><td>6371 mm, exact</td></tr>
+    <tr><td>β (Eq. 6.39 / 6.42 / 6.43), u1 with openings, edge and corner perimeters</td><td>Independent hand formulas (scripts/verification.mjs, unit tests)</td><td>1e-6</td></tr>
+  </tbody></table>
+  <h3>Calculation methods</h3>
+  <table><thead><tr><th>Topic</th><th>Handling</th><th>Basis</th></tr></thead><tbody>
+    <tr><td>Outer perimeter</td><td>Eq. 6.54 gives the required length u<sub>out,req</sub> = βV/(v<sub>Rd,c</sub>·d). For layouts using the Fig. 6.22 construction, the effective outer length comes from the outer links as Σ min(L<sub>i</sub>, 2d) + 2π·1.5d. For the standard offset check, the outer links extend to at least a<sub>out</sub> − 1.5d. The Singapore compact link zone uses its own placement limits.</td><td>Fig. 6.22, interpretation (agrees with Ancon)</td></tr>
+    <tr><td>Tangential spacing</td><td>≤ 1.5d inside u1; outside u1 a gap &gt; 2d is excluded from u<sub>out,ef</sub> where Fig. 6.22 applies, otherwise ≤ 2d is a check; radial corner lines added where the corner gap needs them; grid gaps measured as straight distances between legs.</td><td>§9.4.3(1), interpretation</td></tr>
+    <tr><td>Auto arrangement</td><td>Constraints first (Ø range, max s<sub>r</sub>, bar grid); all combinations of Ø, radial lines and s<sub>r</sub>; least link steel of the passing layouts.</td><td>Tool procedure</td></tr>
+    <tr><td>Eq. 6.52</td><td>Smallest effective A<sub>sw</sub> of any perimeter and the largest s<sub>r</sub>.</td><td>Conservative</td></tr>
+    <tr><td>k<sub>max</sub></td><td>1.5·v<sub>Rd,c</sub> (CEN, A1:2014 Note) or 2·v<sub>Rd,c</sub> (SG / UK NA); links cannot fix a failure here.</td><td>Code / NA</td></tr>
+    <tr><td>Moments</td><td>Through β only; uniform β·v<sub>Ed</sub>. With a drop, the column (inside) or the drop (outside) is the loaded area for W1. Outside the drop β is taken no larger than the β of the column connection (same load, column as the loaded area, slab d): with the drop as the loaded area, β = u1/u1* (Eq. 6.44/6.46) grows with the drop size although the moment transferred does not, and would make a drop at an edge or corner column need more links than no drop. When the cap governs the β row says so. When the slab around a drop needs links, a note gives the smallest drop (same depth, both plan sizes grown by the same amount, in 50 mm steps, with the same β cap) for which it would need none. The stress figure shows the plastic distribution (Fig. 6.19).</td><td>Code; drop W1 and the β cap outside the drop are tool rules</td></tr>
+    <tr><td>Links and flexural bars</td><td>Assumed to enclose the top and bottom flexural bars; not checked.</td><td>Stated assumption</td></tr>
+    <tr><td>First layer &lt; 0.3d</td><td>Shown as a warning (The Concrete Centre guidance, not a code limit).</td><td>Guidance</td></tr>
+  </tbody></table>
+  <h2>References</h2>
+  <p>Code basis of the tool:</p>
+  <ul>
+    <li>EN 1992-1-1:2004 + AC:2010 + A1:2014, Eurocode 2: Design of concrete structures — Part 1-1: §6.4 punching (Eq. 6.32–6.54, Figs. 6.12–6.22, Table 6.1), §8.3 and §8.5 (mandrels, link anchorage), §9.3.2 and §9.4.3 (slab and punching detailing). CEN recommended values unless a National Annex profile is chosen.</li>
+    <li>A1:2014, §6.4.5(1) Note: k<sub>max</sub> = 1.5 upper limit with shear reinforcement.</li>
+    <li>Singapore NA to SS EN 1992-1-1:2008, <a href="https://www.singaporestandardseshop.sg/Product/DownloadPdf/297e7a37-b3fe-4ed6-9d14-31c02f553dac?Page=15">Amendment No. 1</a> and <a href="https://www.singaporestandardseshop.sg/Product/GetPdf?fileName=210323181635NA+to+SS+EN+1992-1-1-2008_Amd+2.pdf&amp;pdtid=90a81f90-f2fe-4ae9-a8b5-50c1ae5b89dd">Amendment No. 2</a>: §6.4.5(1), (3) and (4). UK profile references: CADS and The Concrete Centre.</li>
+    <li>The Concrete Centre guidance: first link perimeter ≥ 0.3d from the loaded area (shown as detailing guidance outside the Singapore compact link zone).</li>
+    <li><a href="https://support.tekla.com/doc/tekla-structural-designer/2025/ref_punching_shear_checks_ec2">Tekla Structural Designer: Punching shear checks to EC2</a>: control perimeter outside the drop, and inside it only when it fits; the drop outline as the loaded area of the outer section. Used for rectangular drops and links beyond the drop (interpretation).</li>
+    <li>Blueprints (open source, MIT): implementations of Eq. 6.44–6.46 used to cross-check the edge and corner β formulas.</li>
+    <li>Ancon (Leviat), Shearfix Punching Shear Reinforcement — EC2 Design Manual, Example 16.1 (cruciform u<sub>out,ef</sub>): https://www.ancon.co.uk/downloads/6431/Shearfix_Design_Manual_to_EC2.pdf</li>
+  </ul>
+  <p>Published examples used as benchmarks (section 8):</p>
+  <ul>
+    <li><a href="https://docs.csiamerica.com/manuals/safe/Verification/Design%20Verification/Eurocode%202-04/Eurocode%202-04%20RC-PN-001.pdf">CSI, SAFE Software Verification, Example Eurocode 2-04 RC-PN-001</a>.</li>
+    <li><a href="https://law.resource.org/pub/eu/eurocode/guidance/1110_WS_EC2.pdf">European Commission JRC, Eurocode 2: Background &amp; Applications — Design of concrete buildings, Worked examples, EUR 26566 EN (2014)</a>, §3.2.2.3.</li>
+    <li><a href="https://www.dlubal.com/en/downloads-and-information/examples-and-tutorials/verification-examples/001028">Dlubal, Verification Example 1028</a> and <a href="https://www.dlubal.com/en/downloads-and-information/examples-and-tutorials/verification-examples/001023">Verification Example 1023</a> (DIN EN 1992-1-1).</li>
+  </ul>
+</main>
+</body>
+</html>

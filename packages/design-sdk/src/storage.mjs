@@ -1,4 +1,5 @@
 import { parseDesign, validateProject } from './documents.mjs';
+import { copyFolderTree } from './folder-tree.mjs';
 
 export function createStore(factory = globalThis.indexedDB) {
   let connection;
@@ -81,6 +82,20 @@ export function createStore(factory = globalThis.indexedDB) {
       };
       project.onsuccess = design.onsuccess = update;
     }),
+    copyFolder: async (projectId, folderId, parentId) => {
+      const source = await transaction(['projects'], 'readonly', store => store('projects').get(projectId));
+      if (!source) throw new Error('This project is unavailable.');
+      const { project, designMap } = copyFolderTree(source, folderId, parentId);
+      const copies = await Promise.all([...designMap].map(async ([from, to]) => {
+        const doc = await transaction(['designs'], 'readonly', store => store('designs').get(from));
+        if (!doc) throw new Error('This project references an unavailable calculation.');
+        return parseDesign({ ...structuredClone(doc), id: to });
+      }));
+      return transaction(['designs', 'projects'], 'readwrite', store => {
+        for (const doc of copies) store('designs').add(doc);
+        store('projects').put(validateProject(project));
+      });
+    },
     importPackage: ({ designs, project }) => transaction(['designs', 'projects'], 'readwrite', store => {
       const ids = new Map();
       for (const doc of designs) {

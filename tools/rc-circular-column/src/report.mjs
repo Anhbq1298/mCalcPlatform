@@ -1,42 +1,69 @@
-import { sectionSvg, escape } from './section-svg.mjs';
+import { A4, PAGE_GAP } from '../../../../src/export/pageGeometry.ts';
 
-export function buildReport(input, result) {
-  const shapes = [], width = 642, stride = 1171;
-  let page = 0, y = 64;
+const R = String.raw;
+const asReportValue = value => Number.isFinite(value) ? Number(value.toPrecision(8)).toString() : 'Unavailable';
+const escape = text => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+export function createReport(template, input, section, result) {
+  const document = JSON.parse(template);
+  const math = document.shapes.find(shape => shape.id === 's_col_29').props;
+  const interaction = document.shapes.find(shape => shape.id === 's_col_41').props;
+  const shapes = [];
+  const stride = A4.h + PAGE_GAP;
+  let page = 0;
+  let y = 75;
   function add(type, props) {
-    if (y + props.h > 1050) { page++; y = 64; }
-    shapes.push({ id: 'circular-' + shapes.length, type, x: 76, y: page * stride + y, props });
+    if (y + props.h > A4.h - 55) {
+      page++;
+      y = 75;
+    }
+    shapes.push({ id: 'circular_report_' + shapes.length, type, x: 74, y: y + page * stride, props });
     y += props.h + 10;
   }
-  function text(value, heading) {
-    add('text', { w: width, h: 22 * Math.ceil(value.length / 85) + 8, html: escape(value),
-      fontFamily: 'Inter', fontSize: heading ? 18 : 13, color: '#1f2a30', align: 'left', ...(heading ? { heading } : {}) });
+  const text = (content, heading = false) => add('text', {
+    w: 630, h: heading ? 32 : content.length > 92 ? 43 : 22, html: escape(content),
+    fontFamily: 'Inter', fontSize: heading ? 18 : 14, color: '#334155', align: 'left',
+  });
+  const define = (key, value, unit) => add('math', { ...math, w: 230, h: 30,
+    latex: key + R`\coloneq ` + asReportValue(value) + unit, displayMode: 'formulaResult', displayUnit: '', precision: 2 });
+
+  text('Circular RC Column Check', true);
+  text('Section resistance snapshot for the saved actions. Recalculate in the column tool after changing inputs.');
+  text('Section material model: pinned Canvas assumptions. Confinement enhancement is disabled.');
+  text('Detailing and member effects: EN 1992-1-1:2004 recommended values. National Annex unverified.');
+  define('D', input.diameter, R`\,\mathrm{mm}`);
+  define('f_{ck}', input.concrete, R`\,\mathrm{MPa}`);
+  define('f_{yk}', input.steel, R`\,\mathrm{MPa}`);
+  define('N_{Ed}', input.axial, R`\,\mathrm{kN}`);
+  define('M_{in.x}', input.mx, R`\,\mathrm{kN}\cdot\mathrm{m}`);
+  define('M_{in.y}', input.my, R`\,\mathrm{kN}\cdot\mathrm{m}`);
+  define('M_{Ed.x}', result.moments[0], R`\,\mathrm{kN}\cdot\mathrm{m}`);
+  define('M_{Ed.y}', result.moments[1], R`\,\mathrm{kN}\cdot\mathrm{m}`);
+  define('V_{Ed}', input.shear, R`\,\mathrm{kN}`);
+  text(input.transverse === 'links' ? 'Circular Stirrups (Closed Links)' : 'Continuous Spiral (Helix)', true);
+  for (const [index, ring] of section.rings.entries()) {
+    text('L' + (index + 1) + ' · ' + ring.count + 'Ø' + ring.bar + ' · Bar radius ' +
+      asReportValue(ring.barRadius) + ' mm · Offset ' + ring.offset + '° · Ø' + ring.link + ' @ ' + ring.spacing + ' mm');
   }
-  text('Circular RC Column — closed links', 1);
-  text('DETAILING ' + result.status.toUpperCase() + ' / ENGINEERING REVIEW REQUIRED. No overall compliance verdict.');
-  text('PMM/shear: numerical form of pinned Canvas worksheet 161910b4, EN 1992-1-1:2023 material/shear model. Detailing: EN 1992-1-1:2004 §§4.4.1, 8.2, 9.5.3; project NA applicability unverified.');
-  text(`D${input.diameter}; fck ${input.concrete} MPa; longitudinal/link fyk ${input.steel}/${input.linkSteel} MPa; cover ${input.cover} mm; aggregate ${input.aggregate} mm.`);
-  text(`NEd ${input.axial} kN; Mx/My ${input.mx}/${input.my} kN m; VEd ${input.shear} kN.`);
-  text(`Detailing parameters: k1=${input.k1}; k2=${input.k2} mm; link spacing cap=${input.maxLinkSpacing} mm; end/lap zone=${Boolean(input.reducedZone)}.`);
-  const svgBytes = new TextEncoder().encode(sectionSvg(input));
-  const svgBase64 = btoa(Array.from(svgBytes, byte => String.fromCharCode(byte)).join(''));
-  add('image', { w: 440, h: 440, src: 'data:image/svg+xml;base64,' + svgBase64 });
-  text('Reinforcement geometry', 2);
-  for (const c of result.geometry) text(`${c.id}: ${c.count}Ø${c.bar}; angle ${c.angle}°; R_L=${c.barRadius.toFixed(2)} mm; radial clear=${c.radialClear ?? 'outer'} mm; `
-    + (c.link ? `closed link Ø${c.link.diameter} @ ${c.link.spacing} mm; R_S=${c.linkRadius.toFixed(2)} mm; effective shear legs=${c.link.effectiveLegs}.` : 'NO LINK.'));
-  text('Resistance estimates', 2);
-  for (const [label, value] of [['P–M utilization', result.combined], ['Conditional link shear utilization', result.shear],
-    ['Effective web width (mm)', result.width], ['cot θ', result.cot], ['Link shear resistance stress (MPa)', result.linkStress], ['Strut stress (MPa)', result.strutStress]]) {
-    text(label + ': ' + (value === null ? 'UNAVAILABLE' : value.toFixed(4)));
+  text('Design summary', true);
+  for (const row of result.rows) {
+    const ratio = row.ratio === Infinity ? ' · outside interaction envelope'
+      : Number.isFinite(row.ratio) ? ' · UR ' + row.ratio.toFixed(3) : '';
+    text(row.label + ' · ' + (row.statusLabel ?? row.status.toUpperCase()) + ratio + (row.detail ? ' · ' + row.detail : ''));
   }
-  text('Detailing and applicability checks', 2);
-  for (const check of result.detailing) text(check.status.toUpperCase() + ': ' + check.message
-    + (check.value === null ? '' : ' Value=' + check.value.toFixed(3) + ' mm' + (check.limit === null ? '' : '; threshold=' + check.limit.toFixed(3) + ' mm') + '.'));
-  text('P–M sampled resistance curve (kN m, kN)', 2);
-  for (let i = 0; i < result.curve.length; i += 4) text(result.curve.slice(i, i + 4).map(([m, n]) => `(${m.toFixed(2)}, ${n.toFixed(2)})`).join('  '));
-  const date = new Date().toISOString();
-  return { id: crypto.randomUUID(), title: 'Circular RC Column — closed links', version: 3, shapes,
-    createdAt: date, updatedAt: date, metadata: {}, inputResult: { title: 'Column', inputs: [], outputs: [], rows: [] },
-    settings: { unitSystem: 'SI', precision: 3, canvasMode: 'page', paper: 'A4', pageOrientation: 'portrait',
-      showHeaderFooter: true, textFont: 'Inter', pages: page + 1, snapToGrid: false, optimizePrintLayout: false } };
+  if (result.curve.length) {
+    const { series: [curve, , , , capacity, demand], ...presentation } = interaction;
+    const vector = (index, unit) => R`\mathrm{stack}\left(` + result.curve.map(point => point[index].toFixed(6)).join(',')
+      + R`\right)\,` + unit;
+    add('graph', { ...presentation, w: 520, h: 310, xLabel: 'M (kNm)', yLabel: 'P (kN)', background: '#ffffff',
+      title: 'P–M at demand direction', series: [
+        { ...curve, x: vector(0, R`\mathrm{kN}\cdot\mathrm{m}`), y: vector(1, R`\mathrm{kN}`) },
+        { ...capacity, label: 'Capacity at NEd', x: result.capacity.toFixed(6) + R`\,\mathrm{kN}\cdot\mathrm{m}`, y: 'N_{Ed}' },
+        { ...demand, x: R`\sqrt{M_{Ed.x}^2+M_{Ed.y}^2}` },
+      ] });
+  }
+  document.title = 'Circular RC Column Check';
+  document.shapes = shapes;
+  document.settings.pages = page + 1;
+  return document;
 }

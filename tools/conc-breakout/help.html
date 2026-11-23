@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mConcBreakout · Calculation Help</title>
+  <style>
+    body { margin: 0; background: #f4f6f5; color: #141414; font: 15px/1.6 Roboto, system-ui, sans-serif; }
+    main { max-width: 860px; margin: 0 auto; padding: 32px 24px 64px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: 32px 0 8px; }
+    h3 { font-size: 16px; margin: 20px 0 2px; }
+    p.lead { color: #56636a; margin: 0 0 24px; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; background: #fff; }
+    th, td { border: 1px solid #d6dbd9; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #eef1f0; }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+    .code { background: #dcefe3; color: #1b5733; }
+    .interp { background: #fbecd2; color: #7a4508; }
+    .assume { background: #e3e9f7; color: #22386b; }
+    ul { padding-left: 20px; }
+    .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>mConcBreakout · Calculation Help</h1>
+  <p class="lead">Cast-in steel plate with welded reinforcing bars and headed studs. The spatial model calculates signed anchor forces and preliminary Eurocode checks.</p>
+  <h2>Spatial load application</h2>
+  <p>The plate centre at the concrete interface is O. X points right, Y up and Z outward. Enter X, Y and Z at the load point P, and N, Vx, Vy, Mx, My and Mz. Positive N is tension. Use the right-hand rule for moments. The load table displays the equivalent moment at O as M<sub>O</sub> = M<sub>P</sub> + r × F.</p>
+  <h2>Spatial analysis and verification</h2>
+  <p>The connected member footprint is rigid. The plate is an elastic shell on compression-only concrete springs and tension-only axial fastener springs. The headed-stud shear springs act at the concrete interface and include the displacement from plate rotation. Supply the shear stiffness in N/mm from a justified load–slip model and the source of k<sub>8</sub>. Custom locations can override type-level spring stiffness.</p>
+  <p>Use plan and orthogonal sections to check geometry and load direction. The 3D view displays anchor force vectors, contact pressure, elastic plate stress and exaggerated deformation. The element-force table opens the available stiffness, force and utilization details for each anchor.</p>
+  <p>Review six-component equilibrium and the change in anchor and bearing resultants between meshes. Contact pressure is elastic. Confirm bearing and strut-and-tie transfer through the actual reinforcement. Splitting, directional group edge resistance, node and tie geometry, member welds, and other open checks remain visible in the summary. Spatial designs stay Incomplete while an essential verification is open.</p>
+  <p>See the <a href="https://github.com/Anhbq1298/mCalcPlatform/blob/feature/conc-breakout-3d-verification/tools/conc-breakout/BENCHMARKS.md">benchmark record</a> for the analytical checks and comparisons with ACI and InFaSo.</p>
+  <h2>Historical planar designs</h2>
+  <p>Files saved before schema 4 reopen in the historical mode. The following sections describe that calculation. The equivalent signed inputs are populated when reopening those files.</p>
+
+  <h2>1 Coordinates and sign convention</h2>
+  <p>The plate face lies in the x–y plane with the origin at the plate centre; y points up and z points into the concrete. N<sub>Ed</sub> &gt; 0 pulls the plate out. V<sub>Ed</sub> acts downward at e<sub>V</sub> from the plate face. The total moment M<sub>Ed</sub> + V<sub>Ed</sub>·e<sub>V</sub> must put the top (+y) in tension. Edge distances are measured from the plate centre to each free edge of the receiving member; a blank edge is far away. h<sub>ef</sub> is measured from the concrete face, so a flush plate adds its thickness to the stud length under the plate.</p>
+
+  <h2>2 Load path and equilibrium</h2>
+  <p><span class="tag assume">Assumption</span> The plate is rigid. Tension elements strain linearly with their distance from the compression centre and carry force in proportion to area × distance. That is how moment tension is shared between several bar rows, and between bars and studs when studs share tension.</p>
+  <p><span class="tag code">Code</span> <b>Flange T-stub model</b> (default): bearing acts under the compressed flange over b<sub>eff</sub> × l<sub>eff</sub>, extended by c = t·√(f<sub>y</sub>/(3f<sub>jd</sub>γ<sub>M0</sub>)), with its centre at the centroid of that area. Source: EN 1993-1-8 §6.2.5, Eq. 6.5–6.6. f<sub>jd</sub> = β<sub>j</sub>·α·f<sub>cd</sub>, where α ≤ 3 follows EN 1992-1-1 Eq. 6.63 and the engineer must justify it from the spread geometry.</p>
+  <p><span class="tag assume">Assumption</span> <b>Full-width block</b>: f<sub>jd</sub> over the full plate width from the bottom edge. The tool warns when B exceeds b + 2c, because the plate cannot then spread bearing across its full width.</p>
+  <p>The lever arm is not entered. It comes out of equilibrium: ΣT − C = N and ΣT·y − C·y<sub>c</sub> = M. With pure tension at small eccentricity, a linear field over the tension elements is used with no bearing.</p>
+
+  <h2>2b Flexible plate (FEM), the default analysis</h2>
+  <p><span class="tag assume">Assumption</span> The plate is modelled with MITC4 Reissner–Mindlin plate elements on a mesh of at most 25 mm. Grid lines pass through every bar, stud and flange line. The steel member is a rigid footprint over both flanges and the web line, an I-section, and carries N<sub>Ed</sub> and M<sub>Ed</sub>. Shear stays with the studs as in the rigid model.</p>
+  <ul>
+    <li>Concrete: compression-only Winkler springs, k<sub>c</sub> = E<sub>cm</sub>/(1.275·√(B·H)) per unit area. This is the concrete-in-compression coefficient k<sub>13</sub> of EN 1993-1-8 Table 6.11 spread over the plate. E<sub>cm</sub> is from EN 1992-1-1 Table 3.1.</li>
+    <li>Welded bars: tension-only springs E<sub>s</sub>A<sub>s</sub>/l<sub>e</sub>, with l<sub>e</sub> = ½·min(l<sub>b,prov</sub>, l<sub>b,rqd</sub>), spread over the nodes within the weld collar or one mesh step.</li>
+    <li>Studs, when they share tension: tension-only springs E<sub>s</sub>A<sub>s</sub>/h<sub>ef</sub>, the steel shank only. This is stiffer than the real stud, so stud tension is not underestimated.</li>
+    <li>When studs share tension, the stud springs are an upper bound on stud stiffness and would unload the bars. The model is therefore solved twice. The bars take the larger force from a run without stud tension and the run with it, and the studs take their force from the run with stiff stud springs. Each component is checked for its upper bound.</li>
+    <li>One-sided springs are solved by active-set iteration. The bar and stud forces from FEM replace the rigid-plate forces in every check. The bearing check compares the FEM compression resultant with the flange T-stub F<sub>c,Rd</sub>.</li>
+    <li>The plate is elastic. The von Mises stress at element centres is reported against f<sub>y</sub>/γ<sub>M0</sub> as a warning, not a failure. Peaks next to point springs depend on the mesh, and the yield-line strip check stays the resistance check. No plastic redistribution (EN 1993-1-5 Annex C) is modelled.</li>
+    <li>Verification (test/fem.test.mjs): Navier simply supported plate under a point load and under a uniform load (Timoshenko coefficients) within 1–1.5%. A 400 mm thick plate reproduces an independent rigid-plate-on-Winkler solution within 2%. Global equilibrium is checked for N &lt; 0, = 0 and &gt; 0.</li>
+  </ul>
+  <p>What changes physically: a thin plate concentrates bearing under the compression flange and raises the bar force. A thick plate behaves rigidly on the elastic concrete, so bearing moves toward the plate edge and the lever arm grows. The "Flexible vs rigid plate" row reports both.</p>
+
+  <h2>2c Custom fastener layout</h2>
+  <p>"Custom points" replaces the stud grid and bar rows with an editable list, seeded from the current grid. Click the plan to add a stud or a welded bar (whichever tool is active), click a point to select it (Shift for several), then convert it with Stud ↔ Bar or delete it. The table edits type, x, y and the bar Ø; studs share the stud properties above. Bars at the same y (±1 mm) form a row for plate bending, using the smallest bar gap and plate-edge distance in that row. The concrete cone area A<sub>c,N</sub> is the exact union of the projected squares, so any arrangement is covered. Edge breakout uses the lowest stud row (front) and the highest (rear).</p>
+  <p>The "Flexible vs rigid plate" row reports three deviations of the FEM tension forces from the rigid plate: the highest element force, the sum, and the departure from a linear (plane) distribution. These follow the close-to-rigid criteria Hilti publishes for PROFIS Engineering. They are reported without pass limits, because the FEM forces are used for design anyway.</p>
+
+  <h2>3 Welded bars</h2>
+  <ul>
+    <li><span class="tag code">Code</span> Steel: F ≤ A<sub>s</sub>·f<sub>yk</sub>/γ<sub>s</sub>.</li>
+    <li><span class="tag code">Code</span> Fillet weld all round the bar: EN 1993-1-8 §4.5.3.3, using f<sub>u</sub> = min(plate f<sub>u</sub>, k·f<sub>yk</sub>), weld length πØ. The welding procedure, joint type and bar weldability must follow EN ISO 17660-1, which this tool does not check. A warning appears when the weld is weaker than the bar's design yield.</li>
+    <li><span class="tag code">Code</span> Anchorage: EN 1992-1-1 §8.4 with the actual bar stress, α<sub>1</sub> = 0.7 for bent bars with c<sub>d</sub> &gt; 3Ø, α<sub>2</sub>…α<sub>5</sub> = 1.0. l<sub>b,prov</sub> is measured along the bar from the plate. Mandrel: Table 8.1N. Bearing stress inside the bend is not checked.</li>
+    <li><span class="tag interp">Method</span> Plate shear around the weld toe: perimeter π(Ø + 2√2·a) × t × f<sub>y</sub>/√3.</li>
+  </ul>
+
+  <h2>4 Plate bending</h2>
+  <p><span class="tag interp">Method</span> Each bar row loads a strip cantilevering from the toe of the member weld on the tension flange, m = y<sub>row</sub> − h<sub>m</sub>/2 − 0.8√2·a<sub>w</sub>. The strip width l<sub>eff</sub> is the smaller of the circular and non-circular yield-line lengths of EN 1993-1-8 Table 6.4, using the end-row group patterns, limited to the plate width. F<sub>Rd</sub> = M<sub>pl,Rd</sub>/m. There is no prying amplification. That assumes the plate beyond the bar row does not bear on the concrete, which differs from bolted base plates: a bar bonded along its length is much stiffer than a holding-down bolt. Rows inside the member outline (two-way bending between walls) are reported as not covered.</p>
+  <p><span class="tag assume">Assumption</span> Rigid-plate indicator: plate cantilever stiffness 3EI/m³ against bar axial stiffness EA/l<sub>e</sub>, where l<sub>e</sub> = ½·min(l<sub>b,prov</sub>, l<sub>b,rqd</sub>). Below 10, plate bending changes the force split between rows and between bars and studs. Check those cases with a plate (shell) FE model. This is an engineering criterion, not a code rule.</p>
+
+  <h2>5 Headed studs (EN 1992-4:2018)</h2>
+  <table>
+    <tr><th>Mode</th><th>Clause</th><th>Notes</th></tr>
+    <tr><td>Shear distribution</td><td>§6.2.2</td><td>Studs welded to the plate have no hole clearance, so all of them share the shear equally. Friction 0.2·N<sub>c,Ed</sub> (EN 1993-1-8 §6.2.2(6)) is used only when enabled and only from net axial compression.</td></tr>
+    <tr><td>Steel shear</td><td>Eq. 7.34–7.35</td><td>k<sub>6</sub> = 0.6 (f<sub>uk</sub> ≤ 500) or 0.5; k<sub>7</sub> = 1.0 ductile, 0.8 otherwise; γ<sub>Ms</sub> per Table 4.1.</td></tr>
+    <tr><td>Pry-out</td><td>Eq. 7.39a</td><td>k<sub>8</sub> comes from the product specification. The default 2.0 matches the value used in the INFASO examples; confirm it for the studs used.</td></tr>
+    <tr><td>Edge breakout</td><td>Eq. 7.40–7.46</td><td><span class="tag interp">Method</span> Toward the lower edge only, two cases: the front row with its share, and the rear row with the full shear. The worse one governs. A narrow thin member uses c<sub>1</sub>′. ψ<sub>α,V</sub> = 1 because the shear is perpendicular to the edge.</td></tr>
+    <tr><td>Concrete cone</td><td>Eq. 7.1–7.9</td><td>k<sub>1</sub> = 8.9 cracked or 12.7 uncracked; A<sub>c,N</sub> is the exact union of the projected squares, clipped to the edges; ψ<sub>ec,N</sub> comes from the stud force resultant; ψ<sub>M,N</sub> = 1 (conservative); h′<sub>ef</sub> applies with three or more close edges.</td></tr>
+    <tr><td>Pull-out</td><td>Eq. 7.11–7.12</td><td>k<sub>2</sub> = 7.5 cracked or 10.5 uncracked.</td></tr>
+    <tr><td>Splitting</td><td>§7.2.1.7</td><td>Pass only with cracked concrete and the confirmed splitting reinforcement (w<sub>k</sub> ≤ 0.3 mm). ΣA<sub>s,re</sub> uses Eq. 7.22 with k<sub>4</sub> = 0.5.</td></tr>
+    <tr><td>Blow-out</td><td>§7.2.1.8</td><td>Not implemented. When c ≤ 0.5h<sub>ef</sub> the design is reported Incomplete.</td></tr>
+    <tr><td>Interaction</td><td>Eq. 7.54, 7.55</td><td>Steel: quadratic. Concrete: exponent 1.5, with each ratio capped at 1.</td></tr>
+  </table>
+
+  <h2>6 Answers to the key modelling questions</h2>
+  <h3>Can the concrete cone be omitted because welded bars carry the tension?</h3>
+  <p>For the studs, only when the studs really are free of tension: they must sit in the compression zone, or the bars must be much stiffer so that plate deformation does not load them. The tool flags any stud in the tension zone when stud tension is neglected. The bars themselves are not anchors under EN 1992-4. Their tension must be anchored beyond any potential breakout body and lapped into the member reinforcement. That is the separately confirmed load path, not supplementary reinforcement in the sense of §7.2.1.9.</p>
+  <h3>When can studs be designed for shear only?</h3>
+  <p>When the rigid-plate strain field puts them at or below the compression centre, or when a flexible-plate analysis shows that their tension is negligible. Otherwise select "Studs share tension".</p>
+  <h3>Where is the compression resultant, and what is the lever arm?</h3>
+  <p>The compression resultant sits at the centroid of the effective bearing area under the compressed flange (T-stub model), or at x/2 for the full-width block. The lever arm is the distance from it to the tension resultant, which comes from equilibrium.</p>
+  <h3>Strut-and-tie model of the receiving member</h3>
+  <p>The section drawing shows a conceptual D-region and strut lines; it is not a solved STM. The tool checks the bearing node stress against k<sub>1</sub>ν′f<sub>cd</sub> (EN 1992-1-1 Eq. 6.60), but a statically admissible STM depends on the member's own reinforcement, which is not an input. The design stays Incomplete until the engineer confirms that the bar ties, the bearing strut and any breakout bodies are carried into the member reinforcement.</p>
+  <h3>Is the SCI / EN 1993-1-8 T-stub directly applicable?</h3>
+  <p>Its yield-line lengths are, because they depend on the plate and the load points, not on the fastener type. Its prying and bolt-elongation rules are not. Welded bonded bars are stiff and cannot separate from the plate, which is why the strip check here uses a cantilever with no prying.</p>
+
+  <h2>7 Drawing convention and 3D view</h2>
+  <p>The 3D tab is an SVG projection: drag to rotate, use the wheel or buttons to zoom, or the arrow keys. It colours the plate by σ<sub>vM</sub>, deflection w or contact pressure, with optional exaggerated deformation, and shows bars coloured by utilisation and the checked breakout bodies dashed. Studs drawn red carry tension. The concrete is drawn only to the free edges, or 260 mm beyond the plate where no edge is set.</p>
+  <p><span class="swatch" style="background:#e3e5e7"></span>Concrete <span class="swatch" style="background:#5b6b7d"></span>Steel plate and studs <span class="swatch" style="background:#e07b00"></span>Reinforcement <span class="swatch" style="background:#c62828"></span>Tension and failure surfaces (dashed) <span class="swatch" style="background:#1f5fbf"></span>Compression <span class="swatch" style="background:#7b1fa2"></span>Applied shear</p>
+
+  <h2>8 Not covered</h2>
+  <ul>
+    <li>Biaxial actions (M<sub>x</sub>, V<sub>x</sub>), upward shear, and shear toward the side or top edges.</li>
+    <li>Supplementary reinforcement for stud breakout, blow-out values, and splitting from product data.</li>
+    <li>The steel member, the member-to-plate weld, and two-way plate bending inside the member outline.</li>
+    <li>National Annex values, and fatigue, seismic and fire situations.</li>
+  </ul>
+</main>
+</body>
+</html>

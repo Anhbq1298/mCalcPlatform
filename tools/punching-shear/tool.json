@@ -1,0 +1,32 @@
+{
+  "id": "punching-shear",
+  "name": "mPunchingShear",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "schema": 1,
+  "folder": "floors",
+  "labels": [
+    "member.slab",
+    "status.wip"
+  ],
+  "entry": "t/punching-shear/",
+  "fileExtension": "mpsh",
+  "description": "Slab–column punching shear to EN 1992-1-1 §6.4 for internal, edge and corner columns, with openings, drop panels and shear links, using the CEN recommended values.",
+  "inputs": {
+    "type": "object"
+  },
+  "outputs": {},
+  "permissions": [],
+  "title": "Punching Shear",
+  "code": "EC2",
+  "category": "concrete",
+  "designCodes": [{ "id": "EN-1992-1-1", "label": "EC2 · EN 1992-1-1" }],
+  "keywords": [
+    "eurocode 2",
+    "punching shear",
+    "flat slab",
+    "links",
+    "control perimeter",
+    "beta"
+  ]
+}

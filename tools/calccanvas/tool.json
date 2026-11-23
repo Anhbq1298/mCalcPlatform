@@ -9,6 +9,7 @@
     "worksheet.general"
   ],
   "entry": "calc/",
+  "fileExtension": "mccv",
   "description": "Editable engineering worksheets with units, charts, and calculation templates.",
   "inputs": {
     "type": "object"
@@ -16,6 +17,7 @@
   "outputs": {},
   "permissions": [],
   "title": "Calculation Worksheet",
+  "category": "general",
   "keywords": [
     "canvas",
     "spreadsheet",

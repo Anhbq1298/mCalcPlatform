@@ -13,10 +13,13 @@ export interface DesignTool<I, R = Record<string, unknown>> {
   outputs(inputs: I): Record<string, Quantity> | Promise<Record<string, Quantity>>;
   report(inputs: I): R | Promise<R>;
 }
+export type ToolCategory = 'concrete' | 'steel' | 'composite' | 'general';
+export interface DesignCode { id: string; label: string }
 export interface ToolManifest {
   id: string; name: string; version: string; schema: number; labels: string[]; folder: string;
   entry: string; description: string;
-  title?: string; code?: string; keywords?: string[]; localDraft?: string;
+  category?: ToolCategory; designCodes?: DesignCode[];
+  title?: string; code?: string; keywords?: string[]; localDraft?: string; fileExtension?: string;
 }
 export interface ProjectDoc {
   id: string; name: string; settings: Record<string, unknown>;
@@ -35,10 +38,10 @@ export interface WorkspaceStore {
   addProjectDesign(projectId: string, folderId: string, design: DesignDoc): Promise<void>;
   moveDesign(projectId: string, designId: string, folderId: string): Promise<void>;
   importPackage(contents: PackageContents): Promise<IDBValidKey | undefined>;
+  copyFolder(projectId: string, folderId: string, parentId?: string): Promise<IDBValidKey | undefined>;
 }
 export interface ToolPageAdapter {
-  /** Advance inputs from this schema to the next schema, preserving unknown fields. */
-  migrate?(inputs: Record<string, unknown>, fromSchema: number): object | Promise<object>;
+  migrate?(inputs: Record<string, unknown>, from: number): Record<string, unknown> | Promise<Record<string, unknown>>;
   snapshot(): object | Promise<object>;
   restore(inputs: Record<string, unknown>): void | Promise<void>;
   reset?(): void | Promise<void>;
@@ -54,6 +57,16 @@ export declare const projectFolders: [string, string][];
 export declare function createStore(factory?: IDBFactory): WorkspaceStore;
 export declare function exportPackage(contents: PackageContents): Promise<Blob>;
 export declare function importPackage(file: Blob): Promise<PackageContents>;
+export declare function isDesignExtension(extension: string): boolean;
+export declare function designFileName(doc: DesignDoc, tool: ToolManifest): string;
+export declare function exportDesignFile(doc: DesignDoc, tool: ToolManifest): Promise<Blob>;
+export declare function importDesignFile(file: File, tools: ToolManifest[]): Promise<DesignDoc>;
 export declare function mountToolShell(options: {
   tool: ToolManifest; getAdapter(): ToolPageAdapter | undefined; home: URL; reportUrl: URL; reportOwner?: DesignDoc;
 }): void;
+export declare function createFolder(name: string, parentId?: string): ProjectDoc['folders'][number];
+export declare function withFolder(project: ProjectDoc, folder: ProjectDoc['folders'][number]): ProjectDoc;
+export declare function withFolderName(project: ProjectDoc, folderId: string, name: string): ProjectDoc;
+export declare function childFolders(project: ProjectDoc, parentId?: string): ProjectDoc['folders'];
+export declare function folderPath(project: ProjectDoc, folderId: string): ProjectDoc['folders'];
+export declare function folderBreadcrumb(project: ProjectDoc, folder: ProjectDoc['folders'][number]): string;

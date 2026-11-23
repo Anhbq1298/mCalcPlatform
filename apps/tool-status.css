@@ -1,0 +1,12 @@
+.tool-wip {
+  display: inline-block;
+  align-self: center;
+  padding: .15rem .4rem;
+  border: 1px solid #c58a38;
+  border-radius: 4px;
+  background: #fff2d6;
+  color: #794908;
+  font-size: .75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}

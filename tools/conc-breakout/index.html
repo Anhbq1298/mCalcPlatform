@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mConcBreakout</title>
+</head>
+<body>
+  <header class="titlebar">
+    <h1>mConcBreakout <span>Embedded Plate · Welded Bars · Headed Studs</span></h1>
+    <a class="help-link" href="help.html" target="_blank" rel="noopener">Help</a>
+    <output id="calculation-status" aria-live="polite">Preparing</output>
+  </header>
+  <main class="column-layout breakout-layout">
+    <form id="breakout-inputs" aria-label="Embedded plate inputs"></form>
+    <section class="section-view drawing-views" aria-labelledby="drawing-title">
+      <h2 id="drawing-title" class="visually-hidden">Drawings</h2>
+      <div class="drawing-tabs" role="tablist" aria-label="Drawings">
+        <button type="button" role="tab" data-tab="plan" aria-selected="true">Plan</button>
+        <button type="button" role="tab" data-tab="section" aria-selected="false">Section Y–Y</button>
+        <button type="button" role="tab" data-tab="section-x" aria-selected="false">Section X–X</button>
+        <button type="button" role="tab" data-tab="view3d" aria-selected="false">3D</button>
+        <button type="button" role="tab" data-tab="forces" aria-selected="false">Element forces</button>
+      </div>
+      <div class="tab-panel" data-panel="plan"><div id="plan-view" class="drawing"></div></div>
+      <div class="tab-panel" data-panel="section" hidden><div id="section-view" class="drawing"></div></div>
+      <div class="tab-panel" data-panel="section-x" hidden><div id="section-x-view" class="drawing"></div></div>
+      <div class="tab-panel" data-panel="view3d" hidden><div id="viewer-3d"></div></div>
+      <div class="tab-panel" data-panel="forces" hidden>
+        <table class="column-summary-table" id="force-table">
+          <thead><tr><th scope="col">Element</th><th scope="col">x (mm)</th><th scope="col">y (mm)</th><th scope="col">Tension (kN)</th><th scope="col">Vx (kN)</th><th scope="col">Vy (kN)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <output id="anchor-detail" aria-live="polite"></output>
+      </div>
+      <div id="equivalent-loads"></div>
+    </section>
+    <section class="checks" aria-labelledby="results-title">
+      <h2 id="results-title">Check summary</h2>
+      <p id="design-basis">EN 1992-4:2018 · EN 1992-1-1:2004 · EN 1993-1-8:2005 · recommended values, no National Annex</p>
+      <div id="column-check-summary" aria-live="polite"></div>
+      <p id="design-status"></p>
+      <details class="all-values">
+        <summary>Detailed calculation</summary>
+        <dl id="check-references"></dl>
+      </details>
+    </section>
+  </main>
+  <script type="module" src="/platform/tools/conc-breakout/src/page.mjs"></script>
+</body>
+</html>

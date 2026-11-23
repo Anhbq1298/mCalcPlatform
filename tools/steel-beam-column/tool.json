@@ -9,6 +9,7 @@
     "member.beam"
   ],
   "entry": "t/steel-beam-column/",
+  "fileExtension": "msbc",
   "description": "Steel beam-column section and member checks for I/H, RHS, SHS, and CHS sections.",
   "inputs": {
     "type": "object"
@@ -17,6 +18,8 @@
   "permissions": [],
   "title": "Steel Beam-Column",
   "code": "EC3",
+  "category": "steel",
+  "designCodes": [{ "id": "EN-1993-1-1", "label": "EC3 · EN 1993-1-1" }],
   "keywords": [
     "eurocode 3",
     "steel beam",

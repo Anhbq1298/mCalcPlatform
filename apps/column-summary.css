@@ -14,3 +14,4 @@
 .column-summary-verdict [data-tone="incomplete"], .column-summary-table [data-tone="incomplete"],
 .column-summary-table [data-tone="second-order"] { color: #8a510d; }
 .column-summary-table [data-tone="off"] { color: #56636a; }
+.column-summary-verdict [data-tone="warning"], .column-summary-table [data-tone="warning"] { color: #8a510d; }

@@ -47,19 +47,25 @@ dd { margin: 0; font-variant-numeric: tabular-nums; }
   #column-inputs, .interaction, .checks { grid-column: 1; grid-row: auto; }
 }
 
-#circular-section { width: 100%; aspect-ratio: 1; }
-#circular-section svg { display:block; width:100%; height:100%; }
-.layer-table { width:100%; border-collapse:collapse; font-size:.78rem; }
-.layer-table th { text-align:left; font-weight:500; }
-.layer-table td { padding: .2rem; }
-.layer-table input { min-width:2.6rem; }
-.layer-table + button { margin-top:.4rem; }
-details { margin-top: 1rem; }
-summary { cursor: pointer; color: var(--steel); }
-.charthead { display:flex; gap:.4rem .8rem; align-items:baseline; flex-wrap:wrap; }
-.charthead h2 { margin-right:auto; }
-.charthead label { display:flex; font-size:.75rem; }
-.charthead input { width:4rem; }
-.column-layout { grid-template-columns: minmax(25rem, 29rem) minmax(18rem, 1fr) minmax(18rem, 25rem); }
-@media(max-width:75rem) { .column-layout {grid-template-columns: minmax(25rem, 1fr) minmax(19rem, 1fr);} .checks {grid-column:2;grid-row:auto;} }
-@media(max-width:48rem) { .column-layout {grid-template-columns: minmax(0,1fr);} #column-inputs,.interaction,.checks {grid-column:1;grid-row:auto;} }
+#circular-section { display: block; width: 100%; max-height: 32rem; }
+#section-legend span { display: block; }
+.cad-dimension { fill: var(--ink); font: 14px ui-monospace, monospace; }
+.layer-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.layer-table th, .layer-table td { padding: .2rem; }
+.layer-table th { font-size: .75rem; text-align: center; }
+.layer-table th:first-child { width: 2.6rem; text-align: left; }
+.layer-buttons { display: flex; gap: .4rem; margin-top: .4rem; }
+.layer-buttons button, #convert-links { font: inherit; color: var(--ink); background: white; border: 1px solid var(--rule); border-radius: 3px; padding: .3rem .55rem; }
+.layer-buttons button:disabled { opacity: .45; }
+
+.interaction-grid { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .65rem; }
+.interaction-grid label { display: inline-flex; gap: .3rem; margin: 0; font-size: .75rem; }
+.interaction-grid input[type="number"] { width: 4rem; padding: .2rem .3rem; }
+.interaction-axis { color: #435159; font-size: .75rem; font-weight: 500; }
+#plot-axis-p { margin-top: .5rem; }
+.interaction-axis-m { text-align: right; }
+.mode-choice { display: flex; align-items: center; }
+.mode-choice input { margin: 0; }
+#coordinate-editor { margin-top: .75rem; }
+summary { cursor: pointer; font-weight: 500; }
+#coordinate-editor table { margin-top: .35rem; }

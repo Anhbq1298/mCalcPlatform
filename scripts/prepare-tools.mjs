@@ -148,7 +148,7 @@ export async function integrateColumn(root) {
     ["    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');",
       "    const saved = new URLSearchParams(location.search).has('legacy') ? JSON.parse(localStorage.getItem(STORE_KEY) || 'null') : null;"],
     ["  const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {} };",
-      "  const save = () => { if (new URLSearchParams(location.search).has('legacy')) { "
+      "  const save = () => { if (!activeEditor?.committed && new URLSearchParams(location.search).has('legacy')) { "
       + "try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {} } };"],
     ['  setTimeout(typesetLabels, 600);', `  window.mcalcColumnAdapter = {
     snapshot: () => structuredClone(state),
