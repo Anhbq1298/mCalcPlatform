@@ -78,9 +78,24 @@ export function renderDetails(list, result, loadName) {
   }
 }
 
-export function renderMessages(container, result) {
+export function renderMessages(container, result, actionsFor = () => []) {
   container.replaceChildren();
-  for (const issue of result.issues ?? []) container.append(message(issue.state + ': ' + issue.message, tone(issue.state)));
+  for (const issue of result.issues ?? []) {
+    const entry = message(issue.state + ': ' + issue.message, tone(issue.state));
+    const actions = actionsFor(issue);
+    if (actions.length) {
+      const buttons = document.createElement('div');
+      buttons.className = 'punching-message-actions';
+      for (const [label, activate] of actions) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.addEventListener('click', activate);
+        buttons.append(button);
+      }
+      container.append(entry, buttons);
+    } else container.append(entry);
+  }
   for (const note of result.notes ?? []) container.append(message(note, 'note'));
   if (result.layout?.reason && result.layout.reason !== 'No punching reinforcement required.') container.append(message('Layout: ' + result.layout.reason, 'fail'));
 }

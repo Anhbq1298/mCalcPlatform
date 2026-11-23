@@ -1,5 +1,7 @@
 import { renderBreakoutSummary } from './check-summary.mjs';
 import '../../../apps/column-summary.css';
+import { toolStatusBadge } from '../../../apps/tool-status.mjs';
+import toolManifest from '../tool.json' with { type: 'json' };
 import { registerPage } from '../../../apps/tool-page.mjs';
 import { A4, PAGE_GAP } from '../../../../src/export/pageGeometry.ts';
 import { legacyLoading } from './loads.mjs';
@@ -17,6 +19,9 @@ import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import './style.css';
+
+const wipBadge = toolStatusBadge(toolManifest);
+if (wipBadge) document.querySelector('.titlebar h1').after(wipBadge);
 
 const byId = id => document.getElementById(id);
 const status = byId('calculation-status');

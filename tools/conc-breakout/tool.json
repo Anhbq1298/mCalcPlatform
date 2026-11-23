@@ -6,7 +6,8 @@
   "schema": 4,
   "folder": "connections",
   "labels": [
-    "member.connection"
+    "member.connection",
+    "status.wip"
   ],
   "entry": "t/conc-breakout/",
   "fileExtension": "mcbo",

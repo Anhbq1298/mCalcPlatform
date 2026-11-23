@@ -26,6 +26,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 360, height: 780 
         ['Embedded Plate & Concrete Breakout', 'mcbo'],
       ]) {
         const card = cards(toolLibrary).filter({ has: page.getByRole('heading', { name: toolName, exact: true }) });
+        await expect(card.locator('.tool-wip')).toHaveCount(['mpsh', 'mcbo'].includes(extension) ? 1 : 0);
         await expect(card.getByRole('button', { name: 'Open .' + extension, exact: true })).toBeVisible();
         await expect(card.locator('input[type=file]')).toHaveAttribute('accept', '.' + extension);
       }
@@ -72,6 +73,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 360, height: 780 
       await page.getByRole('button', { name: '+ Add design module', exact: true }).click();
       await expect(categories(dialog, 'All')).toHaveAttribute('aria-pressed', 'true');
       await expect(cards(dialog)).toHaveCount(7);
+      await expect(dialog.locator('.tool-wip')).toHaveText(['WIP', 'WIP']);
       const search = dialog.getByRole('searchbox', { name: 'Search modules' });
       await expect(search).toBeFocused();
       await categories(dialog, 'Concrete').click();
@@ -167,4 +169,14 @@ test('opens a native worksheet file as an editable Canvas design', async ({ page
   await expect(shell.getByLabel('Design name')).toHaveValue(worksheet.title, { timeout: 45000 });
   await expect(page.getByText('Native worksheet contents', { exact: true })).toBeVisible();
   await expect(shell.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+});
+
+
+test('shows WIP on both standalone calculator pages', async ({ page }) => {
+  for (const route of ['punching-shear', 'conc-breakout']) {
+    await page.goto('./t/' + route + '/?new=1');
+    const status = page.locator('.titlebar .tool-wip');
+    await expect(status).toHaveText('WIP');
+    await expect(status).toHaveAttribute('title', 'Work in progress');
+  }
 });
