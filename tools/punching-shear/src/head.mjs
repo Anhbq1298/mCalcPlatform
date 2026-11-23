@@ -14,6 +14,7 @@
 // shows heads only at internal columns, so this is a geometric interpretation (see help.html).
 import { calculate, worstState } from './calculate.mjs';
 import { STATES, derivedSection, groupLayers, layersToGroups, restoreInputs } from './inputs.mjs';
+import { SETBACK_LINKS_DETAIL } from './setback-perimeter.mjs';
 
 const derivedBarSpacing = input => (Math.abs((input.flexure?.sX ?? 0) - (input.flexure?.sY ?? 0)) < 1e-6 ? input.flexure.sX : 0);
 import { compositeInner } from './composite.mjs';
@@ -235,10 +236,11 @@ export function calculateDesign(raw, forcedKind = null) {
     split.notes.push(`l_H = ${geo.lH.map(v => v.toFixed(0)).join(' / ')} mm: not every side has l_H < 2h_H = ${(2 * geo.hH).toFixed(0)} mm, so Fig. 6.18 applies (§6.4.2(8)–(9)). Inside the head the section is composite: d_H at 2d_H where l_H ≥ 2h_H, the slab section at 2d from the head outline elsewhere, since there the crack leaves through the side of the head (see Help).`);
   }
   if (input.beta.method === 'moment') split.notes.push('β from moments with a drop uses the column (inside) or the drop (outside) as the loaded area (Eq. 6.39/6.42), see Help.');
-  const zone = (layers, layerBase) => (provided ? { layers } : { layerBase });
+  const setback = base.setback?.projected ? { noLinks: SETBACK_LINKS_DETAIL } : {};
+  const zone = (layers, layerBase) => ({ ...(provided ? { layers } : { layerBase }), ...setback });
   // Links needed around the drop: say how large a drop (same depth) would need none there.
   const hint = outer => {
-    if (!outer.loads?.some(load => load.required) || input.head.shape === 'circular' && !(input.head.diameter > 0)) return;
+    if (setback.noLinks || !outer.loads?.some(load => load.required) || input.head.shape === 'circular' && !(input.head.diameter > 0)) return;
     const size = dropForNoLinks(input, betaCap);
     if (size) split.notes.push(`Links are needed in the slab around the drop. A drop of ${size} (same depth) would need none there (β of the column connection; inside the drop unchanged).`);
   };

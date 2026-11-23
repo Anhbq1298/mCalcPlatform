@@ -14,6 +14,7 @@ import { profileFor } from './profile.mjs';
 import { CODE_PARAMETERS as P, outerPerimeterLength, requiredAswPerPerimeter } from './resistance.mjs';
 import { checkLayout, row } from './reinforcement-checks.mjs';
 import { createContext, geometryLimits, positionIssues } from './setup.mjs';
+import { SETBACK_LINKS_DETAIL } from './setback-perimeter.mjs';
 
 const ORDER = [STATES.unsupportedGeometry, STATES.unsupportedLoading, STATES.fail, STATES.incomplete, STATES.notVerified, STATES.confirm, STATES.pass];
 const informational = state => state === STATES.notRequired || state === STATES.linksRequired;
@@ -32,7 +33,7 @@ function demandFor(ctx, load) {
   const vEd1 = shearDemand({ V: load.V, beta: beta.value, u: u1, d });
   const required = vEd1 > res.vRdc + 1e-12;
   const uOut = outerPerimeterLength({ beta: beta.value, V: load.V, vRdc: res.vRdc, d });
-  const aOut = offsetForLength(model, uOut, (m, r) => m.intervalsAt(r));
+  const aOut = ctx.options.noLinks ? null : offsetForLength(model, uOut, (m, r) => m.intervalsAt(r));
   const aswReq = required ? requiredAswPerPerimeter({ vEd: vEd1, vRdc: res.vRdc, u1, sr: ctx.envelopeSr, fywdEf: ctx.fywdEf }) : 0;
   return { load, beta, vEd0, vEd1, required, uOut, aOut, aswReq };
 }
@@ -92,7 +93,7 @@ export function calculate(rawInput, options = {}) {
   const blocking = positionIssues(input, ctx.position, ctx.setback);
   if (blocking.length) return { status: worstState(blocking.map(item => item.state)), issues: blocking, notes: [], profile, loads: [], input, position: ctx.position };
   if (ctx.setback?.projected) {
-    options = { ...options, noLinks: 'Concrete resistance is calculated for the setback perimeter. The required link layout must be designed separately.' };
+    options = { ...options, noLinks: SETBACK_LINKS_DETAIL };
     ctx.options = options;
   }
 
@@ -113,12 +114,12 @@ export function calculate(rawInput, options = {}) {
     ? `Auto arrangement: s_r = ${sr} mm exceeds 0.75d = ${(P.radialSpacing * d).toFixed(0)} mm (§9.4.3(1)); ${srLimit} mm used.` : null);
   const demands = loads.map(load => demandFor(ctx, load));
   const needing = demands.filter(item => item.required);
-  if (!ctx.setback?.projected && needing.some(item => item.aOut === null)) {
+  if (!options.noLinks && needing.some(item => item.aOut === null)) {
     const issue = { state: STATES.unsupportedGeometry, message: 'The outer perimeter u_out,ef cannot be reached inside the slab.' };
     return { status: issue.state, issues: [issue], notes: [], profile, loads: [], input };
   }
   const envelope = { aswReq: Math.max(0, ...needing.map(item => item.aswReq)), aOut: Math.max(0, ...needing.map(item => item.aOut)), sr: ctx.envelopeSr };
-  envelope.uOut = needing.length ? Math.max(...needing.map(item => item.uOut)) : null;
+  envelope.uOut = needing.length && !options.noLinks ? Math.max(...needing.map(item => item.uOut)) : null;
   // options.compactOuterZone: fixed by the caller (composite inner section: links designed for scaled loads
   // keep the zone the actual loads give).
   ctx.compactOuterZone = options.compactOuterZone ?? Boolean(profile.compactOuterZone && envelope.aOut > 0 && envelope.aOut < 3 * d - 1e-6);

@@ -119,6 +119,13 @@ test('a setback drop checks both the inner section and the perimeter around the 
     const outerExpected = corner ? 1525 + 1600 + Math.PI * 210 : 2 * 1525 + 2400 + 2 * Math.PI * 210;
     close(inner.u1, innerExpected);
     close(outer.u1, outerExpected);
+    input.loads[0].V = 1000;
+    const high = calculateDesign(input);
+    assert.equal(high.status, 'Unsupported geometry');
+    assert.equal(high.loads.length, 1);
+    close(high.head.sections[0].u1, innerExpected);
+    close(high.head.sections[1].u1, outerExpected);
+    assert.equal(high.layout.layers.length, 0);
   }
 });
 

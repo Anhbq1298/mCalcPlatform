@@ -2,6 +2,8 @@ import { perimeterAtOffset } from './geometry.mjs';
 import { overhangSides, slabOverhang } from './overhang.mjs';
 import { orthogonal } from './position.mjs';
 
+export const SETBACK_LINKS_DETAIL = 'Concrete resistance is calculated for the setback connection. The required link layout needs a separate design.';
+
 const lengthOf = ({ cx, cy }, sides, r) => {
   if (sides.length === 2) return cx + cy + Math.PI * r / 2;
   return (sides[0].startsWith('x') ? 2 * cx + cy : cx + 2 * cy) + Math.PI * r;

@@ -209,6 +209,7 @@ function combination(doc, result, load, i, rect, hasSr) {
   }
   doc.text('v_Ed > v_Rd,c: punching reinforcement required (§6.4.5).', 12);
   doc.math('Upper limit with links', R`v_{Ed1.${i}}\le k_{max}v_{Rd.c}`, { displayUnit: 'MPa', mode: 'auto' });
+  if (load.aOut === null) return;
   const ef = load.rows.find(row => row.id === 'outer' && row.measure === 'perimeter-length');
   doc.math('u_out,req (Eq. 6.54)', define(`u_{out.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{v_{Rd.c}d}`), { displayUnit: 'mm', precision: 0 });
   doc.math(result.shadows?.length ? 'Offset of u_out,req (measured by the tool)' : 'Offset of u_out,req from the face', define(`a_{out.${i}}`, outerOffset(result, i, rect)), { displayUnit: 'mm', precision: 0 });
