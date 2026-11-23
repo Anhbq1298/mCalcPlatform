@@ -117,7 +117,7 @@ test('openings within 6d reduce the perimeters; distant openings are only noted'
 
 test('incomplete and unsupported inputs never give Pass', () => {
   const states = [];
-  const edge = base(); edge.column.position = 'edge'; states.push(calculate(edge).status);
+  const position = base(); position.column.position = ''; states.push(calculate(position).status);
   const unconfirmed = base(); unconfirmed.beta.confirmed = false; states.push(calculate(unconfirmed).status);
   const noLoad = base(); noLoad.loads = []; states.push(calculate(noLoad).status);
   const uplift = base(); uplift.loads = [{ name: 'U', V: 0, Mx: 10, My: 0 }]; states.push(calculate(uplift).status);

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculate } from '../src/calculate.mjs';
+import { calculateDesign } from '../src/head.mjs';
+import { exampleById } from '../src/examples.mjs';
 import { cenDefaults } from '../src/inputs.mjs';
 
 const close = (a, b, tol = 1e-3) => assert.ok(Math.abs(a - b) <= tol, `${a} ≠ ${b}`);
@@ -72,4 +74,66 @@ test('position must match the geometry; rotated or circular edge columns are uns
   assert.equal(round.status, 'Unsupported geometry');
   const setback = calculate(edgeInput(input => { input.column.position = 'internal'; input.column.x = 3500; }));
   assert.equal(setback.status, 'Unsupported geometry');
+});
+
+test('rectangular setbacks return to the slab edge and use the shortest perimeter', () => {
+  const run = (x, y) => calculate(edgeInput(input => {
+    input.slab.xMax += x;
+    if (y !== null) {
+      input.column.position = 'corner';
+      input.slab.yMax = input.column.cy / 2 + y;
+    }
+    input.loads[0].V = 120;
+  }));
+  const edge = run(75, null);
+  const corner = run(75, 125);
+  const oneEdge = run(75, 1300);
+  const interior = run(1000, null);
+  for (const [result, kind, u1, beta] of [
+    [edge, 'edge', 2 * (400 + 75) + 300 + 400 * Math.PI, 1.4],
+    [corner, 'corner', 400 + 75 + 300 + 125 + 200 * Math.PI, 1.5],
+    [oneEdge, 'edge', 2 * (400 + 75) + 300 + 400 * Math.PI, 1.4],
+    [interior, 'internal', 2 * (400 + 300) + 800 * Math.PI, 1.15],
+  ]) {
+    assert.equal(result.status, 'Pass');
+    assert.equal(result.position.kind, kind);
+    close(result.u1, u1);
+    close(result.model.intervalsAt(400).total, u1);
+    close(result.loads[0].vEd1, beta * 120000 / (u1 * 200), 1e-9);
+  }
+  close(edge.u0, 900, 1e-9);
+  close(corner.u0, 600, 1e-9);
+  assert.match(edge.notes.join(' '), /special slab-edge reinforcement/);
+});
+
+test('a setback drop checks both the inner section and the perimeter around the clipped drop', () => {
+  for (const [id, corner] of [['edge-drop', false], ['corner-drop', true]]) {
+    const input = structuredClone(exampleById(id).input);
+    input.slab.xMax += 75;
+    if (corner) input.slab.yMax += 150;
+    input.loads[0].V = 120;
+    const result = calculateDesign(input);
+    assert.equal(result.status, 'Pass');
+    const [inner, outer] = result.head.sections;
+    const innerExpected = corner ? 575 + 650 + Math.PI * 360 : 2 * 575 + 500 + 2 * Math.PI * 360;
+    const outerExpected = corner ? 1525 + 1600 + Math.PI * 210 : 2 * 1525 + 2400 + 2 * Math.PI * 210;
+    close(inner.u1, innerExpected);
+    close(outer.u1, outerExpected);
+    input.loads[0].V = 1000;
+    const high = calculateDesign(input);
+    assert.equal(high.status, 'Unsupported geometry');
+    assert.equal(high.loads.length, 1);
+    close(high.head.sections[0].u1, innerExpected);
+    close(high.head.sections[1].u1, outerExpected);
+    assert.equal(high.layout.layers.length, 0);
+  }
+});
+
+test('setback moment and link design limits stay explicit', () => {
+  const moment = calculate(edgeInput(input => { input.slab.xMax += 75; input.beta.method = 'moment'; }));
+  assert.equal(moment.issues[0].code, 'set-back-beta');
+  const reinforced = calculate(edgeInput(input => { input.slab.xMax += 75; }));
+  assert.ok(reinforced.loads[0].required);
+  assert.equal(reinforced.status, 'Unsupported geometry');
+  assert.equal(reinforced.layout.layers.length, 0);
 });

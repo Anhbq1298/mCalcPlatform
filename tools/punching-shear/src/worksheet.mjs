@@ -113,6 +113,12 @@ function edgeBeta(doc, result, load, i, kind) {
 }
 
 function perimeters(doc, result, kind, rect) {
+  if (result.setback?.projected && !result.head) {
+    doc.text('The governing Fig. 6.15 perimeter returns to the slab edge. The face check uses the reduced flush perimeter of the actual column.', 12);
+    doc.math('Loaded perimeter u_0', define('u_{0}', num(result.u0, 3) + unit.mm), { displayUnit: 'mm', precision: 1 });
+    doc.math('Control perimeter u_1', define('u_{1}', num(result.u1, 3) + unit.mm), { displayUnit: 'mm', precision: 1 });
+    return;
+  }
   if (result.head) {
     doc.text('Perimeters of the drop section are measured on the exact geometry by the tool (§6.4.2(8)–(11)).', 12);
     doc.math('Loaded perimeter u_0', define('u_{0}', num(result.u0, 3) + unit.mm), { displayUnit: 'mm', mode: 'auto', precision: 1 });
@@ -137,7 +143,7 @@ function perimeters(doc, result, kind, rect) {
 
 function outerOffset(result, i, rect) {
   const kind = result.position?.kind ?? 'internal';
-  if (result.shadows?.length || result.head) return num(result.loads[i - 1].aOut, 3) + unit.mm;
+  if (result.shadows?.length || result.head || result.setback?.projected) return num(result.loads[i - 1].aOut, 3) + unit.mm;
   if (kind === 'edge') return R`\frac{u_{out.${i}}-2c_{1}-c_{2}}{\pi}`;
   if (kind === 'corner') return R`\frac{2\left(u_{out.${i}}-c_{1}-c_{2}\right)}{\pi}`;
   return rect ? R`\frac{u_{out.${i}}-2\left(c_{x}+c_{y}\right)}{2\pi}` : R`\frac{\frac{u_{out.${i}}}{\pi}-D}{2}`;
@@ -203,6 +209,7 @@ function combination(doc, result, load, i, rect, hasSr) {
   }
   doc.text('v_Ed > v_Rd,c: punching reinforcement required (§6.4.5).', 12);
   doc.math('Upper limit with links', R`v_{Ed1.${i}}\le k_{max}v_{Rd.c}`, { displayUnit: 'MPa', mode: 'auto' });
+  if (load.aOut === null) return;
   const ef = load.rows.find(row => row.id === 'outer' && row.measure === 'perimeter-length');
   doc.math('u_out,req (Eq. 6.54)', define(`u_{out.${i}}`, R`\frac{\beta_{${i}}V_{Ed.${i}}}{v_{Rd.c}d}`), { displayUnit: 'mm', precision: 0 });
   doc.math(result.shadows?.length ? 'Offset of u_out,req (measured by the tool)' : 'Offset of u_out,req from the face', define(`a_{out.${i}}`, outerOffset(result, i, rect)), { displayUnit: 'mm', precision: 0 });

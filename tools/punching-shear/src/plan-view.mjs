@@ -52,7 +52,7 @@ export function planSvg(result, { width = 640, height = 600, selected = null, ch
   const linkReach = Math.max(0, ...(result.layout?.links ?? []).map(link => Math.hypot(link.position.x - column.x, link.position.y - column.y) - Math.min(column.cx ?? column.diameter, column.cy ?? column.diameter) / 2));
   const reach = Math.max(u1Offset, headReach, linkReach, ...layers.map(layer => layer.offset), 0);
   const legendHeight = 40;
-  const extent = pathExtent(column, reach);
+  const extent = pathExtent(result.setback?.projected ? pathColumn : column, reach);
   const margin = Math.max(160, 0.16 * Math.max(extent.xMax - extent.xMin, extent.yMax - extent.yMin));
   const bounds = { xMin: extent.xMin - margin, xMax: extent.xMax + margin, yMin: extent.yMin - margin, yMax: extent.yMax + margin };
   const view = viewport(bounds, width, height - legendHeight);

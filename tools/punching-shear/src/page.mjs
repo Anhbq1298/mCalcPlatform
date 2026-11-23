@@ -241,7 +241,7 @@ function render() {
     htmlSubscripts(comparisonHost);
   }
   const drawable = Boolean(result.section);
-  const preview = result.issues?.some(issue => issue.code === 'set-back-slab-edge');
+  const preview = result.issues?.some(issue => ['set-back-slab-edge', 'set-back-beta'].includes(issue.code));
   byId('plan-view').innerHTML = drawable || preview ? planSvg(result, { selected, checkId: selectedCheck, loadId: combination.value, layerLines: drawable && byId('layer-lines')?.checked }) : '';
   byId('sign-view').innerHTML = drawable ? signSvg(result) : '';
   byId('stress-view').innerHTML = drawable && result.loads?.length ? stressSvg(result, { load: result.loads.find(item => item.id === combination.value) }) : '';

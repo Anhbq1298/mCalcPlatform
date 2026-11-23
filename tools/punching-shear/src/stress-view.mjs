@@ -6,7 +6,7 @@
 // The picture illustrates the check; the check itself uses β·v at each perimeter.
 import { kInternalRect, localEccentricities } from './demand.mjs';
 import { toLocal } from './geometry.mjs';
-import { intervalPolylines } from './perimeters.mjs';
+import { effectiveIntervals, intervalPolylines } from './perimeters.mjs';
 import { COLORS, DASH, esc, n, svgDocument } from './svg.mjs';
 
 // Rainbow contour ramp (blue → cyan → green → yellow → red), as in FE stress plots; magnitude only.
@@ -68,7 +68,8 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   // Drawing origin = the actual column. With a drop the solved section may use another loaded area
   // (the drop, or the equivalent circle of Fig. 6.17); u0 is always on the column itself.
   const ref = head?.columnModel ?? model;
-  const column = ref.column;
+  const column = ref.actualColumn ?? ref.column;
+  const faceModel = ref.column === column ? ref : { ...ref, column, intervalsAt: r => effectiveIntervals({ ...ref, column }, r) };
   const d = result.section.d;
   const internal = (result.position?.kind ?? 'internal') === 'internal';
   const beta = governing.beta?.value ?? 1;
@@ -76,7 +77,7 @@ export function stressSvg(result, { width = 640, load = null } = {}) {
   const onColumn = !head || head.inner; // section solved around the column (plastic shape applies)
   const reinforced = governing.rows?.find(row => row.id === 'reinforced' && row.resistance);
   const panels = [
-    { name: 'u0', r: 0, u: result.u0, d: result.faceD ?? d, limit: result.vRdMax, limitName: 'v_Rd,max', m: ref, plastic: true },
+    { name: 'u0', r: 0, u: result.u0, d: result.faceD ?? d, limit: result.vRdMax, limitName: 'v_Rd,max', m: faceModel, plastic: true },
     { name: head?.kind === 'large' && head.inner ? 'u1,int' : head?.rcont ? 'u1 at r_cont' : head ? 'u1 (2d from drop)' : 'u1', r: u1Offset, u: result.u1, d, limit: reinforced?.resistance ?? result.resistance?.vRdc, limitName: reinforced ? 'v_Rd,cs' : 'v_Rd,c', m: model, plastic: onColumn },
   ];
   // Third panel: the slab section around the drop when the drop has an inner section (its own u_out
