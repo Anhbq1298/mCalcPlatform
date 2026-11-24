@@ -116,3 +116,23 @@ dialog::backdrop { background: #142b4460; }
   .fin-sheet-summary { font-size: 8.5pt; }
   .fin-equation { overflow: visible; font-size: 8.25pt; }
 }
+
+[data-joint-editor][hidden] { display: none; }
+body:has(#joint-template:not([hidden])) .mcalc-shell :is(label, [data-save], [data-copy], [data-project], [data-report], [data-export]) {
+  display: none;
+}
+.fin-template { max-width: 680px; margin: 0 auto 24px; padding: 18px; }
+.fin-template fieldset { margin: 0 0 14px; padding: 0; border: 0; }
+.fin-template legend { margin-bottom: 8px; }
+.fin-template-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.fin-template-options label {
+  border: 1px solid #aebdd0; border-radius: 6px; padding: 12px;
+  display: flex; align-items: start; gap: 7px; cursor: pointer;
+}
+.fin-template-options label:has(:checked) { border-color: #4676ad; background: #edf5ff; }
+.fin-template-options input { margin: 3px 0; }
+.fin-template-options small { display: block; margin-top: 4px; color: #405974; }
+.fin-template-attachment:not([hidden]) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.fin-template button:disabled { opacity: .55; }
+@media (max-width: 720px) { .fin-template { margin-inline: 12px; } }
+@media (max-width: 500px) { .fin-template-options { grid-template-columns: minmax(0, 1fr); } }

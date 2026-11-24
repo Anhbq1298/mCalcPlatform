@@ -8,6 +8,7 @@ import { drawingViews } from './drawing-view.mjs';
 import { sectionBrowser } from './section-browser.mjs';
 import { compareColumns } from './layout-study.mjs';
 import { percent, report } from './report.mjs';
+import { jointTemplatePicker } from './joint-template.mjs';
 import { calculationTabs } from './calculation-tabs.mjs';
 import './style.css';
 
@@ -225,7 +226,7 @@ for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', 0.8]]) byId(id).oncl
 };
 byId('fit').onclick = () => drawings.fit();
 byId('preset').onclick = () => {
-  state = { ...state, ...highSkew };
+  state = { ...state, ...highSkew, support: state.support };
   setControls();
   refresh();
 };
@@ -262,19 +263,29 @@ editor.addEventListener('close', () => {
   refresh();
 });
 
-setControls();
-refresh();
+function openEditor(inputs) {
+  state = { ...defaults, ...inputs };
+  templates.close();
+  setControls();
+  refresh();
+}
+
+const templates = jointTemplatePicker(support => {
+  openEditor({ support });
+  byId('drawing-title').focus();
+});
+if (!new URLSearchParams(window.location.search).get('design')) templates.open();
+
 registerPage('fin-plate', {
   snapshot: () => {
+    if (!templates.editing) throw new Error('Choose and open a joint template first.');
     validateInputs(state, beam());
     return { ...state };
   },
-  restore: inputs => {
-    state = { ...defaults, ...inputs };
-    setControls();
-    refresh();
-  },
+  reset: () => templates.open(),
+  restore: openEditor,
   report: () => {
+    if (!templates.editing) throw new Error('Choose and open a joint template first.');
     const section = beam();
     return report(state, section, calculate(state, section));
   },
