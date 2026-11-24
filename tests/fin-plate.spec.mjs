@@ -27,6 +27,7 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   await expect(page.locator('#connection-drawing circle')).toHaveCount(10);
   await expect(page.getByRole('img', { name: 'Connection plan' })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Connection elevation' })).toBeVisible();
+  await expect(page.getByText('Beam cross-section', { exact: true })).toHaveCount(0);
   await expect(page.locator('#connection-plan .beam-overlap')).toBeAttached();
   await expect(page.locator('#plan-warning')).toContainText('Overlap');
   await expect(page.locator('#detailing-warning')).toBeVisible();

@@ -89,27 +89,6 @@ function plan(s, beam, input, result, options) {
   return [-b - 54, -depth - 40, end + 2 * b + 108, 2 * depth + 80];
 }
 
-function section(s, beam, result, options) {
-  const w = beam.tw / 2;
-  const b = beam.b / 2;
-  const h = beam.h;
-  const f = beam.tf;
-  const r = beam.r;
-  s.add('path', { class: 'beam', d: [
-    'M', -b, 0, 'H', b, 'V', f, 'H', w + r, 'Q', w, f, w, f + r,
-    'V', h - f - r, 'Q', w, h - f, w + r, h - f, 'H', b, 'V', h,
-    'H', -b, 'V', h - f, 'H', -w - r, 'Q', -w, h - f, -w, h - f - r,
-    'V', f + r, 'Q', -w, f, -w - r, f, 'H', -b, 'Z',
-  ].join(' ') });
-  s.line(-b - 28, h / 2, b + 28, h / 2, 'axis');
-  if (options.dimensions) {
-    s.label(0, -15, mm(beam.b));
-    s.label(b + 25, h / 2 - 10, mm(h), 'start');
-    s.label(b + 25, h / 2 + 20, mm(result.clear) + ' clear web', 'start');
-  }
-  return [-b - 85, -55, 2 * b + 330, h + 110];
-}
-
 export function draw(node, beam, input, result, options) {
   node.replaceChildren();
   if (options.view === 'elevation') {
@@ -117,6 +96,6 @@ export function draw(node, beam, input, result, options) {
       markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' });
     scene(marker).add('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrow-head' });
   }
-  const render = { elevation, plan, section }[options.view];
+  const render = { elevation, plan }[options.view];
   return render(scene(node), beam, input, result, options);
 }

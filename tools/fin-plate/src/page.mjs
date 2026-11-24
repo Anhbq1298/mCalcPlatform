@@ -13,7 +13,7 @@ import './style.css';
 const byId = id => document.getElementById(id);
 const bySectionId = new Map(sections.map(s => [s.id, s]));
 const drawings = drawingViews({
-  plan: byId('connection-plan'), elevation: byId('connection-drawing'), section: byId('connection-section'),
+  plan: byId('connection-plan'), elevation: byId('connection-drawing'),
 });
 const controls = new Map();
 let state = { ...defaults };
