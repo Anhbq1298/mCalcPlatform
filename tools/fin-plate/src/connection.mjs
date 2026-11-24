@@ -1,6 +1,6 @@
 import { boltProperties, grid, solveGroup } from './bolt-group.mjs';
 import { validateInputs } from './inputs.mjs';
-import { directionalBearing, sciBoltChecks, sciPlateChecks, sciPlateStability, sciSupportChecks, sciWeldThickness } from './sci-p358.mjs';
+import { bearingTerms, sciBoltChecks, sciPlateChecks, sciPlateStability, sciSupportChecks, sciWeldThickness } from './sci-p358.mjs';
 
 function bearingAt(point, points, bounds, bolt, thickness, fu, reaction) {
   const axis = (key, other, force) => {
@@ -11,12 +11,14 @@ function bearingAt(point, points, bounds, bolt, thickness, fu, reaction) {
     const cross = points.filter(p => p[key] === point[key] && p[other] !== point[other]);
     const sidePitch = Math.min(...cross.map(p => Math.abs(p[other] - point[other])));
     const sideEdge = Math.min(point[other] - bounds[other][0], bounds[other][1] - point[other]);
-    return directionalBearing(bolt, thickness, fu, edge, pitch, sideEdge, sidePitch);
+    return bearingTerms(bolt, thickness, fu, edge, pitch, sideEdge, sidePitch);
   };
-  const fx = axis('x', 'y', reaction * point.fx);
-  const fy = axis('y', 'x', reaction * point.fy);
+  const x = axis('x', 'y', reaction * point.fx);
+  const y = axis('y', 'x', reaction * point.fy);
+  const { resistance: fx } = x;
+  const { resistance: fy } = y;
   const ratio = (force, capacity) => force === 0 ? 0 : Math.abs(force) / capacity;
-  return { fx, fy, utilization: ratio(point.fx, fx) + ratio(point.fy, fy) };
+  return { fx, fy, x, y, utilization: ratio(point.fx, fx) + ratio(point.fy, fy) };
 }
 
 export function calculate(input, beam) {
@@ -118,7 +120,7 @@ export function calculate(input, beam) {
     }
   }
   return {
-    height, width, beamCentre, clear, supportClearance, z, normal: z * cosine, moment, bolt, shearResistance, longJoint,
+    height, width, beamCentre, clear, supportClearance, z, normal: z * cosine, moment, bolt, shearResistance, longJoint, jointLength,
     group: { ...group, bolts }, details, checks, sci, weld, support, customLayout: Boolean(input.coordinates),
     complete: false,
     status: details.length ? 'Detailing requires revision' : 'Partial assessment',

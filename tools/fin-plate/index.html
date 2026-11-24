@@ -34,18 +34,6 @@
         </figure>
       </div>
       <p id="geometry-summary"></p>
-      <details id="section-drawing">
-        <summary>Beam cross-section</summary>
-        <svg id="connection-section" class="fin-drawing" role="img" aria-label="Beam cross-section"></svg>
-      </details>
-      <details>
-        <summary>Bolt forces and utilization</summary>
-        <div class="fin-table"><table>
-          <thead><tr><th>Bolt</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Resultant (kN)</th><th>Shear</th><th>Web bearing*</th><th>Plate bearing*</th></tr></thead>
-          <tbody id="bolt-results"></tbody>
-        </table></div>
-        <p>* Directional linear interaction screening.</p>
-      </details>
       <details id="layout-study">
         <summary>Compare bolt columns</summary>
         <div class="fin-table"><table>
@@ -67,6 +55,22 @@
       <p>Complete connection assessment requires the applicable weld, support, stability, tying and rotational checks.</p>
     </section>
   </main>
+  <section class="fin-panel fin-calculation" aria-label="Calculation results">
+    <div id="calculation-tabs" role="tablist" aria-label="Calculation results">
+      <button type="button" role="tab" id="bolt-tab" aria-controls="bolt-panel" aria-selected="true">Bolt forces and utilization</button>
+      <button type="button" role="tab" id="detail-tab" aria-controls="detail-panel" aria-selected="false" tabindex="-1">Detailed calculation</button>
+    </div>
+    <div role="tabpanel" id="bolt-panel" aria-labelledby="bolt-tab" tabindex="0">
+        <div class="fin-table"><table>
+          <thead><tr><th>Bolt</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Resultant (kN)</th><th>Shear</th><th>Web bearing*</th><th>Plate bearing*</th></tr></thead>
+          <tbody id="bolt-results"></tbody>
+        </table></div>
+        <p>* Directional linear interaction screening.</p>
+    </div>
+    <div role="tabpanel" id="detail-panel" aria-labelledby="detail-tab" tabindex="0" hidden>
+      <div id="calculation-steps"></div>
+    </div>
+  </section>
   <dialog id="help">
     <h2>Calculation basis</h2>
     <p>The elastic bolt group distributes the direct forces equally and distributes moment in proportion to each bolt’s distance from the centroid. Plan skew leaves vertical shear unchanged. Normal eccentricity is projected onto the beam axis.</p>

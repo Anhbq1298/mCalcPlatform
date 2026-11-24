@@ -2,11 +2,16 @@ import { gammaBolt } from './bolt-group.mjs';
 
 export const sciSource = 'https://steelconstruction.info/upload/Wiki-Files/a/a9/SCI_P358.pdf';
 
-export function directionalBearing(bolt, thickness, fu, parallelEdge, parallelPitch, crossEdge, crossPitch) {
+export function bearingTerms(bolt, thickness, fu, parallelEdge, parallelPitch, crossEdge, crossPitch) {
   const d0 = bolt.hole;
   const alpha = Math.min(1, bolt.fub / fu, parallelEdge / (3 * d0), parallelPitch / (3 * d0) - 0.25);
   const k = Math.min(2.5, 2.8 * crossEdge / d0 - 1.7, 1.4 * crossPitch / d0 - 1.7);
-  return Math.max(0, k) * Math.max(0, alpha) * fu * bolt.diameter * thickness / gammaBolt / 1000;
+  const resistance = Math.max(0, k) * Math.max(0, alpha) * fu * bolt.diameter * thickness / gammaBolt / 1000;
+  return { alpha, k, resistance, parallelEdge, parallelPitch, crossEdge, crossPitch };
+}
+
+export function directionalBearing(...args) {
+  return bearingTerms(...args).resistance;
 }
 
 // SCI P358 §5.5 Check 2 (pp. 115–117). The maxima give the elastic corner
@@ -24,6 +29,7 @@ export function sciBoltChecks({ group, bolt, shearResistance, z, pitch, gauge, p
     return { fx, fy, resistance: 1 / Math.hypot(horizontal / fx, vertical / fy) };
   };
   return {
+    horizontal, vertical,
     bolt: shearResistance / Math.hypot(horizontal, vertical),
     plate: component(plateThickness, plateFu, plateEnd, plateEdge),
     web: component(beamThickness, beamFu, beamVerticalEnd, beamEnd),
