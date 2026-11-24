@@ -2,7 +2,7 @@
 
 Open **Fin Plate Connection** from the tool library. The Connections project folder accepts the module. Individual designs use `.mfp`, and project packages use `.mcalc`. The report opens as an editable Canvas worksheet.
 
-Choose a beam from the shared steel catalogue or enter a custom I-section. The tool uses the selected web thickness and clear web depth. Vertical bolt columns run across the plate, and horizontal rows run up the web. Editing the arrangement updates the scaled elevation, plan and section. The 50° skew preset uses 300 kN vertical shear and a fixed 150 mm normal eccentricity.
+Choose a beam from the shared steel catalogue or enter a custom I-section. The tool uses the selected web thickness and clear web depth. Vertical bolt columns run across the plate, and horizontal rows run up the web. Editing the arrangement updates the scaled plan and elevation. The 50° skew preset uses 300 kN vertical shear and a fixed 150 mm normal eccentricity.
 
 **Compare bolt columns** shows one, two and three columns under the current inputs. The comparison includes the plate width, axis eccentricity, component utilization and detailing findings for each regular grid.
 
