@@ -1,11 +1,19 @@
 import { expect, test } from '../vendor/calccanvas/node_modules/@playwright/test/index.mjs';
 
+async function openTemplate(page, name, attachment) {
+  const picker = page.getByRole('region', { name: 'Choose a joint template' });
+  await picker.getByRole('radio', { name }).check();
+  if (attachment) await picker.getByLabel('Column attachment').selectOption(attachment);
+  await picker.getByRole('button', { name: 'Open template' }).click();
+}
+
 test('opens Fin Plate, updates the drawing and reopens an exported design', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('./');
   const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Fin Plate Connection' }) });
   await card.getByRole('link', { name: /Open tool|New design/ }).click();
+  await openTemplate(page, /^Beam to beam/);
   const section = page.getByRole('textbox', { name: 'Section', exact: true });
   await expect(section).toHaveValue('UB 533x210x92');
   await expect(page.getByLabel('Web thickness (mm)')).toHaveValue('10.1');
@@ -66,6 +74,7 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   await shell.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(shell.getByText('Design saved.')).toBeVisible();
   await page.reload();
+  await expect(page.getByRole('region', { name: 'Choose a joint template' })).toBeHidden();
   await expect(page.getByLabel('Vertical bolt columns')).toHaveValue('3');
   const savedUrl = page.url();
   await page.goto('./#designs');
@@ -91,6 +100,7 @@ test('switches support families and draws and checks a beam notch', async ({ pag
   await page.goto('./');
   await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Fin Plate Connection' }) })
     .getByRole('link', { name: /Open tool|New design/ }).click();
+  await openTemplate(page, /^Beam to beam/);
   const joint = page.getByLabel('Joint type');
   const attachment = page.getByLabel('Column attachment');
   const top = page.getByLabel('Top notch depth (mm)');
@@ -122,7 +132,7 @@ test('formats and prints the live calculation worksheet with the correct applica
   await page.goto('./');
   await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Fin Plate Connection' }) })
     .getByRole('link', { name: /Open tool|New design/ }).click();
-  await page.getByLabel('Joint type').selectOption('beam-column');
+  await openTemplate(page, /^Beam to column/, 'column-flange');
   await page.getByRole('tab', { name: 'Detailed calculation' }).click();
   const sheet = page.locator('.fin-sheet');
   await expect(sheet.getByRole('heading', { name: 'Beam to column · I/H column flange · Square connection' })).toBeVisible();
@@ -146,4 +156,33 @@ test('formats and prints the live calculation worksheet with the correct applica
   await expect(sheet).toBeVisible();
   await expect(page.locator('main.fin-layout')).toBeHidden();
   await expect(sheet.getByRole('button', { name: 'Print calculation' })).toBeHidden();
+});
+
+test('opens a new joint template only after selection and restores saved inputs directly', async ({ page }) => {
+  await page.goto('./t/fin-plate/');
+  const picker = page.getByRole('region', { name: 'Choose a joint template' });
+  const editor = page.getByRole('form', { name: 'Connection inputs' });
+  const shell = page.getByRole('navigation', { name: 'Design workspace' });
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole('button', { name: 'Open template' })).toBeDisabled();
+  await expect(editor).toBeHidden();
+  await expect(shell.getByRole('button', { name: 'Save', exact: true })).toBeHidden();
+  await openTemplate(page, /^Beam to column/, 'column-web');
+  await expect(picker).toBeHidden();
+  await expect(editor.getByLabel('Joint type')).toHaveValue('beam-column');
+  await expect(editor.getByLabel('Column attachment')).toHaveValue('column-web');
+  await page.getByRole('button', { name: 'Load 50° skew preset' }).click();
+  await expect(editor.getByLabel('Column attachment')).toHaveValue('column-web');
+  await editor.getByLabel('ULS shear (kN)').fill('225');
+  await shell.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(shell.getByText('Design saved.')).toBeVisible();
+  await page.reload();
+  await expect(editor.getByLabel('ULS shear (kN)')).toHaveValue('225');
+  await expect(editor.getByLabel('Column attachment')).toHaveValue('column-web');
+  await expect(picker).toBeHidden();
+  await shell.getByRole('button', { name: 'New', exact: true }).click();
+  await expect(picker).toBeVisible();
+  await openTemplate(page, /^Beam to beam/);
+  await expect(editor.getByLabel('Joint type')).toHaveValue('beam-beam');
+  await expect(editor.getByLabel('Top notch depth (mm)')).toBeVisible();
 });

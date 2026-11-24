@@ -1,6 +1,6 @@
 # mFinPlate
 
-Open **Fin Plate Connection** from the tool library. The Connections project folder accepts the module. Individual designs use `.mfp`, and project packages use `.mcalc`. The report opens as an editable Canvas worksheet.
+Open **Fin Plate Connection** from the tool library. Choose **Beam to beam** or **Beam to column**, select the supporting face for a column, and use **Open template** to edit the joint. Saved and imported designs open with their stored inputs. The Connections project folder accepts the module. Individual designs use `.mfp`, and project packages use `.mcalc`. The report opens as an editable Canvas worksheet.
 
 Choose a beam from the shared steel catalogue or enter a custom I-section. The tool uses the selected web thickness and clear web depth. Vertical bolt columns run across the plate, and horizontal rows run up the web. Editing the arrangement updates the scaled plan and elevation. The 50° skew preset uses 300 kN vertical shear and a fixed 150 mm normal eccentricity.
 

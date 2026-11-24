@@ -8,14 +8,35 @@
 <body>
   <header class="fin-header">
     <div><h1>Fin Plate Connection</h1><p>mFinPlate · Eurocode 3 · Component assessment</p></div>
-    <div><button type="button" id="preset">Load 50° skew preset</button> <button type="button" id="help-open">Help</button></div>
+    <div data-joint-editor hidden><button type="button" id="preset">Load 50° skew preset</button> <button type="button" id="help-open">Help</button></div>
   </header>
-  <main class="fin-layout">
+  <section class="fin-panel fin-template" id="joint-template" aria-labelledby="joint-template-title" hidden>
+    <h2 id="joint-template-title" tabindex="-1">Choose a joint template</h2>
+    <form id="joint-template-form">
+      <fieldset>
+        <legend>Joint type</legend>
+        <div class="fin-template-options">
+          <label><input type="radio" name="joint" value="beam-beam" required>
+            <span><strong>Beam to beam</strong><small>Connect to a supporting beam web. Edit the beam notch in the template.</small></span>
+          </label>
+          <label><input type="radio" name="joint" value="beam-column" required>
+            <span><strong>Beam to column</strong><small>Connect to a column web, flange or hollow-section face.</small></span>
+          </label>
+        </div>
+      </fieldset>
+      <label class="fin-template-attachment" hidden>
+        Column attachment
+        <select name="attachment"></select>
+      </label>
+      <button type="submit" disabled>Open template</button>
+    </form>
+  </section>
+  <main class="fin-layout" data-joint-editor hidden>
     <form id="connection-inputs" aria-label="Connection inputs">
       <div id="fields"></div>
     </form>
     <section class="fin-panel" aria-labelledby="drawing-title">
-      <h2 id="drawing-title">Connection drawing</h2>
+      <h2 id="drawing-title" tabindex="-1">Connection drawing</h2>
       <div class="fin-view-tools">
         <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
         <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
@@ -55,7 +76,7 @@
       <p>Complete connection assessment requires the applicable weld, support, stability, tying and rotational checks.</p>
     </section>
   </main>
-  <section class="fin-panel fin-calculation" aria-label="Calculation results">
+  <section class="fin-panel fin-calculation" aria-label="Calculation results" data-joint-editor hidden>
     <div id="calculation-tabs" role="tablist" aria-label="Calculation results">
       <button type="button" role="tab" id="bolt-tab" aria-controls="bolt-panel" aria-selected="true">Bolt forces and utilization</button>
       <button type="button" role="tab" id="detail-tab" aria-controls="detail-panel" aria-selected="false" tabindex="-1">Detailed calculation</button>
