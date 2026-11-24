@@ -37,11 +37,11 @@ SCI P358 §5.6, Example 1, pp. 140–145 uses 200 kN on the single-column side a
 | Net plate shear | 435 | 434.69 | 538 | 537.99 |
 | Plate block tearing | 347 | 347.36 | 494 | 494.38 |
 
-These benchmark fixtures use the published web end distances. The interactive model assumes an uncoped beam. Project regressions separately check the 50° M24 layouts, including 88.03 kN maximum bolt force for two columns and 58.25 kN for three columns.
+These benchmark fixtures use the published web end distances. Project regressions separately check the 50° M24 layouts, including 88.03 kN maximum bolt force for two columns and 58.25 kN for three columns.
 
 The stability benchmark reproduces 771 kN and 742.5 kN for the two sides of Example 1. The worked double-column example classifies the plate using the centroid distance, while the general procedure uses the first bolt line. Both branches give the same governing elastic resistance for that example. A separate long-plate regression uses the rounded Table 5.2 reduction factor at slenderness 1.05.
 
-The interface presents a partial assessment for every layout. Full weld group verification, additional support configurations, beam coping, tying and rotation remain open. The three-column check covers elastic bolt forces, shear and directional bearing screening. Custom coordinate layouts report elastic bolt forces, shear and geometric edge or collision findings.
+The interface presents a partial assessment for every layout. Full weld group verification, additional support configurations, overall stability of unrestrained notched beams, tying and rotation remain open. The three-column check covers elastic bolt forces, shear and directional bearing screening. Custom coordinate layouts report elastic bolt forces, shear and geometric edge or collision findings.
 
 [SCI P358](https://steelconstruction.info/upload/Wiki-Files/a/a9/SCI_P358.pdf) · [ArcelorMittal Orange Book](https://orangebook.arcelormittal.com/node/240)
 
@@ -50,3 +50,14 @@ The interface presents a partial assessment for every layout. Full weld group ve
 Beam to column supports attachment to the web or flange of an I/H column, or to the outer face of an SHS, RHS or CHS column. Beam to beam attaches to the supporting beam web. Saved designs retain their original support key, including the legacy rigid-support option.
 
 The beam-to-beam notch inputs describe a square-ended cope in the **supported beam**, measured from its uncut flange faces and from its beam end. A double notch uses a common length. The drawing shows the reduced depth and its shoulder. The notch limits the web edge available for bolt bearing, and the reduced tee or web section is used for gross shear, net shear, block tearing and bending at the connection and notch section where applicable. The SCI short-cut local stability criteria are evaluated for restrained S275/S355 beams. The UI identifies checks outside that scope. The unrestrained beam stability verification remains part of member design. The notch procedure covers regular one- or two-column standard vertical-shear cases with bolt centres within the notch length and holes clear of the cut edge. The CI benchmark uses P358 §5.6 Example 1, Checks 4–6.
+
+Published benchmark targets for the notch checks:
+
+| P358 result | One column | Two columns |
+| --- | ---: | ---: |
+| Check 4 gross / net / block shear resistance (kN) | 561 / 581 / 312 | 794 / 837 / 481 |
+| Check 4 bending resistance at the connection (kNm) | — | 164 |
+| Check 5 shoulder moment demand / resistance (kNm) | 24 / 89.1 | 42 / 164 |
+| Check 6 notch length limit (mm) | 413 | 533 |
+
+The worked two-column case uses a 120 mm notch length in the Check 4 applicability calculation and a 110 mm notch length in the Check 5 sketch and demand calculation. The latter reproduces the published 42 kNm.
