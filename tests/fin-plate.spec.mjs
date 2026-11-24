@@ -3,7 +3,7 @@ import { expect, test } from '../vendor/calccanvas/node_modules/@playwright/test
 async function openTemplate(page, name, attachment) {
   const picker = page.getByRole('region', { name: 'Choose a joint template' });
   await picker.getByRole('radio', { name }).check();
-  if (attachment) await picker.getByLabel('Column attachment').selectOption(attachment);
+  if (attachment) await picker.getByLabel('Supporting column face').selectOption(attachment);
   await picker.getByRole('button', { name: 'Open template' }).click();
 }
 
