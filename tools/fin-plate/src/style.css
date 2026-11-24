@@ -76,5 +76,3 @@ dialog::backdrop { background: #142b4460; }
 #calculation-steps > section { padding: 10px 0; border-bottom: 1px solid #d5dfea; }
 #calculation-steps h3 { margin: 0 0 8px; font-size: 15px; }
 .fin-equation { overflow-x: auto; padding: 4px 0; }
-.fin-equation .katex-display { margin: 0; text-align: left; }
-.fin-equation .katex-display > .katex { text-align: left; }

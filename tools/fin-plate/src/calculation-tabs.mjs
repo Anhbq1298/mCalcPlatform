@@ -1,5 +1,5 @@
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
+import { convertLatexToMarkup } from 'mathlive';
+import 'mathlive/static.css';
 import { calculationSteps } from './calculation-steps.mjs';
 
 export function calculationTabs() {
@@ -28,7 +28,7 @@ export function calculationTabs() {
       for (const equation of equations) {
         const row = document.createElement('div');
         row.className = 'fin-equation';
-        katex.render(equation, row, { displayMode: true, throwOnError: false });
+        row.innerHTML = convertLatexToMarkup(equation, { defaultMode: 'math' });
         section.append(row);
       }
       output.append(section);
