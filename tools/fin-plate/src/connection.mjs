@@ -1,5 +1,5 @@
 import { boltProperties, grid, solveGroup } from './bolt-group.mjs';
-import { beamToBeamLayout, checkBeamFit } from './beam-layout.mjs';
+import { automaticNotch, beamToBeamLayout, checkBeamFit } from './beam-layout.mjs';
 import { notchChecks, notchGeometry } from './notched-beam.mjs';
 import { validateInputs } from './inputs.mjs';
 import { bearingTerms, sciBoltChecks, sciPlateChecks, sciPlateStability, sciSupportChecks, sciWeldThickness } from './sci-p358.mjs';
@@ -24,6 +24,8 @@ function bearingAt(point, points, bounds, bolt, thickness, fu, reaction) {
 }
 
 export function calculate(input, beam) {
+  const auto = input.autoNotch === true && input.beamLayout === 'fit' && input.support === 'beam-web' && input.supportingProfile;
+  if (auto) input = { ...input, notchTop: 0, notchBottom: 0, notchLength: 0 };
   validateInputs(input, beam);
   const beamLayout = beamToBeamLayout(input, beam);
   if (beamLayout) input = { ...input, gap: beamLayout.gap, supportThickness: beamLayout.profile.tw };
@@ -38,6 +40,11 @@ export function calculate(input, beam) {
   const ys = points.map(p => p.y);
   const clear = beam.h - 2 * (beam.tf + beam.r);
   const beamCentre = height / 2 + offset;
+  const generatedNotch = auto ? automaticNotch(beamLayout, beam, beamCentre) : undefined;
+  if (generatedNotch) {
+    input = { ...input, ...generatedNotch };
+    validateInputs(input, beam);
+  }
   const notch = notchGeometry(input, beam, beamCentre);
   const centroidX = xs.reduce((sum, x) => sum + x, 0) / points.length;
   const skewRadians = skew * Math.PI / 180;
@@ -58,6 +65,7 @@ export function calculate(input, beam) {
     web: input.coordinates ? null : bearingAt(point, points, webBounds, bolt, beam.tw, input.beamFu, 1),
   }));
   const details = checkBeamFit(beamLayout, beam, beamCentre, height, notch);
+  if (generatedNotch === null) details.push('Automatic notching could not leave a usable web. Adjust the beam levels or use the outside layout.');
   const d0 = bolt.hole;
   const edge = 1.2 * d0;
   if (points.some(p => Math.min(p.y, height - p.y, p.x - gap, width - p.x) < edge)) {
@@ -152,7 +160,7 @@ export function calculate(input, beam) {
   }
   return {
     height, width, beamLayout, beamGap: gap, beamCentre, clear, supportClearance, z, normal: z * cosine, moment, bolt, shearResistance, longJoint, jointLength,
-    group: { ...group, bolts }, details, openChecks, checks, sci, weld, support, notch, notchedBeam, customLayout: Boolean(input.coordinates),
+    group: { ...group, bolts }, details, openChecks, checks, sci, weld, support, notch, generatedNotch, notchedBeam, customLayout: Boolean(input.coordinates),
     complete: false,
     status: details.length ? 'Detailing requires revision' : 'Partial assessment',
   };

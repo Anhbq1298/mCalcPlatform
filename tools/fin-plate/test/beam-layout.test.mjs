@@ -55,3 +55,29 @@ test('top, mid-depth and bottom alignment use the two beam depths', () => {
   delete legacy.supportAlignment;
   assert.equal(calculate(legacy, beam).beamLayout.offset, 23);
 });
+
+test('automatic copes start at 50 mm, grow for thicker flanges, and leave non-clashing layouts intact', () => {
+  const automatic = { ...input, autoNotch: true, supportLevel: 0, supportAlignment: 'top' };
+  const top = calculate(automatic, beam);
+  assert.deepEqual([top.notch.top, top.notch.bottom, top.notch.length], [50, 0, 108]);
+  assert.ok(!top.details.some(detail => detail.includes('intersects the supporting top flange')));
+  const bottom = calculate({ ...automatic, supportAlignment: 'bottom' }, beam);
+  assert.deepEqual([bottom.notch.top, bottom.notch.bottom], [0, 50]);
+  const thicker = calculate({ ...automatic, supportingProfile: { ...supportingProfile, tf: 49 } }, beam);
+  assert.equal(thicker.notch.top, 59);
+  assert.equal(calculate({ ...automatic, supportAlignment: 'mid' }, beam).notch, null);
+  assert.equal(calculate({ ...automatic, beamLayout: 'outside' }, beam).notch, null);
+});
+
+test('automatic double notch resolves both co-level flange clashes in skew without mutating manual inputs', () => {
+  const options = { ...input, autoNotch: true, supportAlignment: 'mid', skew: 15,
+    supportingProfile: { ...supportingProfile, h: beam.h }, notchTop: 65 };
+  const result = calculate(options, beam);
+  assert.equal(result.notch.top, 50);
+  assert.equal(result.notch.bottom, 50);
+  const { c, s, projection } = result.beamLayout;
+  assert.ok(Math.abs(result.notch.shoulder * c - beam.b * s / 2 - projection - 10) < 1e-8);
+  assert.equal(options.notchTop, 65);
+  assert.ok(!result.details.some(detail => /intersects the supporting .* flange/.test(detail)));
+  assert.equal(calculate({ ...options, autoNotch: false, notchLength: 180 }, beam).notch.top, 65);
+});

@@ -72,7 +72,7 @@ export function calculationSheet(input, beam, result) {
       ['Supported beam depth / web thickness', mm(beam.h) + ' / ' + mm(beam.tw)],
       ['Fin plate height × width × thickness', [result.height, result.width, input.thickness].join(' × ') + ' mm'],
       ['Web face to beam end along axis / skew', mm(result.beamGap) + ' / ' + input.skew + '°'],
-      ...(notch ? [['Notch top / bottom / length', [notch.top, notch.bottom, notch.length].map(mm).join(' / ')]] : []),
+      ...(notch ? [[result.generatedNotch ? 'Automatic notch top / bottom / length' : 'Notch top / bottom / length', [notch.top, notch.bottom, notch.length].map(mm).join(' / ')]] : []),
       ['Lateral restraint', input.restrained ? 'Specified' : 'Unrestrained'],
     ]],
     ['Design actions and materials', [

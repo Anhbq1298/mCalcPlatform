@@ -48,7 +48,7 @@ for (const [title, rows] of groups) {
   if (title === 'Supporting beam') supporting.attach(group);
   if (title === 'Supported beam notch') {
     notchGroup = group;
-    group.append(node('p', 'Use zero depths for a full-depth beam. Enter both depths for a double notch with a common length.'));
+    group.append(node('p', 'Automatic notches start at 50 mm deep and provide at least 10 mm clearance at the clashing flange. Turn off automatic notching to set the cut dimensions.'));
   }
   for (const [key, label, kind] of rows) {
     const row = node('label');
@@ -102,7 +102,6 @@ function updateControls() {
   supportControl.value = state.support;
   notchGroup.hidden = joint !== 'beam-beam';
   supporting.update();
-  controls.get('notchLength').disabled = !state.notchTop && !state.notchBottom;
   for (const [key] of beamFields) {
     const input = controls.get(key);
     input.readOnly = state.section !== 0;
@@ -156,6 +155,7 @@ function refresh() {
   try {
     const section = beam();
     const result = calculate(activeInputs(), section);
+    supporting.renderNotch(result);
     const governing = result.checks.reduce((worst, check) => check.ratio > worst.ratio ? check : worst);
     const governingBolt = result.checks.filter(check => check.bolt)
       .reduce((worst, check) => check.ratio > worst.ratio ? check : worst).bolt;
@@ -231,7 +231,7 @@ for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', 0.8]]) byId(id).oncl
 };
 byId('fit').onclick = () => drawings.fit();
 byId('preset').onclick = () => {
-  const supportInputs = Object.fromEntries(Object.entries(state).filter(([key]) => key.startsWith('support') || key === 'beamLayout'));
+  const supportInputs = Object.fromEntries(Object.entries(state).filter(([key]) => key.startsWith('support') || ['beamLayout', 'autoNotch'].includes(key)));
   state = { ...state, ...highSkew, ...supportInputs };
   setControls();
   refresh();
@@ -277,7 +277,7 @@ function openEditor(inputs) {
 }
 
 const templates = jointTemplatePicker(support => {
-  openEditor({ support, supportAlignment: 'mid', supportSection: support === 'beam-web' ? -1 : null });
+  openEditor({ support, autoNotch: true, supportAlignment: 'mid', supportSection: support === 'beam-web' ? -1 : null });
   byId('drawing-title').focus();
 });
 if (!new URLSearchParams(window.location.search).get('design')) templates.open();

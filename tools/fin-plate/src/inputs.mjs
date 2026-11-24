@@ -3,7 +3,7 @@ import { boltGrades, boltSizes } from './bolt-group.mjs';
 export const defaults = Object.freeze({
   section: 3129, h: 533.1, b: 209.3, tw: 10.1, tf: 15.6, r: 13,
   beamFy: 355, beamFu: 470, plateFu: 470, plateFy: 355, thickness: 10,
-  notchTop: 0, notchBottom: 0, notchLength: 0,
+  autoNotch: false, notchTop: 0, notchBottom: 0, notchLength: 0,
   support: 'beam-web', type: 'standard', vertical: 300, horizontal: 0, appliedMoment: 0,
   supportSection: null, beamLayout: 'fit', supportAlignment: 'custom', supportLevel: 40, supportH: 610, supportB: 229, supportTw: 13, supportTf: 20, supportR: 13,
   supportThickness: 0, supportFy: 355, supportFu: 470, weldLeg: 9, restrained: false,

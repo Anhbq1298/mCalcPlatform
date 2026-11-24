@@ -25,6 +25,7 @@ export const groups = [
     ['supportLevel', 'Supporting top above supported top (mm)', null],
   ]],
   ['Supported beam notch', [
+    ['autoNotch', 'Automatically notch at flange clashes', 'checkbox'],
     ['beamFy', 'Beam yield strength (MPa)'],
     ['notchTop', 'Top notch depth (mm)'], ['notchBottom', 'Bottom notch depth (mm)'],
     ['notchLength', 'Notch length from beam end (mm)'],

@@ -111,6 +111,7 @@ test('switches support families and draws and checks a beam notch', async ({ pag
   const top = page.getByLabel('Top notch depth (mm)');
   await expect(joint).toHaveValue('beam-beam');
   await expect(attachment).toBeHidden();
+  await page.getByLabel('Automatically notch at flange clashes').uncheck();
   await page.getByLabel('Horizontal bolt rows').fill('4');
   await page.getByLabel('Beam laterally restrained').check();
   await top.fill('45');
@@ -148,6 +149,7 @@ test('formats and prints the live calculation worksheet with the correct applica
   await expect(sheet.locator('[data-check="10"]')).toContainText('Open');
   await page.getByLabel('Joint type').selectOption('beam-beam');
   await selectSupportingSection(page);
+  await page.getByLabel('Automatically notch at flange clashes').uncheck();
   await page.getByLabel('Horizontal bolt rows').fill('4');
   await page.getByLabel('Top notch depth (mm)').fill('45');
   await page.getByLabel('Bottom notch depth (mm)').fill('45');
@@ -231,8 +233,12 @@ test('separates bolt forces from the elevation and aligns the two beams by refer
   await expect(elevation.locator('[data-alignment="mid"]')).toBeAttached();
   await expect(offset).toBeHidden();
   await alignment.selectOption('top');
+  await expect(page.getByLabel('Top notch depth (mm)')).toHaveValue('50');
+  await expect(elevation.getByText('Top notch 50.0 mm')).toBeVisible();
   const top = Number(await elevation.locator('[data-alignment="top"]').getAttribute('y1'));
   await alignment.selectOption('bottom');
+  await expect(page.getByLabel('Bottom notch depth (mm)')).toHaveValue('50');
+  await expect(elevation.getByText('Bottom notch 50.0 mm')).toBeVisible();
   const bottom = Number(await elevation.locator('[data-alignment="bottom"]').getAttribute('y1'));
   expect(bottom - top).toBeCloseTo(533.1, 6);
   await alignment.selectOption('custom');
