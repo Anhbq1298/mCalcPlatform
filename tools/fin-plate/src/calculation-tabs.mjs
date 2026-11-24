@@ -28,6 +28,7 @@ export function calculationTabs() {
       for (const equation of equations) {
         const row = document.createElement('div');
         row.className = 'fin-equation';
+        row.dataset.latex = equation;
         row.innerHTML = convertLatexToMarkup(equation, { defaultMode: 'math' });
         section.append(row);
       }

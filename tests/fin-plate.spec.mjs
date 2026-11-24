@@ -36,11 +36,11 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   await expect(page.locator('#checks')).toContainText('43.0%');
   await page.getByRole('tab', { name: 'Detailed calculation' }).click();
   const calculation = page.getByRole('tabpanel', { name: 'Detailed calculation' });
-  await expect(calculation.locator('.fin-equation .ML__mathlive').filter({ hasText: '70.01' })).not.toHaveCount(0);
+  await expect(calculation.locator('.fin-equation[data-latex*="70.01"] > *').first()).toBeVisible();
   await expect(calculation.getByRole('heading', { name: /Fin-plate bearing/ })).toBeVisible();
   await expect(calculation.getByRole('heading', { name: /Bolt shear/ })).toBeVisible();
   await page.getByLabel('ULS shear (kN)').fill('250');
-  await expect(calculation.locator('.fin-equation .ML__mathlive').filter({ hasText: '58.34' })).not.toHaveCount(0);
+  await expect(calculation.locator('.fin-equation[data-latex*="58.34"] > *').first()).toBeVisible();
   await page.getByLabel('ULS shear (kN)').fill('300');
   await page.getByRole('tab', { name: 'Detailed calculation' }).press('ArrowLeft');
   await expect(page.getByRole('tabpanel', { name: 'Bolt forces and utilization' })).toBeVisible();
