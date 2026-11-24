@@ -47,7 +47,7 @@ function elevation(s, beam, input, result, options) {
     const length = Math.min(52, input.pitch / 2) / maximum;
     const x2 = b.x + length * b.fx;
     const y2 = y - length * b.fy;
-    s.line(b.x, y, x2, y2, 'force').setAttribute('marker-end', 'url(#fin-arrow)');
+    s.line(b.x, y, x2, y2, 'force').setAttribute('marker-end', `url(#${options.idPrefix}-arrow)`);
   }
   if (options.dimensions) {
     s.line(0, widthDimension, width, widthDimension, 'dimension');
@@ -84,9 +84,9 @@ function plan(s, beam, input, result, options) {
   polygon([[0, 0], [result.width, 0], [result.width, input.thickness], [0, input.thickness]], 'plate');
   const depth = Math.max(120, Math.abs(t * end) + b + 24);
   if (result.supportClearance < 0) {
-    const clip = s.add('clipPath', { id: 'fin-overlap-clip' });
+    const clip = s.add('clipPath', { id: options.idPrefix + '-overlap-clip' });
     scene(clip).rect(-b - 54, -depth, b + 54, 2 * depth, '');
-    polygon(beamOutline, 'beam-overlap', { 'clip-path': 'url(#fin-overlap-clip)' });
+    polygon(beamOutline, 'beam-overlap', { 'clip-path': `url(#${options.idPrefix}-overlap-clip)` });
   }
   s.line(0, -depth, 0, depth, result.supportClearance < 0 ? 'support conflict' : 'support');
   s.line(0, 0, ...point(end, 0), 'axis');
@@ -106,8 +106,9 @@ function plan(s, beam, input, result, options) {
 
 export function draw(node, beam, input, result, options) {
   node.replaceChildren();
+  options = { idPrefix: 'fin', ...options };
   if (options.view === 'elevation') {
-    const marker = scene(node).add('marker', { id: 'fin-arrow', viewBox: '0 0 10 10', refX: 8, refY: 5,
+    const marker = scene(node).add('marker', { id: options.idPrefix + '-arrow', viewBox: '0 0 10 10', refX: 8, refY: 5,
       markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' });
     scene(marker).add('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrow-head' });
   }

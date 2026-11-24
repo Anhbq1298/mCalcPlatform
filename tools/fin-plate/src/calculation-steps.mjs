@@ -1,4 +1,5 @@
 import { gammaBolt } from './bolt-group.mjs';
+import { detailingStep } from './calculation-detailing.mjs';
 import { notchSteps } from './calculation-notch.mjs';
 import { sciSteps } from './calculation-sci.mjs';
 
@@ -33,6 +34,7 @@ function bearingStep(check, bolt, side, result, thickness, fu) {
   });
   const term = (force, capacity) => force === 0 ? '0' : tex`\frac{|${n(force)}|}{${n(capacity)}}`;
   return {
+    check: 2,
     title: check.name + ' · Bolt ' + bolt.id,
     intro: side === 'web'
       ? 'Check whether the bolt can press against its hole in the supported beam web without exceeding the calculated bearing resistance.'
@@ -95,6 +97,7 @@ export function calculationSteps(input, beam, result) {
       tex`c_n=g\cos\theta-\frac{b}{2}|\sin\theta|=${n(input.gap)}\cos(${angle})-\frac{${n(beam.b)}}{2}|\sin(${angle})|=${n(result.supportClearance, 1)}${mm}`,
     ] },
     {
+      check: 2,
       title: 'Bolt shear · Bolt ' + critical.id,
       intro: 'Direct load is shared equally. The moment adds a force to each bolt based on its position relative to the group center. Compare the largest resultant with one bolt’s design shear resistance.',
       captions: [
@@ -109,7 +112,7 @@ export function calculationSteps(input, beam, result) {
       outcome: 'Bolt ' + critical.id + ' governs with ' + n(critical.force, 2) + ' kN demand and '
         + n(result.shearResistance, 2) + ' kN resistance. ' + utilization(shear.ratio),
       equations: [
-      tex`J=\sum_i\left(\Delta x_i^2+\Delta y_i^2\right)=${n(x2)}+${n(y2)}=${n(group.polar)}\,\mathrm{mm^4}`,
+      tex`J=\sum_i\left(\Delta x_i^2+\Delta y_i^2\right)=${n(x2)}+${n(y2)}=${n(group.polar)}\,\mathrm{mm^2}`,
       ...forces,
       tex`F_{Ed,i}=\sqrt{F_{x,i}^2+F_{y,i}^2}=\sqrt{(${n(critical.fx)})^2+(${n(critical.fy)})^2}=${n(critical.force, 3)}${kn}`,
       tex`\beta_{Lf}=\max\left(0.75,\min\left(1,1-\frac{L_j-15d}{200d}\right)\right)=\max\left(0.75,\min\left(1,1-\frac{${n(result.jointLength)}-15\times ${bolt.diameter}}{200\times ${bolt.diameter}}\right)\right)=${n(result.longJoint)}`,
@@ -117,15 +120,13 @@ export function calculationSteps(input, beam, result) {
       ur('bolt shear', critical.force, result.shearResistance, shear.ratio),
     ] },
   ];
+  steps.splice(1, 0, detailingStep(input, result, n));
   const web = checks.find(check => check.name === 'Beam-web bearing · screening');
   const plate = checks.find(check => check.name === 'Fin-plate bearing · screening');
   if (web) steps.push(bearingStep(web, group.bolts.find(b => b.id === web.bolt), 'web', result, beam.tw, input.beamFu));
   if (plate) steps.push(bearingStep(plate, group.bolts.find(b => b.id === plate.bolt), 'plate', result, input.thickness, input.plateFu));
-  if (!web && !plate) steps.push({ title: 'Bearing applicability', note: 'Bearing screening requires a regular bolt grid.', equations: [] });
+  if (!web && !plate) steps.push({ check: 2, title: 'Bearing applicability', note: 'Bearing screening requires a regular bolt grid.', equations: [] });
   steps.push(...sciSteps(input, result, { n, kn, times, ur }));
   steps.push(...notchSteps(input, beam, result, n, ur));
-  if (result.openChecks.length) {
-    steps.push({ title: 'Checks requiring separate assessment', note: result.openChecks.join(' '), equations: [] });
-  }
   return steps;
 }

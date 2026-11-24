@@ -6,7 +6,7 @@ Choose a beam from the shared steel catalogue or enter a custom I-section. The t
 
 **Compare bolt columns** shows one, two and three columns under the current inputs. The comparison includes the plate width, axis eccentricity, component utilization and detailing findings for each regular grid.
 
-Open **Detailed calculation** below the workspace for formulas, substituted values and utilization. The tab updates with the design and shows the bolt governing each component check.
+Open **Detailed calculation** below the workspace for a worked calculation with design inputs, dimensioned plan and elevation, an explicit utilization summary, and checks organized in SCI P358 order. The worksheet presents supporting web and flange attachments and square and skewed beam-to-beam layouts with no notch, a single notch or a double notch. Each check identifies its applicable results and any separate verification. **Print calculation** prints the worksheet on A4 or saves it to PDF through the browser. Skewed worksheets show the elastic bolt model, directional bearing screening on regular grids and the reduced notch geometry where present. They flag the standard SCI checks that require a separate assessment.
 
 ## Calculation basis
 

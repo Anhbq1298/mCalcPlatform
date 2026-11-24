@@ -75,5 +75,5 @@ export function sciWeldThickness(grade, thickness, leg) {
 export function sciSupportChecks({ height, thickness, supportThickness, plateFy, supportFy, supportFu }) {
   const localShear = 2 * height * supportThickness * supportFy / Math.sqrt(3) / 1000;
   const punchLimit = supportThickness * supportFu / (plateFy * gammaBolt);
-  return { localShear, punching: thickness / punchLimit };
+  return { localShear, punchLimit, punching: thickness / punchLimit };
 }

@@ -88,7 +88,8 @@ export function calculate(input, beam) {
     ['Fin-plate bearing · screening', p => p.plate.utilization]);
   const checks = metrics.map(([name, get]) => {
     const governing = bolts.reduce((worst, p) => get(p) > get(worst) ? p : worst);
-    return { name, ratio: get(governing), bolt: governing.id };
+    return { name, ratio: get(governing), bolt: governing.id,
+      ...(name === 'Bolt shear' ? { demand: governing.force, resistance: shearResistance } : {}) };
   });
 
   const standard = !input.coordinates && input.type === 'standard' && columns <= 2 && skew === 0
@@ -112,12 +113,12 @@ export function calculate(input, beam) {
     }
   }
   const weld = standard ? sciWeldThickness(input.plateFy, thickness, input.weldLeg) : null;
-  if (weld) checks.push({ name: 'P358 double fillet weld sizing', ratio: weld.ratio });
+  if (weld) checks.push({ name: 'P358 double fillet weld sizing', ratio: weld.ratio, demand: weld.minimum, resistance: weld.throat, unit: 'mm' });
   let support;
   if (standard && input.supportThickness > 0 && ['beam-web', 'column-web', 'rhs', 'shs', 'chs'].includes(input.support)) {
     support = sciSupportChecks({ ...input, height });
-    checks.push({ name: 'P358 support local shear', ratio: vertical / support.localShear, resistance: support.localShear },
-      { name: 'P358 support punching shear', ratio: support.punching });
+    checks.push({ name: 'P358 support local shear', ratio: vertical / support.localShear, demand: vertical, resistance: support.localShear },
+      { name: 'P358 support punching shear', ratio: support.punching, demand: thickness, resistance: support.punchLimit, unit: 'mm' });
   }
   let sci;
   const standardThickness = input.plateFy === 275 ? 0.5 : input.plateFy === 355 ? 0.42 : 0;
@@ -140,7 +141,7 @@ export function calculate(input, beam) {
       ['P358 net plate shear', plate.net], ['P358 plate block tearing', plate.block], ['P358 plate bending', plate.bending],
       ['P358 ' + stability.type + ' plate stability', stability.resistance],
     ]) {
-      if (capacity !== null) checks.push({ name, ratio: vertical / capacity, resistance: capacity });
+      if (capacity !== null) checks.push({ name, ratio: vertical / capacity, demand: vertical, resistance: capacity });
     }
   }
   return {

@@ -117,3 +117,33 @@ test('switches support families and draws and checks a beam notch', async ({ pag
   await expect(top).toHaveValue('45');
   await expect(page.locator('#checks')).toContainText('Bending at notch shoulder');
 });
+
+test('formats and prints the live calculation worksheet with the correct applicability', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Fin Plate Connection' }) })
+    .getByRole('link', { name: /Open tool|New design/ }).click();
+  await page.getByLabel('Joint type').selectOption('beam-column');
+  await page.getByRole('tab', { name: 'Detailed calculation' }).click();
+  const sheet = page.locator('.fin-sheet');
+  await expect(sheet.getByRole('heading', { name: 'Beam to column · I/H column flange · Square connection' })).toBeVisible();
+  await expect(sheet.getByRole('img', { name: 'Calculation plan' })).toBeVisible();
+  await expect(sheet.getByRole('img', { name: 'Calculation elevation' })).toBeVisible();
+  await expect(sheet.locator('[data-check="10"]')).toContainText('Not applicable');
+  await page.getByLabel('Column attachment').selectOption('column-web');
+  await expect(sheet.locator('[data-check="10"]')).toContainText('Open');
+  await page.getByLabel('Joint type').selectOption('beam-beam');
+  await page.getByLabel('Horizontal bolt rows').fill('4');
+  await page.getByLabel('Top notch depth (mm)').fill('45');
+  await page.getByLabel('Bottom notch depth (mm)').fill('45');
+  await page.getByLabel('Notch length from beam end (mm)').fill('180');
+  await expect(sheet.getByRole('heading', { name: 'Beam to beam · Double notch · Square connection' })).toBeVisible();
+  await expect(sheet.locator('[data-check="5"]')).toContainText('Calculated');
+  await page.getByText('Skew and eccentricity', { exact: true }).click();
+  await page.getByLabel('Plan skew (°)').fill('15');
+  await expect(sheet.getByRole('heading', { name: 'Beam to beam · Double notch · Skewed 15°' })).toBeVisible();
+  await expect(sheet.locator('[data-check="5"]')).toContainText('Open');
+  await page.emulateMedia({ media: 'print' });
+  await expect(sheet).toBeVisible();
+  await expect(page.locator('main.fin-layout')).toBeHidden();
+  await expect(sheet.getByRole('button', { name: 'Print calculation' })).toBeHidden();
+});
