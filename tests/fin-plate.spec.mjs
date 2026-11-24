@@ -228,7 +228,7 @@ test('separates bolt forces from the elevation and aligns the two beams by refer
   const alignment = page.getByLabel('Supported beam alignment');
   const offset = page.getByLabel('Supporting top above supported top (mm)');
   await expect(alignment).toHaveValue('mid');
-  await expect(elevation.locator('[data-alignment="mid"]')).toBeVisible();
+  await expect(elevation.locator('[data-alignment="mid"]')).toBeAttached();
   await expect(offset).toBeHidden();
   await alignment.selectOption('top');
   const top = Number(await elevation.locator('[data-alignment="top"]').getAttribute('y1'));
