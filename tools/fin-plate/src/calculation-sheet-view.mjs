@@ -34,7 +34,7 @@ function appendStep(parent, { title, intro, note, outcome, captions = [], equati
   parent.append(section);
 }
 
-function drawSheetViews(beam, input, result, governing) {
+function drawSheetViews(beam, input, result) {
   const drawings = node('div', '', 'fin-drawings fin-sheet-drawings');
   for (const [view, caption] of [['plan', 'Plan · support face and angle'], ['elevation', 'Elevation · bolts, plate and beam end']]) {
     const figure = node('figure');
@@ -42,7 +42,7 @@ function drawSheetViews(beam, input, result, governing) {
     svg.classList.add('fin-drawing');
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', 'Calculation ' + view);
-    const bounds = draw(svg, beam, input, result, { view, governing, forces: false, dimensions: true, idPrefix: 'fin-sheet' });
+    const bounds = draw(svg, beam, input, result, { view, dimensions: true, idPrefix: 'fin-sheet' });
     svg.setAttribute('viewBox', bounds.join(' '));
     figure.append(node('figcaption', caption), svg);
     drawings.append(figure);
@@ -98,9 +98,7 @@ export function renderCalculationSheet(output, input, beam, result) {
     groups.append(group);
   }
   const governing = data.checks.reduce((worst, check) => check.ratio > worst.ratio ? check : worst);
-  const governingBolt = data.checks.filter(check => check.bolt)
-    .reduce((worst, check) => check.ratio > worst.ratio ? check : worst).bolt;
-  setup.append(groups, drawSheetViews(beam, input, result, governingBolt));
+  setup.append(groups, drawSheetViews(beam, input, result));
   sheet.append(setup);
 
   const summary = node('section');

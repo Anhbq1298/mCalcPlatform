@@ -1,5 +1,7 @@
 import { supportingFields } from './fields.mjs';
 
+const notchFields = ['notchTop', 'notchBottom', 'notchLength'];
+
 export function supportingControls(catalogue, controls, getState) {
   let group;
   function profile() {
@@ -14,6 +16,11 @@ export function supportingControls(catalogue, controls, getState) {
   return {
     attach(element) { group = element; },
     profile,
+    renderNotch(result) {
+      const state = getState();
+      const auto = !controls.get('autoNotch').disabled && state.autoNotch;
+      for (const key of notchFields) controls.get(key).value = auto ? Number((result.generatedNotch?.[key] ?? 0).toFixed(3)) : state[key];
+    },
     update() {
       const state = getState();
       const section = profile();
@@ -26,6 +33,11 @@ export function supportingControls(catalogue, controls, getState) {
         input.readOnly = state.supportSection !== 0;
         if (input.readOnly) input.value = section?.[dimension] ?? '';
       }
+      const auto = controls.get('autoNotch');
+      auto.disabled = !section || state.beamLayout !== 'fit';
+      for (const key of notchFields) controls.get(key).disabled = (!auto.disabled && state.autoNotch)
+        || (key === 'notchLength' && !state.notchTop && !state.notchBottom);
+      controls.get('supportLevel').closest('label').hidden = state.supportAlignment !== 'custom';
       controls.get('supportThickness').closest('label').hidden = Boolean(section);
       controls.get('type').closest('label').hidden = Boolean(section) && state.beamLayout === 'outside';
       const gapLabel = controls.get('gap').previousElementSibling;
