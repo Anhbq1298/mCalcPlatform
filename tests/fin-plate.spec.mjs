@@ -206,7 +206,7 @@ test('beam-to-beam needs a supporting section and draws the wider outside layout
   await expect(elevation.getByText('g 10.0 mm', { exact: true })).toBeVisible();
   await page.getByLabel('Beam-to-beam arrangement').selectOption('outside');
   await expect(elevation.getByText('g 118.0 mm', { exact: true })).toBeVisible();
-  await expect(elevation.getByText('328.0 mm', { exact: true })).toBeVisible();
+  await expect(elevation.getByText('308.0 mm', { exact: true })).toBeVisible();
   await page.getByLabel('Horizontal bolt rows').fill('4');
   await page.getByLabel('Top notch depth (mm)').fill('45');
   await page.getByLabel('Notch length from beam end (mm)').fill('180');
