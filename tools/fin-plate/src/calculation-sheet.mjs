@@ -1,4 +1,4 @@
-import { beamLayouts } from './beam-layout.mjs';
+import { beamAlignmentOptions, beamLayouts } from './beam-layout.mjs';
 import { calculationSteps } from './calculation-steps.mjs';
 import { jointForSupport, jointNames, supportNames } from './inputs.mjs';
 
@@ -66,6 +66,7 @@ export function calculationSheet(input, beam, result) {
         ['Supporting beam', result.beamLayout.profile.name],
         ['Supporting beam depth / flange width', mm(result.beamLayout.profile.h) + ' / ' + mm(result.beamLayout.profile.b)],
         ['Beam-to-beam arrangement', beamLayouts[result.beamLayout.layout]],
+        ['Supported beam alignment', beamAlignmentOptions[result.beamLayout.alignment]],
         ['Supporting top above supported top', mm(result.beamLayout.offset)],
       ] : []),
       ['Supported beam depth / web thickness', mm(beam.h) + ' / ' + mm(beam.tw)],

@@ -1,5 +1,5 @@
 import { boltGrades, boltSizes } from './bolt-group.mjs';
-import { beamLayouts } from './beam-layout.mjs';
+import { beamAlignmentOptions, beamLayouts } from './beam-layout.mjs';
 import { supportNames, connectionNames, jointNames } from './inputs.mjs';
 
 export const beamFields = [
@@ -21,6 +21,7 @@ export const groups = [
     ['supportSection', 'Supporting section', 'catalogue'],
     ...supportingFields.map(([key, , label]) => [key, 'Supporting ' + label.toLowerCase()]),
     ['beamLayout', 'Beam-to-beam arrangement', Object.entries(beamLayouts)],
+    ['supportAlignment', 'Supported beam alignment', Object.entries(beamAlignmentOptions)],
     ['supportLevel', 'Supporting top above supported top (mm)', null],
   ]],
   ['Supported beam notch', [

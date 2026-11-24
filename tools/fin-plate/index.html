@@ -41,7 +41,6 @@
         <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
         <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
         <button type="button" id="fit">Fit</button>
-        <label><input type="checkbox" id="show-forces" checked> Forces</label>
         <label><input type="checkbox" id="show-dimensions" checked> Dimensions</label>
       </div>
       <div class="fin-drawings">
@@ -82,11 +81,18 @@
       <button type="button" role="tab" id="detail-tab" aria-controls="detail-panel" aria-selected="false" tabindex="-1">Detailed calculation</button>
     </div>
     <div role="tabpanel" id="bolt-panel" aria-labelledby="bolt-tab" tabindex="0">
+      <div class="fin-bolt-results">
+        <figure class="fin-bolt-figure">
+          <figcaption>Bolt group</figcaption>
+          <svg id="bolt-group-drawing" class="fin-drawing" role="img" aria-label="Bolt group force diagram"></svg>
+          <p>Positive Fx points right and positive Fy points up. Arrow lengths are relative to the largest bolt force.</p>
+        </figure>
         <div class="fin-table"><table>
           <thead><tr><th>Bolt</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Resultant (kN)</th><th>Shear</th><th>Web bearing*</th><th>Plate bearing*</th></tr></thead>
           <tbody id="bolt-results"></tbody>
         </table></div>
-        <p>* Directional linear interaction screening.</p>
+      </div>
+      <p>* Directional linear interaction screening.</p>
     </div>
     <div role="tabpanel" id="detail-panel" aria-labelledby="detail-tab" tabindex="0" hidden>
       <div id="calculation-steps"></div>

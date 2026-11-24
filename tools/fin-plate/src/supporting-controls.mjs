@@ -26,6 +26,7 @@ export function supportingControls(catalogue, controls, getState) {
         input.readOnly = state.supportSection !== 0;
         if (input.readOnly) input.value = section?.[dimension] ?? '';
       }
+      controls.get('supportLevel').closest('label').hidden = state.supportAlignment !== 'custom';
       controls.get('supportThickness').closest('label').hidden = Boolean(section);
       controls.get('type').closest('label').hidden = Boolean(section) && state.beamLayout === 'outside';
       const gapLabel = controls.get('gap').previousElementSibling;

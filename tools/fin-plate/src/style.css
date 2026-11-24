@@ -139,3 +139,13 @@ body:has(#joint-template:not([hidden])) .mcalc-shell :is(label, [data-save], [da
 
 .support-beam { fill: #d1dfed; stroke: #344b68; }
 .projected-web { fill: none; stroke: #637e99; stroke-dasharray: 4 3; }
+
+.fin-bolt-results { display: grid; grid-template-columns: minmax(175px, 1fr) minmax(0, 2fr); gap: 12px; margin-top: 12px; align-items: start; }
+.fin-bolt-figure { margin: 0; border: 1px solid #d5dfea; border-radius: 5px; background: #f8fbfd; }
+.fin-bolt-figure figcaption, .fin-bolt-figure p { margin: 0; padding: 7px 9px; }
+.fin-bolt-figure figcaption { font-weight: 650; }
+.fin-bolt-figure p { font-size: 13px; }
+.fin-bolt-figure .fin-drawing { cursor: default; touch-action: auto; }
+.fin-bolt-figure .fin-drawing text { font-size: 12px; }
+.level-reference { stroke: #657e99; stroke-dasharray: 10 4 2 4; }
+@media (max-width: 660px) { .fin-bolt-results { grid-template-columns: minmax(0, 1fr); } }

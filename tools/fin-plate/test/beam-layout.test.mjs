@@ -43,3 +43,15 @@ test('new beam joints require a section while older inputs still run with the re
   assert.throws(() => calculate({ ...defaults, supportSection: -1 }, beam), /Choose a supporting beam/);
   assert.equal(calculate(defaults, beam).beamLayout, null);
 });
+
+test('top, mid-depth and bottom alignment use the two beam depths', () => {
+  const inputWithOffset = { ...input, supportLevel: 23 };
+  for (const [alignment, fraction] of [['top', 0], ['mid', 0.5], ['bottom', 1]]) {
+    const result = calculate({ ...inputWithOffset, supportAlignment: alignment }, beam);
+    assert.equal(result.beamLayout.offset, (supportingProfile.h - beam.h) * fraction);
+    assert.equal(result.beamLayout.referenceFraction, fraction);
+  }
+  const legacy = { ...inputWithOffset };
+  delete legacy.supportAlignment;
+  assert.equal(calculate(legacy, beam).beamLayout.offset, 23);
+});

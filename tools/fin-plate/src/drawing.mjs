@@ -20,7 +20,7 @@ function scene(node) {
   };
 }
 
-function elevation(s, beam, input, result, options) {
+function elevation(s, beam, _input, result, options) {
   const { height, width, beamCentre, clear, group, bolt, notch, beamLayout, beamGap: gap } = result;
   const top = height - beamCentre - beam.h / 2;
   const span = Math.max(width, notch?.shoulder ?? 0) + Math.max(80, beam.h * 0.15);
@@ -39,18 +39,12 @@ function elevation(s, beam, input, result, options) {
   s.line(nb ? shoulder : gap, height - beamCentre + clear / 2, span, height - beamCentre + clear / 2, 'axis');
   s.rect(0, 0, width, height, 'plate');
   if (!supporting) s.line(0, -20, 0, height + 20, 'support');
-  const maximum = Math.max(1, ...group.bolts.map(b => b.force));
-  for (const b of group.bolts) {
-    const y = height - b.y;
-    const isGoverning = b.id === options.governing;
-    s.add('circle', { cx: b.x, cy: y, r: bolt.hole / 2, class: isGoverning ? 'governing' : 'bolt' });
-    if (isGoverning) s.label(b.x + bolt.hole / 2 + 7, y - bolt.hole / 2, String(b.id), 'start').classList.add('bolt-label');
-    if (!options.forces || !b.force) continue;
-    const length = Math.min(52, input.pitch / 2) / maximum;
-    const x2 = b.x + length * b.fx;
-    const y2 = y - length * b.fy;
-    s.line(b.x, y, x2, y2, 'force').setAttribute('marker-end', `url(#${options.idPrefix}-arrow)`);
+  if (supporting && options.dimensions && Number.isFinite(beamLayout.referenceFraction)) {
+    const referenceY = top + beam.h * beamLayout.referenceFraction;
+    s.line(supporting.left - 4, referenceY, span + 4, referenceY, 'level-reference')
+      .setAttribute('data-alignment', beamLayout.alignment);
   }
+  for (const b of group.bolts) s.add('circle', { cx: b.x, cy: height - b.y, r: bolt.hole / 2, class: 'bolt' });
   if (options.dimensions) {
     s.line(0, widthDimension, width, widthDimension, 'dimension');
     for (const x of [0, width]) s.line(x, widthDimension - 7, x, widthDimension + 7, 'dimension');
@@ -135,11 +129,37 @@ function plan(s, beam, input, result, options) {
 export function draw(node, beam, input, result, options) {
   node.replaceChildren();
   options = { idPrefix: 'fin', ...options };
-  if (options.view === 'elevation') {
-    const marker = scene(node).add('marker', { id: options.idPrefix + '-arrow', viewBox: '0 0 10 10', refX: 8, refY: 5,
-      markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' });
-    scene(marker).add('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrow-head' });
-  }
   const render = { elevation, plan }[options.view];
   return render(scene(node), beam, input, result, options);
+}
+
+export function drawBoltGroup(node, { group, bolt }, governing) {
+  node.replaceChildren();
+  const s = scene(node);
+  const marker = s.add('marker', { id: 'fin-bolt-arrow', viewBox: '0 0 10 10', refX: 8, refY: 5,
+    markerWidth: 6, markerHeight: 6, orient: 'auto' });
+  scene(marker).add('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrow-head' });
+  const radius = bolt.hole / 2;
+  const bolts = group.bolts.map(b => ({ ...b, x: b.dx, y: -b.dy }));
+  const maxForce = Math.max(...bolts.map(b => b.force));
+  const scale = maxForce > 0 ? Math.max(36, radius * 2.5) / maxForce : 0;
+  const pad = Math.max(66, radius * 4);
+  const left = Math.min(...bolts.map(b => b.x)) - pad;
+  const right = Math.max(...bolts.map(b => b.x)) + pad;
+  const top = Math.min(...bolts.map(b => b.y)) - pad;
+  const bottom = Math.max(...bolts.map(b => b.y)) + pad;
+  node.setAttribute('viewBox', [left, top, right - left, bottom - top].join(' '));
+  s.line(left + 8, 0, right - 8, 0, 'axis');
+  s.line(0, top + 8, 0, bottom - 8, 'axis');
+  for (const b of bolts) {
+    const item = s.add('g', { 'data-bolt': b.id });
+    const draw = scene(item);
+    draw.add('title', {}, 'Bolt ' + b.id + ': Fx ' + b.fx.toFixed(2) + ' kN, Fy ' + b.fy.toFixed(2)
+      + ' kN, resultant ' + b.force.toFixed(2) + ' kN');
+    draw.add('circle', { cx: b.x, cy: b.y, r: radius, class: b.id === governing ? 'governing' : 'bolt' });
+    if (b.force > 0) draw.line(b.x, b.y, b.x + scale * b.fx, b.y - scale * b.fy, 'force')
+      .setAttribute('marker-end', 'url(#fin-bolt-arrow)');
+    draw.label(b.x, b.y + (b.fy >= 0 ? radius + 12 : -radius - 5), String(b.id), 'middle')
+      .classList.add('bolt-label');
+  }
 }

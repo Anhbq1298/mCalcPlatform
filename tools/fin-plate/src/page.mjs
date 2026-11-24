@@ -5,6 +5,7 @@ import { calculate } from './connection.mjs';
 import { columnSupports, defaults, highSkew, jointForSupport, jointNames, supportNames } from './inputs.mjs';
 import { supportingControls } from './supporting-controls.mjs';
 import { beamFields, groups } from './fields.mjs';
+import { drawBoltGroup } from './drawing.mjs';
 import { drawingViews } from './drawing-view.mjs';
 import { sectionBrowser } from './section-browser.mjs';
 import { compareColumns } from './layout-study.mjs';
@@ -195,14 +196,15 @@ function refresh() {
       + ' mm · Bolt-group moment ' + (result.moment / 1000).toFixed(2) + ' kNm · Hole Ø' + result.bolt.hole + ' mm'
       + (result.beamLayout ? ' · Web face to beam end (axis) ' + result.beamGap.toFixed(1) + ' mm'
         : ' · Normal end clearance ' + result.supportClearance.toFixed(1) + ' mm');
-    drawings.render(section, state, result, { governing: governingBolt,
-      forces: byId('show-forces').checked, dimensions: byId('show-dimensions').checked });
+    drawings.render(section, state, result, { dimensions: byId('show-dimensions').checked });
+    drawBoltGroup(byId('bolt-group-drawing'), result, governingBolt);
     renderStudy(section);
     detailedCalculation.render(state, section, result);
   } catch (error) {
     status.textContent = error.message;
     status.dataset.failure = 'true';
     drawings.clear();
+    byId('bolt-group-drawing').replaceChildren();
     detailedCalculation.clear();
   }
 }
@@ -222,7 +224,7 @@ byId('connection-inputs').addEventListener('input', ({ target }) => {
   updateControls();
   refresh();
 });
-for (const key of ['show-forces', 'show-dimensions']) byId(key).addEventListener('change', refresh);
+byId('show-dimensions').addEventListener('change', refresh);
 byId('layout-study').addEventListener('toggle', refresh);
 for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', 0.8]]) byId(id).onclick = () => {
   drawings.zoom(factor);
@@ -275,7 +277,7 @@ function openEditor(inputs) {
 }
 
 const templates = jointTemplatePicker(support => {
-  openEditor({ support, supportSection: support === 'beam-web' ? -1 : null });
+  openEditor({ support, supportAlignment: 'mid', supportSection: support === 'beam-web' ? -1 : null });
   byId('drawing-title').focus();
 });
 if (!new URLSearchParams(window.location.search).get('design')) templates.open();
