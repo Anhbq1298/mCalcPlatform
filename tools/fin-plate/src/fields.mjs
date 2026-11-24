@@ -1,5 +1,5 @@
 import { boltGrades, boltSizes } from './bolt-group.mjs';
-import { supportNames, connectionNames } from './inputs.mjs';
+import { supportNames, connectionNames, jointNames } from './inputs.mjs';
 
 export const beamFields = [
   ['h', 'Depth h (mm)'], ['b', 'Flange width b (mm)'], ['tw', 'Web thickness (mm)'],
@@ -11,8 +11,14 @@ export const groups = [
     ['restrained', 'Beam laterally restrained', 'checkbox'],
   ]],
   ['Support and load', [
-    ['support', 'Support', Object.entries(supportNames)], ['type', 'Fin plate', Object.entries(connectionNames)],
+    ['joint', 'Joint type', Object.entries(jointNames)],
+    ['support', 'Column attachment', Object.entries(supportNames)], ['type', 'Fin plate', Object.entries(connectionNames)],
     ['vertical', 'ULS shear (kN)'], ['horizontal', 'In-plane horizontal (kN)'], ['appliedMoment', 'Additional moment (kNm)'],
+  ]],
+  ['Supported beam notch', [
+    ['beamFy', 'Beam yield strength (MPa)'],
+    ['notchTop', 'Top notch depth (mm)'], ['notchBottom', 'Bottom notch depth (mm)'],
+    ['notchLength', 'Notch length from beam end (mm)'],
   ]],
   ['Bolt arrangement', [
     ['columns', 'Vertical bolt columns', [[1, '1'], [2, '2'], [3, '3']]], ['rows', 'Horizontal bolt rows'],

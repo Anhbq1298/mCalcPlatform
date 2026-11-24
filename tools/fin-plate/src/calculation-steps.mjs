@@ -1,4 +1,5 @@
 import { gammaBolt } from './bolt-group.mjs';
+import { notchSteps } from './calculation-notch.mjs';
 import { sciSteps } from './calculation-sci.mjs';
 
 const tex = String.raw;
@@ -122,5 +123,9 @@ export function calculationSteps(input, beam, result) {
   if (plate) steps.push(bearingStep(plate, group.bolts.find(b => b.id === plate.bolt), 'plate', result, input.thickness, input.plateFu));
   if (!web && !plate) steps.push({ title: 'Bearing applicability', note: 'Bearing screening requires a regular bolt grid.', equations: [] });
   steps.push(...sciSteps(input, result, { n, kn, times, ur }));
+  steps.push(...notchSteps(input, beam, result, n, ur));
+  if (result.openChecks.length) {
+    steps.push({ title: 'Checks requiring separate assessment', note: result.openChecks.join(' '), equations: [] });
+  }
   return steps;
 }

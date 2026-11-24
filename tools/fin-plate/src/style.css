@@ -12,6 +12,7 @@ p { margin: 7px 0; color: #4b5f77; }
 #fields > details { margin-bottom: 8px; }
 summary { cursor: pointer; font-weight: 650; }
 #fields label { display: grid; grid-template-columns: minmax(0, 1fr) minmax(76px, .9fr); align-items: center; gap: 8px; margin-top: 7px; }
+#fields label[hidden] { display: none; }
 #fields label.section-picker { grid-template-columns: 0.6fr 1.4fr; }
 #fields input, #fields select { min-width: 0; }
 #fields input:read-only:not([type="checkbox"]) { background: #f0f4f7; }

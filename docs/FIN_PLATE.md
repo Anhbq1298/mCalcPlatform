@@ -20,7 +20,7 @@ Open **Detailed calculation** below the workspace for formulas, substituted valu
 | Standard bolt-group design | SCI P358 §5.5 Check 2, pp. 115–117 | Symmetric one- and two-column groups. The SCI method and the per-bolt screening results appear separately. |
 | Standard fin plate section | SCI P358 §5.5 Check 3, pp. 118–119 | Gross and net shear, block tearing and first-stage bending. UK National Annex net-section factor 1.1 as used by P358. |
 | Plate stability | SCI P358 §5.5 Check 3 and Table 5.2, pp. 119–120 | The first bolt line determines the short-plate limit. The group centroid determines the moment arm. Long-plate resistance is calculated for laterally restrained beams with S275 fin plates. |
-| Weld and single-sided support | SCI P358 §5.5 Checks 8 and 9, pp. 127–128 | Full-strength double fillet throat sizing and the conservative support punching criterion. The support local shear check uses the entered thickness at the weld. |
+| Weld and single-sided support | SCI P358 §5.5 Checks 8 and 10, pp. 127–128 | Full-strength double fillet throat sizing and the conservative support punching criterion. The support local shear check uses the entered thickness at the weld. |
 
 Geometry mode measures the distance from the idealized weld/support face to the bolt group centroid along the beam. Normal mode projects the specified value by dividing by the cosine of the plan skew. Axis mode uses the specified distance directly. Vertical shear is unchanged in each mode. The quoted design strengths are inputs for the actual component and product.
 
@@ -44,3 +44,9 @@ The stability benchmark reproduces 771 kN and 742.5 kN for the two sides of Exam
 The interface presents a partial assessment for every layout. Full weld group verification, additional support configurations, beam coping, tying and rotation remain open. The three-column check covers elastic bolt forces, shear and directional bearing screening. Custom coordinate layouts report elastic bolt forces, shear and geometric edge or collision findings.
 
 [SCI P358](https://steelconstruction.info/upload/Wiki-Files/a/a9/SCI_P358.pdf) · [ArcelorMittal Orange Book](https://orangebook.arcelormittal.com/node/240)
+
+## Joint types and beam notches
+
+Beam to column supports attachment to the web or flange of an I/H column, or to the outer face of an SHS, RHS or CHS column. Beam to beam attaches to the supporting beam web. Saved designs retain their original support key, including the legacy rigid-support option.
+
+The beam-to-beam notch inputs describe a square-ended cope in the **supported beam**, measured from its uncut flange faces and from its beam end. A double notch uses a common length. The drawing shows the reduced depth and its shoulder. The notch limits the web edge available for bolt bearing, and the reduced tee or web section is used for gross shear, net shear, block tearing and bending at the connection and notch section where applicable. The SCI short-cut local stability criteria are evaluated for restrained S275/S355 beams. The UI identifies checks outside that scope. The unrestrained beam stability verification remains part of member design. The notch procedure covers regular one- or two-column standard vertical-shear cases with bolt centres within the notch length and holes clear of the cut edge. The CI benchmark uses P358 §5.6 Example 1, Checks 4–6.

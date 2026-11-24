@@ -71,7 +71,7 @@ export function sciWeldThickness(grade, thickness, leg) {
   return { throat, minimum, ratio: minimum / throat };
 }
 
-// SCI P358 §5.5 Check 9, one supported beam and a single fin plate.
+// SCI P358 §5.5 Check 10, one supported beam and a single fin plate.
 export function sciSupportChecks({ height, thickness, supportThickness, plateFy, supportFy, supportFu }) {
   const localShear = 2 * height * supportThickness * supportFy / Math.sqrt(3) / 1000;
   const punchLimit = supportThickness * supportFu / (plateFy * gammaBolt);
