@@ -1,7 +1,4 @@
-import { convertLatexToMarkup } from 'mathlive';
-import 'mathlive/static.css';
-import { calculationSteps } from './calculation-steps.mjs';
-
+import { renderCalculationSheet } from './calculation-sheet-view.mjs';
 export function calculationTabs() {
   const tabs = [...document.querySelectorAll('#calculation-tabs [role="tab"]')];
   const detail = tabs[1];
@@ -15,44 +12,7 @@ export function calculationTabs() {
       output.textContent = 'Enter valid connection inputs to view the calculation.';
       return;
     }
-    const guide = document.createElement('p');
-    guide.className = 'fin-calculation-guide';
-    guide.textContent = 'Read each step from explanation to formula, substituted values and result. UR means utilization ratio. Above 100% means that individual check exceeds its calculated limit.';
-    output.append(guide);
-    for (const { title, intro, note, outcome, captions = [], equations } of calculationSteps(...latest)) {
-      const section = document.createElement('section');
-      const heading = document.createElement('h3');
-      heading.textContent = title;
-      section.append(heading);
-      for (const text of [intro, outcome, note].filter(Boolean)) {
-        const paragraph = document.createElement('p');
-        if (text === outcome) paragraph.className = 'fin-calculation-result';
-        paragraph.textContent = text;
-        section.append(paragraph);
-      }
-      if (!equations.length) {
-        output.append(section);
-        continue;
-      }
-      const list = document.createElement('ol');
-      list.className = 'fin-calculation-list';
-      for (const [index, equation] of equations.entries()) {
-        const step = document.createElement('li');
-        if (captions[index]) {
-          const caption = document.createElement('p');
-          caption.textContent = captions[index];
-          step.append(caption);
-        }
-        const row = document.createElement('div');
-        row.className = 'fin-equation';
-        row.dataset.latex = equation;
-        row.innerHTML = convertLatexToMarkup(equation, { defaultMode: 'math' });
-        step.append(row);
-        list.append(step);
-      }
-      section.append(list);
-      output.append(section);
-    }
+    renderCalculationSheet(output, ...latest);
   }
 
   function activate(active, focus) {

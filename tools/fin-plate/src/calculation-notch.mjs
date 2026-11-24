@@ -2,7 +2,7 @@ const tex = String.raw;
 
 export function notchSteps(input, beam, result, n, ur) {
   const { notch, notchedBeam: section } = result;
-  if (!notch || !section) return [];
+  if (!notch) return [];
   const fy = input.beamFy ?? 355;
   const fu = input.beamFu;
   const tw = beam.tw;
@@ -11,14 +11,15 @@ export function notchSteps(input, beam, result, n, ur) {
   const unit = value => tex`\,\mathrm{${value === 'kNm' ? 'kN\\,m' : value}}`;
   return [{
     title: 'Geometry of the supported beam notch',
-    intro: 'The removed flange and web reduce the section available to carry shear and bending. A single notch leaves a tee section. A double notch leaves a rectangular web.',
+    intro: 'The removed flange and web reduce the section available to carry shear and bending. The model leaves a ' + (notch.top && notch.bottom ? 'rectangular web.' : 'tee section.'),
     captions: ['Subtract the top and bottom cut depths from the original beam depth.',
-      'Use the reduced section to determine its effective shear area and elastic bending modulus. The modulus measures resistance to bending stress.'],
+      'The effective shear area resists shear. The elastic modulus relates the bending moment to stress.'],
     equations: [
-      tex`h_N=h-d_{nt}-d_{nb}=${n(beam.h)}-${n(notch.top)}-${n(notch.bottom)}=${n(section.depth)}${unit('mm')}`,
-      tex`A_v=${n(section.area)}\,\mathrm{mm^2},\qquad W_{el,N}=${n(section.modulus)}\,\mathrm{mm^3}`,
+      tex`h_N=h-d_{nt}-d_{nb}=${n(beam.h)}-${n(notch.top)}-${n(notch.bottom)}=${n(beam.h - notch.top - notch.bottom)}${unit('mm')}`,
+      ...(section ? [tex`A_v=${n(section.area)}\,\mathrm{mm^2},\qquad W_{el,N}=${n(section.modulus)}\,\mathrm{mm^3}`] : []),
     ],
-  }, {
+  }, ...(section ? [{
+    check: 4,
     title: 'P358 Check 4 · Shear through the notched web',
     intro: 'Compare the applied shear with three possible failure modes. Gross shear yields the web. Net shear fractures it through the holes. Block tearing frees the steel around the bolt group.',
     captions: ['Calculate yielding using the effective shear area and beam yield strength.',
@@ -29,7 +30,8 @@ export function notchSteps(input, beam, result, n, ur) {
       tex`V_{Rd,n}=\frac{(A_v-n_1 d_0 t_w)f_u}{10^3\sqrt3\times1.1}=\frac{(${n(section.area)}-${boltRows}\times${hole}\times${n(tw)})\times${n(fu)}}{10^3\sqrt3\times1.1}=${n(section.checks[1].resistance)}${unit('kN')}`,
       tex`V_{Rd,b}=\frac1{10^3}\left(\frac{0.5 f_u A_{nt}}{1.1}+\frac{f_y A_{nv}}{\sqrt3}\right)=\frac1{10^3}\left(\frac{0.5\times${n(fu)}\times${n(section.netTension)}}{1.1}+\frac{${n(fy)}\times${n(section.netShear)}}{\sqrt3}\right)=${n(section.checks[2].resistance)}${unit('kN')}`,
     ],
-  }, ...section.checks.map(({ name, demand, resistance, ratio, unit: measure, lever, shearResistance, reduction }) => ({
+  }, ...section.checks.map(({ name, demand, resistance, ratio, unit: measure, lever, shearResistance, reduction, check }) => ({
+    check,
     title: name,
     intro: measure === 'kNm'
       ? 'The eccentric shear produces bending in the reduced section. High shear reduces the available moment resistance.'
@@ -51,5 +53,5 @@ export function notchSteps(input, beam, result, n, ur) {
       ] : [tex`\text{Applied}=${n(demand)}${unit(measure)},\qquad\text{Limit}=${n(resistance)}${unit(measure)}`]),
       ur('notch', demand, resistance, ratio),
     ],
-  }))];
+  }))] : [])];
 }

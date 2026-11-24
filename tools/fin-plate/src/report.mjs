@@ -23,7 +23,7 @@ export function report(input, beam, result) {
     ['Axis eccentricity · ' + decimal(result.z) + ' mm · Normal projection · ' + decimal(result.normal) + ' mm'],
     ['Minimum normal clearance for square beam end · ' + decimal(result.supportClearance) + ' mm'],
     ['Elastic bolt-group moment · ' + decimal(result.moment / 1000) + ' kNm'],
-    ['Group polar property · ' + decimal(result.group.polar) + ' mm⁴'],
+    ['Group polar property · ' + decimal(result.group.polar) + ' mm²'],
     ['Bolt design shear resistance · ' + decimal(result.shearResistance) + ' kN'],
     ...(result.weld ? [['Double fillet · Throat ' + decimal(result.weld.throat) + ' mm · Required ' + decimal(result.weld.minimum) + ' mm']] : []),
     ['Component results', 2],

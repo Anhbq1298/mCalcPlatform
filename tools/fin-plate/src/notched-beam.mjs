@@ -43,33 +43,33 @@ export function notchChecks(input, beam, notch, bolt, group) {
   const netResistance = Math.max(0, net) * fu / root3 / gammaNet / 1000;
   const blockResistance = (0.5 * fu * Math.max(0, netTension) / gammaNet + fy * Math.max(0, netShear) / root3) / 1000;
   const ratio = (demand, resistance) => demand === 0 ? 0 : demand / resistance;
-  const check = (name, resistance, demand = vertical, unit = 'kN') =>
-    ({ name, resistance, demand, unit, ratio: ratio(demand, resistance) });
+  const check = (check, name, resistance, demand = vertical, unit = 'kN') =>
+    ({ check, name, resistance, demand, unit, ratio: ratio(demand, resistance) });
   const checks = [
-    check('P358 Check 4 · Notched web gross shear', grossResistance),
-    check('P358 Check 4 · Notched web net shear', netResistance),
-    check('P358 Check 4 · Notched web block tearing', blockResistance),
+    check(4, 'P358 Check 4 · Notched web gross shear', grossResistance),
+    check(4, 'P358 Check 4 · Notched web net shear', netResistance),
+    check(4, 'P358 Check 4 · Notched web block tearing', blockResistance),
   ];
-  const bending = (name, shearResistance, lever) => {
+  const bending = (checkNumber, name, shearResistance, lever) => {
     const reduction = Math.max(0, 1 - Math.max(0, 2 * ratio(vertical, shearResistance) - 1) ** 2);
-    return { ...check(name, fy * modulus * reduction / 1e6, vertical * lever / 1000, 'kNm'),
+    return { ...check(checkNumber, name, fy * modulus * reduction / 1e6, vertical * lever / 1000, 'kNm'),
       lever, shearResistance, reduction };
   };
   if (columns === 2 && length > endToLastColumn) {
-    checks.push(bending('P358 Check 4 · Notched web bending at connection',
+    checks.push(bending(4, 'P358 Check 4 · Notched web bending at connection',
       Math.min(grossResistance, netResistance), gap + endToLastColumn));
   }
   const closeToLastColumn = columns === 2 && length - endToLastColumn < 2 * bolt.diameter;
   const lever = closeToLastColumn ? Math.max(shoulder, gap + endToLastColumn) : shoulder;
   const shoulderShear = closeToLastColumn ? Math.min(grossResistance, netResistance) : grossResistance;
-  checks.push(bending('P358 Check 5 · Bending at notch shoulder', shoulderShear, lever));
+  checks.push(bending(5, 'P358 Check 5 · Bending at notch shoulder', shoulderShear, lever));
   const slenderness = beam.h / tw;
   if (input.restrained && (fy === 275 || fy === 355)) {
     const stocky = fy === 275 ? 54.3 : 48;
     const coefficient = fy === 275 ? 160000 : 110000;
     checks.push(
-      check('P358 Check 6 · Notch depth limit', beam.h / (top && bottom ? 5 : 2), Math.max(top, bottom), 'mm'),
-      check('P358 Check 6 · Notch length limit',
+      check(6, 'P358 Check 6 · Notch depth limit', beam.h / (top && bottom ? 5 : 2), Math.max(top, bottom), 'mm'),
+      check(6, 'P358 Check 6 · Notch length limit',
         slenderness <= stocky ? beam.h : coefficient * beam.h / slenderness ** 3, length, 'mm'),
     );
   }

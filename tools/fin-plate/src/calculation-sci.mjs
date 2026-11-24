@@ -6,7 +6,8 @@ export function sciSteps(input, result, { n, kn, times, ur }) {
   const { sci, weld, support, height } = result;
   const { vertical, thickness: t, plateFy: fy, plateFu: fu, rows, supportThickness: ts } = input;
   const factor = (value, divisor) => tex`\frac{${n(value)}}{${divisor}}`;
-  const check = (name, capacity, explanation, equation) => ({
+  const check = (check, name, capacity, explanation, equation) => ({
+    check,
     title: name,
     intro: explanation,
     captions: ['Calculate the design shear resistance for this failure mode.', 'Compare the applied vertical design shear with this resistance.'],
@@ -19,6 +20,7 @@ export function sciSteps(input, result, { n, kn, times, ur }) {
     const maxX = Math.max(...group.bolts.map(b => Math.abs(b.dx)));
     const maxY = Math.max(...group.bolts.map(b => Math.abs(b.dy)));
     steps.push({
+      check: 2,
       title: 'SCI P358 · Bolt group',
       intro: 'Find the maximum vertical shear the entire connection can transfer for each bolt-group failure mode under the SCI P358 method.',
       captions: [
@@ -44,12 +46,19 @@ export function sciSteps(input, result, { n, kn, times, ur }) {
     });
     const d0 = result.bolt.hole;
     steps.push(
-      check('P358 gross plate shear', plate.gross, "Check shear yielding over the full fin plate section. h and t are the plate height and thickness, and fᵧ is its yield strength.", tex`V_{Rd,g}=\frac{htf_y}{10^3\times1.27\sqrt3}=\frac{${[height, t, fy].map(x => n(x)).join(times)}}{10^3\times1.27\sqrt3}=${n(plate.gross, 3)}${kn}`),
-      check('P358 net plate shear', plate.net, "Check shear rupture across a bolt line. Subtract the nᵣ holes of diameter d₀ from the plate height h. t is plate thickness and fᵤ is the plate’s ultimate strength.", tex`V_{Rd,n}=\frac{(h-n_rd_0)tf_u}{10^3\times1.1\sqrt3}=\frac{(${height}-${rows}\times${d0})\times${t}\times${fu}}{10^3\times1.1\sqrt3}=${n(plate.net, 3)}${kn}`),
-      check('P358 plate block tearing', plate.block, "Check whether a block of plate can tear out around the bolts. Aₙₜ and Aₙᵥ are the remaining tension and shear areas along the tear path. fᵤ and fᵧ are the plate’s ultimate and yield strengths.", tex`V_{Rd,b}=\frac1{10^3}\left(\frac{0.5f_u A_{nt}}{1.1}+\frac{f_y A_{nv}}{\sqrt3}\right)=\frac1{10^3}\left(\frac{0.5\times${fu}\times${n(plate.netTension)}}{1.1}+\frac{${fy}\times${n(plate.netShear)}}{\sqrt3}\right)=${n(plate.block, 3)}${kn}`),
+      check(3, 'P358 gross plate shear', plate.gross, "Check shear yielding over the full fin plate section. h and t are the plate height and thickness, and fᵧ is its yield strength.", tex`V_{Rd,g}=\frac{htf_y}{10^3\times1.27\sqrt3}=\frac{${[height, t, fy].map(x => n(x)).join(times)}}{10^3\times1.27\sqrt3}=${n(plate.gross, 3)}${kn}`),
+      check(3, 'P358 net plate shear', plate.net, "Check shear rupture across a bolt line. Subtract the nᵣ holes of diameter d₀ from the plate height h. t is plate thickness and fᵤ is the plate’s ultimate strength.", tex`V_{Rd,n}=\frac{(h-n_rd_0)tf_u}{10^3\times1.1\sqrt3}=\frac{(${height}-${rows}\times${d0})\times${t}\times${fu}}{10^3\times1.1\sqrt3}=${n(plate.net, 3)}${kn}`),
+      check(3, 'P358 plate block tearing', plate.block, "Check whether a block of plate can tear out around the bolts. Aₙₜ and Aₙᵥ are the remaining tension and shear areas along the tear path. fᵤ and fᵧ are the plate’s ultimate and yield strengths.", tex`V_{Rd,b}=\frac1{10^3}\left(\frac{0.5f_u A_{nt}}{1.1}+\frac{f_y A_{nv}}{\sqrt3}\right)=\frac1{10^3}\left(\frac{0.5\times${fu}\times${n(plate.netTension)}}{1.1}+\frac{${fy}\times${n(plate.netShear)}}{\sqrt3}\right)=${n(plate.block, 3)}${kn}`),
     );
     const elastic = tex`V_{\mathrm{el}}=\frac{th^2 f_y}{6z\times 10^3}=\frac{${t}\times${height}^2\times${fy}}{6\times${n(z)}\times 10^3}=${n(t * height ** 2 * fy / (6e3 * z), 3)}${kn}`;
-    if (plate.bending !== null) steps.push(check('P358 plate bending', plate.bending, "Check whether the eccentric vertical shear can cause bending yield. The elastic resistance uses plate thickness t, height h, yield strength fᵧ and lever arm z.", elastic));
+    if (plate.bending !== null) steps.push(check(3, 'P358 plate bending', plate.bending, "Check whether the eccentric vertical shear can cause bending yield. The elastic resistance uses plate thickness t, height h, yield strength fᵧ and lever arm z.", elastic));
+    if (plate.bending === null) steps.push({
+      check: 3,
+      title: 'First-stage plate bending criterion',
+      intro: 'SCI P358 permits the separate first-stage plate bending comparison to be omitted when the plate is deep enough relative to the shear lever arm. The stability check still applies.',
+      captions: ['Multiply the shear lever arm z by 2.73 and compare it with the actual plate height h.'],
+      equations: [tex`h=${n(height)}\,\mathrm{mm}\geq2.73z=2.73\times${n(z)}=${n(2.73 * z)}\,\mathrm{mm}`],
+    });
     if (stability.resistance !== null) {
       const cap = stability.resistance;
       const equations = [elastic];
@@ -58,6 +67,7 @@ export function sciSteps(input, result, { n, kn, times, ur }) {
         tex`\chi_{LT}=${n(stability.reduction)},\quad V_{Rd}=\min(V_{\mathrm{el}},\chi_{LT}V_{\mathrm{el}}/0.6)=${n(cap, 3)}${kn}`,
       );
       steps.push({
+        check: 3,
         title: 'P358 ' + stability.type + ' plate stability',
         intro: 'Check the fin plate for lateral-torsional instability using its plate length category.',
         captions: [
@@ -73,6 +83,7 @@ export function sciSteps(input, result, { n, kn, times, ur }) {
     }
   }
   if (weld) steps.push({
+    check: 8,
     title: 'P358 double fillet weld sizing',
     intro: 'Check the effective throat of the specified fillet welds against the sizing rule for the selected fin plate.',
     captions: [
@@ -87,10 +98,11 @@ export function sciSteps(input, result, { n, kn, times, ur }) {
     ],
   });
   if (support) {
-    const limit = ts * input.supportFu / (fy * gammaBolt);
+    const limit = support.punchLimit;
     steps.push(
-      check('P358 support local shear', support.localShear, "Check local shear in the supporting element using plate height h, support thickness tₛ and support yield strength fᵧ,ₛ.", tex`V_{Rd}=\frac{2ht_sf_{y,s}}{10^3\sqrt3}=\frac{2\times${height}\times${ts}\times${input.supportFy}}{10^3\sqrt3}=${n(support.localShear, 3)}${kn}`),
+      check(10, 'P358 support local shear', support.localShear, "Check local shear in the supporting element using plate height h, support thickness tₛ and support yield strength fᵧ,ₛ.", tex`V_{Rd}=\frac{2ht_sf_{y,s}}{10^3\sqrt3}=\frac{2\times${height}\times${ts}\times${input.supportFy}}{10^3\sqrt3}=${n(support.localShear, 3)}${kn}`),
       {
+        check: 10,
         title: 'P358 support punching shear',
         intro: 'Check the fin plate thickness against the supporting element’s calculated punching shear limit.',
         captions: [

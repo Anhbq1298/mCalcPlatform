@@ -74,7 +74,6 @@ dialog::backdrop { background: #142b4460; }
 .fin-calculation { margin: 0 clamp(12px, 2vw, 26px) 24px; }
 #calculation-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #d5dfea; padding-bottom: 6px; }
 #calculation-tabs [aria-selected="true"] { color: #133e72; background: #edf5ff; border-color: #4676ad; font-weight: 650; }
-#calculation-steps > section { padding: 10px 0; border-bottom: 1px solid #d5dfea; }
 #calculation-steps h3 { margin: 0 0 8px; font-size: 15px; }
 .fin-equation { overflow-x: auto; padding: 4px 0; }
 
@@ -83,3 +82,37 @@ dialog::backdrop { background: #142b4460; }
 .fin-calculation-list { padding-inline-start: 1.6rem; margin-block: 10px 4px; }
 .fin-calculation-list > li { padding-inline-start: 4px; margin-block: 8px; }
 .fin-calculation-list > li > p { margin: 0; max-width: 78ch; }
+
+.fin-sheet { max-width: 1080px; margin-inline: auto; }
+.fin-sheet-header { position: relative; padding-block: 16px; }
+.fin-sheet-header h2 { margin: 0; font-size: clamp(17px, 2.2vw, 24px); }
+.fin-sheet-actions { margin-top: 10px; }
+.fin-sheet > :is(section, footer) { border-top: 1px solid #d5dfea; padding: 12px 0; }
+.fin-sheet h4 { margin: 8px 0 5px; font-size: 14px; }
+.fin-sheet-data { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.fin-sheet-data section { border: 1px solid #d5dfea; border-radius: 5px; padding: 8px 10px; }
+.fin-sheet-data dl { margin: 0; }
+.fin-sheet-data dt { color: #405974; margin-top: 6px; font-size: 13px; }
+.fin-sheet-data dd { margin: 0; font-weight: 600; }
+.fin-sheet-drawings .fin-drawing { cursor: default; }
+.fin-sheet-summary th:first-child { text-align: start; white-space: normal; }
+.fin-sheet-summary tbody th { font-weight: 500; }
+.fin-sheet-summary tr[data-failure="true"] { color: #a22e27; background: #fff0ee; }
+.fin-sheet-status { padding: 6px 8px; background: #f2f5f9; }
+.fin-sheet-step { margin-top: 12px; }
+@media (max-width: 600px) {
+  .fin-sheet-data, .fin-sheet-drawings { grid-template-columns: minmax(0, 1fr); }
+}
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body:has(.fin-sheet) { background: white; font-size: 10pt; }
+  body:has(.fin-sheet) > :not(.fin-calculation),
+  body:has(.fin-sheet) :is(#calculation-tabs, #bolt-panel, .fin-sheet-actions) { display: none !important; }
+  body:has(.fin-sheet) .fin-calculation { margin: 0; padding: 0; border: 0; }
+  .fin-sheet :is(h2, h3, h4) { break-after: avoid; }
+  .fin-sheet :is(figure, li, dd, tr) { break-inside: avoid; }
+  .fin-sheet-data, .fin-sheet-drawings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fin-sheet-drawings .fin-drawing { height: 45mm; }
+  .fin-sheet-summary { font-size: 8.5pt; }
+  .fin-equation { overflow: visible; font-size: 8.25pt; }
+}
