@@ -39,6 +39,11 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   await expect(calculation.locator('.fin-equation[data-latex*="70.01"] > *').first()).toBeVisible();
   await expect(calculation.getByRole('heading', { name: /Fin-plate bearing/ })).toBeVisible();
   await expect(calculation.getByRole('heading', { name: /Bolt shear/ })).toBeVisible();
+  await expect(calculation.getByText(/UR means utilization ratio/)).toBeVisible();
+  await expect(calculation.getByText(/The negative clearance means the beam end crosses/)).toBeVisible();
+  await expect(calculation.getByText(/Calculate bolt shear resistance using bolt strength/)).toBeVisible();
+  await expect(calculation.getByText(/Bolt \d+ governs with .*kN demand and .*kN resistance/)).toBeVisible();
+  await expect(calculation.locator('.fin-calculation-list li:not(:has(p))')).toHaveCount(0);
   await page.getByLabel('ULS shear (kN)').fill('250');
   await expect(calculation.locator('.fin-equation[data-latex*="58.34"] > *').first()).toBeVisible();
   await page.getByLabel('ULS shear (kN)').fill('300');

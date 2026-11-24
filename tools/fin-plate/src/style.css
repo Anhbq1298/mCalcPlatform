@@ -76,3 +76,9 @@ dialog::backdrop { background: #142b4460; }
 #calculation-steps > section { padding: 10px 0; border-bottom: 1px solid #d5dfea; }
 #calculation-steps h3 { margin: 0 0 8px; font-size: 15px; }
 .fin-equation { overflow-x: auto; padding: 4px 0; }
+
+.fin-calculation-guide { max-width: 78ch; }
+.fin-calculation-result { border-inline-start: 3px solid #4676ad; background: #edf5ff; padding: 6px 10px; font-weight: 600; }
+.fin-calculation-list { padding-inline-start: 1.6rem; margin-block: 10px 4px; }
+.fin-calculation-list > li { padding-inline-start: 4px; margin-block: 8px; }
+.fin-calculation-list > li > p { margin: 0; max-width: 78ch; }
