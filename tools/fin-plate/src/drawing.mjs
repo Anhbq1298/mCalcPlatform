@@ -1,3 +1,5 @@
+import { supportNames } from './inputs.mjs';
+
 const svg = 'http://www.w3.org/2000/svg';
 const mm = value => value.toFixed(1) + ' mm';
 
@@ -18,15 +20,21 @@ function scene(node) {
 }
 
 function elevation(s, beam, input, result, options) {
-  const { height, width, beamCentre, clear, group, bolt } = result;
+  const { height, width, beamCentre, clear, group, bolt, notch } = result;
   const top = height - beamCentre - beam.h / 2;
-  const span = width + Math.max(80, beam.h * 0.15);
+  const span = Math.max(width, notch?.shoulder ?? 0) + Math.max(80, beam.h * 0.15);
   const widthDimension = Math.max(height, top + beam.h) + 40;
-  s.rect(input.gap, top, span - input.gap, beam.h, 'beam');
-  for (const y of [top + beam.tf, top + beam.h - beam.tf]) s.line(input.gap, y, span, y);
-  for (const y of [height - beamCentre - clear / 2, height - beamCentre + clear / 2]) {
-    s.line(input.gap, y, span, y, 'axis');
-  }
+  const lower = top + beam.h;
+  const shoulder = notch?.shoulder ?? input.gap;
+  const nt = notch?.top ?? 0;
+  const nb = notch?.bottom ?? 0;
+  const outline = [[input.gap, top + nt], [shoulder, top + nt], [shoulder, top], [span, top],
+    [span, lower], [shoulder, lower], [shoulder, lower - nb], [input.gap, lower - nb]];
+  s.add('polygon', { points: outline.map(point => point.join(',')).join(' '), class: 'beam' });
+  s.line(nt ? shoulder : input.gap, top + beam.tf, span, top + beam.tf);
+  s.line(nb ? shoulder : input.gap, lower - beam.tf, span, lower - beam.tf);
+  s.line(nt ? shoulder : input.gap, height - beamCentre - clear / 2, span, height - beamCentre - clear / 2, 'axis');
+  s.line(nb ? shoulder : input.gap, height - beamCentre + clear / 2, span, height - beamCentre + clear / 2, 'axis');
   s.rect(0, 0, width, height, 'plate');
   s.line(0, -20, 0, height + 20, 'support');
   const maximum = Math.max(1, ...group.bolts.map(b => b.force));
@@ -49,7 +57,14 @@ function elevation(s, beam, input, result, options) {
     s.line(heightDimension, 0, heightDimension, height, 'dimension');
     for (const y of [0, height]) s.line(heightDimension - 7, y, heightDimension + 7, y, 'dimension');
     s.label(heightDimension + 12, height / 2, mm(height), 'start');
-    s.label(input.gap, top - 12, 'Supported beam', 'start');
+    if (notch) {
+      const dimY = Math.min(top, 0) - 30;
+      s.line(input.gap, dimY, shoulder, dimY, 'dimension');
+      s.label((input.gap + shoulder) / 2, dimY - 8, mm(notch.length));
+      for (const x of [input.gap, shoulder]) s.line(x, dimY - 5, x, dimY + 5, 'dimension');
+      if (nt) s.label(shoulder + 8, top + nt / 2, 'Top notch ' + mm(nt), 'start');
+      if (nb) s.label(shoulder + 8, lower - nb / 2, 'Bottom notch ' + mm(nb), 'start');
+    } else s.label(input.gap, top - 12, 'Supported beam', 'start');
   }
   return [-78, Math.min(top, -20) - 45, span + 240, widthDimension - Math.min(top, -20) + 75];
 }
@@ -83,7 +98,7 @@ function plan(s, beam, input, result, options) {
     if (Math.abs(result.z - result.group.centroid.x) > 0.01) s.add('circle', { cx: x, cy: y, r: 5, class: 'bolt' });
     s.line(0, y, x, y, 'dimension');
     s.label(Math.max(45, x / 2), y - 10, mm(result.normal));
-    s.label(20, -depth - 12, 'Support face', 'start');
+    s.label(20, -depth - 12, supportNames[input.support], 'start');
     s.label(x + 12, y + 24, input.skew + '°', 'start');
   }
   return [-b - 54, -depth - 40, end + 2 * b + 108, 2 * depth + 80];

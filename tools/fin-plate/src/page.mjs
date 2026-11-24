@@ -2,7 +2,7 @@ import { registerPage } from '../../../apps/tool-page.mjs';
 import { sections } from '../../../packages/assets/src/index.ts';
 import { grid } from './bolt-group.mjs';
 import { calculate } from './connection.mjs';
-import { defaults, highSkew, validateInputs } from './inputs.mjs';
+import { columnSupports, defaults, highSkew, jointForSupport, jointNames, supportNames, validateInputs } from './inputs.mjs';
 import { beamFields, groups } from './fields.mjs';
 import { drawingViews } from './drawing-view.mjs';
 import { sectionBrowser } from './section-browser.mjs';
@@ -19,6 +19,7 @@ const drawings = drawingViews({
 const controls = new Map();
 const detailedCalculation = calculationTabs();
 let state = { ...defaults };
+let notchGroup;
 const browseSection = sectionBrowser(sections, id => {
   state.section = id;
   setControls();
@@ -45,6 +46,10 @@ for (const [title, rows] of groups) {
   const group = node('details');
   group.open = !['Fin plate and clearance', 'Weld and support resistance', 'Skew and eccentricity'].includes(title);
   group.append(node('summary', title));
+  if (title === 'Supported beam notch') {
+    notchGroup = group;
+    group.append(node('p', 'Use zero depths for a full-depth beam. Enter both depths for a double notch with a common length.'));
+  }
   for (const [key, label, kind] of rows) {
     const row = node('label');
     const input = node(Array.isArray(kind) ? 'select' : 'input');
@@ -78,12 +83,23 @@ function setControls() {
   for (const [key, input] of controls) {
     if (key === 'section') input.value = state.section === 0 ? 'Custom I-section' : section?.name ?? '';
     else if (input.type === 'checkbox') input.checked = state[key];
-    else input.value = section?.values[key] ?? state[key];
+    else if (key !== 'joint' && key !== 'support') input.value = section?.values[key] ?? state[key];
   }
   updateControls();
 }
 
 function updateControls() {
+  const joint = jointForSupport(state.support);
+  const jointControl = controls.get('joint');
+  const supportControl = controls.get('support');
+  jointControl.replaceChildren(...Object.entries(jointNames).map(([value, label]) => new Option(label, value)));
+  if (joint === 'legacy') jointControl.add(new Option('Rigid support plate (saved design)', 'legacy'));
+  jointControl.value = joint;
+  supportControl.closest('label').hidden = joint !== 'beam-column';
+  supportControl.replaceChildren(...columnSupports.map(value => new Option(supportNames[value], value)));
+  supportControl.value = state.support;
+  notchGroup.hidden = joint !== 'beam-beam';
+  controls.get('notchLength').disabled = !state.notchTop && !state.notchBottom;
   for (const [key] of beamFields) {
     const input = controls.get(key);
     input.readOnly = state.section !== 0;
@@ -153,9 +169,10 @@ function refresh() {
     for (const item of result.details) {
       if (warning.hidden || !item.startsWith('The square beam end crosses')) details.append(node('li', item));
     }
+    for (const item of result.openChecks) details.append(node('li', item));
     if (result.customLayout) details.append(node('li', 'Coordinate layout uses elastic bolt forces and shear. Bearing and pitch checks require a regular grid.'));
     for (const check of result.checks) {
-      const { name, ratio, bolt, resistance } = check;
+      const { name, ratio, bolt, resistance, unit = 'kN' } = check;
       const row = node('tr');
       row.dataset.governing = String(check === governing);
       row.dataset.failure = String(ratio > 1);
@@ -163,7 +180,7 @@ function refresh() {
       label.scope = 'row';
       if (check === governing) label.append(node('small', 'Governing'));
       const value = node('td', percent(ratio));
-      if (bolt || resistance) value.append(node('small', bolt ? 'Bolt ' + bolt : resistance.toFixed(1) + ' kN'));
+      if (bolt || resistance != null) value.append(node('small', bolt ? 'Bolt ' + bolt : resistance.toFixed(1) + ' ' + unit));
       row.append(label, value);
       checks.append(row);
     }
@@ -194,7 +211,8 @@ byId('connection-inputs').addEventListener('input', ({ target }) => {
   const key = target.id;
   if (!controls.has(key) || key === 'section') return;
   if (['columns', 'rows'].includes(key) && Number(target.value) !== state[key]) state.coordinates = null;
-  if (target.type === 'checkbox') state[key] = target.checked;
+  if (key === 'joint') state.support = target.value === 'beam-beam' ? 'beam-web' : 'column-flange';
+  else if (target.type === 'checkbox') state[key] = target.checked;
   else if (target.type === 'number') state[key] = target.valueAsNumber;
   else state[key] = typeof defaults[key] === 'number' ? Number(target.value) : target.value;
   updateControls();

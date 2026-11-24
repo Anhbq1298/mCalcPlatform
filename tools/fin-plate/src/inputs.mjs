@@ -2,7 +2,8 @@ import { boltGrades, boltSizes } from './bolt-group.mjs';
 
 export const defaults = Object.freeze({
   section: 3129, h: 533.1, b: 209.3, tw: 10.1, tf: 15.6, r: 13,
-  beamFu: 470, plateFu: 470, plateFy: 355, thickness: 10,
+  beamFy: 355, beamFu: 470, plateFu: 470, plateFy: 355, thickness: 10,
+  notchTop: 0, notchBottom: 0, notchLength: 0,
   support: 'beam-web', type: 'standard', vertical: 300, horizontal: 0, appliedMoment: 0,
   supportThickness: 0, supportFy: 355, supportFu: 470, weldLeg: 9, restrained: false,
   columns: 2, rows: 5, pitch: 85, gauge: 80, secondGauge: 80,
@@ -14,9 +15,16 @@ export const defaults = Object.freeze({
 export const highSkew = { ...defaults, type: 'skewed', skew: 50, eccentricityMode: 'normal' };
 
 export const supportNames = {
-  'beam-web': 'Beam web', 'column-flange': 'Column flange', 'column-web': 'Column web',
-  rhs: 'RHS', shs: 'SHS', chs: 'CHS', rigid: 'Rigid support plate',
+  'beam-web': 'Beam web', 'column-flange': 'I/H column flange', 'column-web': 'I/H column web',
+  rhs: 'RHS outer face', shs: 'SHS outer face', chs: 'CHS outer face', rigid: 'Rigid support plate',
 };
+export const jointNames = { 'beam-beam': 'Beam to beam', 'beam-column': 'Beam to column' };
+export const columnSupports = ['column-web', 'column-flange', 'shs', 'rhs', 'chs'];
+
+export function jointForSupport(support) {
+  return support === 'beam-web' ? 'beam-beam' : support === 'rigid' ? 'legacy' : 'beam-column';
+}
+
 export const connectionNames = {
   standard: 'Standard', extended: 'Extended', skewed: 'Skewed',
   'skewed-extended': 'Skewed extended', stiffened: 'Stiffened extended',
@@ -55,6 +63,19 @@ export function validateInputs(input, beam) {
     || !boltGrades.has(input.grade) || !boltSizes.has(input.diameter) || typeof input.threaded !== 'boolean'
     || typeof input.restrained !== 'boolean') {
     throw new RangeError('Select a supported connection, eccentricity mode and bolt specification.');
+  }
+  const beamFy = input.beamFy ?? defaults.beamFy;
+  if (input.support === 'beam-web') {
+    const { notchTop = 0, notchBottom = 0, notchLength = 0 } = input;
+    if (![notchTop, notchBottom, notchLength].every(value => Number.isFinite(value) && value >= 0 && value <= 10000)
+      || notchTop + notchBottom >= beam.h
+      || ((notchTop || notchBottom) && (!notchLength || [notchTop, notchBottom].some(d => d && d < beam.tf + beam.r)))
+      || (Boolean(notchTop) !== Boolean(notchBottom) && beam.h - notchTop - notchBottom <= beam.tf + beam.r)) {
+      throw new RangeError('Enter a positive notch length and cut depths that remove the flange and root while leaving a web.');
+    }
+    if ((notchTop || notchBottom) && (!Number.isFinite(beamFy) || beamFy <= 0 || beamFy > input.beamFu)) {
+      throw new RangeError('Beam yield strength must be positive and at most the beam ultimate strength.');
+    }
   }
   if (['h', 'b', 'tw', 'tf', 'r'].some(key => !Number.isFinite(beam[key]) || beam[key] > 10000)
     || beam.r < 0 || beam.tf <= 0 || beam.tw <= 0 || beam.h <= 2 * (beam.tf + beam.r)

@@ -1,4 +1,5 @@
 import { boltProperties, grid, solveGroup } from './bolt-group.mjs';
+import { notchChecks, notchGeometry } from './notched-beam.mjs';
 import { validateInputs } from './inputs.mjs';
 import { bearingTerms, sciBoltChecks, sciPlateChecks, sciPlateStability, sciSupportChecks, sciWeldThickness } from './sci-p358.mjs';
 
@@ -34,6 +35,7 @@ export function calculate(input, beam) {
   const ys = points.map(p => p.y);
   const clear = beam.h - 2 * (beam.tf + beam.r);
   const beamCentre = height / 2 + offset;
+  const notch = notchGeometry(input, beam, beamCentre);
   const centroidX = xs.reduce((sum, x) => sum + x, 0) / points.length;
   const skewRadians = skew * Math.PI / 180;
   const cosine = Math.cos(skewRadians);
@@ -45,7 +47,7 @@ export function calculate(input, beam) {
   const longJoint = Math.max(0.75, Math.min(1, 1 - (jointLength - 15 * bolt.diameter) / (200 * bolt.diameter)));
   const shearResistance = bolt.shear * longJoint;
   const plateBounds = { x: [0, width], y: [0, height] };
-  const webBounds = { x: [gap, Infinity], y: [-Infinity, Infinity] };
+  const webBounds = { x: [gap, Infinity], y: [notch?.bottom ? notch.lower : -Infinity, notch?.top ? notch.upper : Infinity] };
   const bolts = group.bolts.map(point => ({
     ...point,
     shear: point.force / shearResistance,
@@ -71,6 +73,10 @@ export function calculate(input, beam) {
   if (points.some(p => Math.abs(p.y - beamCentre) + d0 / 2 > clear / 2)) {
     details.push('A bolt hole intersects a flange or root fillet.');
   }
+  if (notch && points.some(p => Math.min(
+    notch.top ? notch.upper - p.y : Infinity,
+    notch.bottom ? p.y - notch.lower : Infinity,
+  ) < edge)) details.push('A bolt is too close to the reduced web edge at the notch.');
   if (Math.abs(offset) + height / 2 > beam.h / 2 - beam.tf) {
     details.push('The fin plate intersects a beam flange in elevation.');
   }
@@ -87,6 +93,24 @@ export function calculate(input, beam) {
 
   const standard = !input.coordinates && input.type === 'standard' && columns <= 2 && skew === 0
     && vertical >= 0 && horizontal === 0 && appliedMoment === 0 && input.eccentricityMode === 'geometry' && details.length === 0;
+  const openChecks = [];
+  let notchedBeam;
+  if (notch) {
+    if (standard && Math.max(...xs) <= notch.shoulder) {
+      notchedBeam = notchChecks(input, beam, notch, bolt, group);
+      checks.push(...notchedBeam.checks);
+      if (points[0].x > thickness / 0.15) {
+        openChecks.push('P358 Check 4 · Additional web resistance checks for a long fin plate remain open.');
+      }
+    } else {
+      openChecks.push('P358 Checks 4–6 · The notch calculation requires a regular one- or two-column layout, bolt centres within the notched length, and standard vertical shear loading.');
+    }
+    if (!input.restrained) {
+      openChecks.push('P358 Checks 6–7 · Verify local notch stability and overall lateral-torsional stability with the member design.');
+    } else if (![275, 355].includes(input.beamFy ?? 355)) {
+      openChecks.push('P358 Check 6 · Verify local notch stability for the specified beam grade.');
+    }
+  }
   const weld = standard ? sciWeldThickness(input.plateFy, thickness, input.weldLeg) : null;
   if (weld) checks.push({ name: 'P358 double fillet weld sizing', ratio: weld.ratio });
   let support;
@@ -97,13 +121,13 @@ export function calculate(input, beam) {
   }
   let sci;
   const standardThickness = input.plateFy === 275 ? 0.5 : input.plateFy === 355 ? 0.42 : 0;
-  if (standard && bolt.diameter === 20 && input.grade === '8.8' && input.threaded
+  if (standard && (!notch || notchedBeam) && bolt.diameter === 20 && input.grade === '8.8' && input.threaded
     && thickness <= standardThickness * bolt.diameter && height > 0.6 * beam.h && beam.h <= 610
     && Math.min(top, bottom, plateEdge, beamEnd) >= 2 * bolt.diameter) {
     const sciZ = centroidX;
     const end = Math.min(top, bottom);
     const resistance = sciBoltChecks({ group, bolt, shearResistance, z: sciZ, pitch, gauge: columns === 1 ? Infinity : gauge,
-      plateEnd: end, plateEdge, beamVerticalEnd: Infinity, beamEnd, plateThickness: thickness,
+      plateEnd: end, plateEdge, beamVerticalEnd: notch ? Math.min(notch.upper - Math.max(...ys), Math.min(...ys) - notch.lower) : Infinity, beamEnd, plateThickness: thickness,
       beamThickness: beam.tw, plateFu: input.plateFu, beamFu: input.beamFu });
     const plate = sciPlateChecks({ height, thickness, rows, columns, gauge, edge: plateEdge,
       end: Math.max(top, bottom), d0, fy: input.plateFy, fu: input.plateFu, z: sciZ });
@@ -111,7 +135,7 @@ export function calculate(input, beam) {
       firstBolt: points[0].x, restrained: input.restrained });
     sci = { z: sciZ, resistance, plate, stability };
     for (const [name, capacity] of [
-      ['P358 bolt shear', resistance.bolt], ['P358 un-coped web bearing', resistance.web.resistance],
+      ['P358 bolt shear', resistance.bolt], ['P358 beam-web bearing', resistance.web.resistance],
       ['P358 plate bearing', resistance.plate.resistance], ['P358 gross plate shear', plate.gross],
       ['P358 net plate shear', plate.net], ['P358 plate block tearing', plate.block], ['P358 plate bending', plate.bending],
       ['P358 ' + stability.type + ' plate stability', stability.resistance],
@@ -121,7 +145,7 @@ export function calculate(input, beam) {
   }
   return {
     height, width, beamCentre, clear, supportClearance, z, normal: z * cosine, moment, bolt, shearResistance, longJoint, jointLength,
-    group: { ...group, bolts }, details, checks, sci, weld, support, customLayout: Boolean(input.coordinates),
+    group: { ...group, bolts }, details, openChecks, checks, sci, weld, support, notch, notchedBeam, customLayout: Boolean(input.coordinates),
     complete: false,
     status: details.length ? 'Detailing requires revision' : 'Partial assessment',
   };

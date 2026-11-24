@@ -86,3 +86,34 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   await expect(page.getByTestId('canvas').getByText('Elastic bolt forces (kN)', { exact: true })).toBeVisible({ timeout: 20000 });
   expect(errors).toEqual([]);
 });
+
+test('switches support families and draws and checks a beam notch', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Fin Plate Connection' }) })
+    .getByRole('link', { name: /Open tool|New design/ }).click();
+  const joint = page.getByLabel('Joint type');
+  const attachment = page.getByLabel('Column attachment');
+  const top = page.getByLabel('Top notch depth (mm)');
+  await expect(joint).toHaveValue('beam-beam');
+  await expect(attachment).toBeHidden();
+  await page.getByLabel('Horizontal bolt rows').fill('4');
+  await page.getByLabel('Beam laterally restrained').check();
+  await top.fill('45');
+  await page.getByLabel('Notch length from beam end (mm)').fill('180');
+  await expect(page.getByRole('img', { name: 'Connection elevation' }).getByText('Top notch 45.0 mm')).toBeVisible();
+  await expect(page.locator('#checks')).toContainText('Notched web block tearing');
+  await expect(page.locator('#checks')).toContainText('Bending at notch shoulder');
+  await page.getByRole('tab', { name: 'Detailed calculation' }).click();
+  await expect(page.getByRole('heading', { name: 'P358 Check 5 · Bending at notch shoulder' })).toBeVisible();
+  await joint.selectOption('beam-column');
+  await expect(top).toBeHidden();
+  await expect(attachment.getByRole('option')).toHaveText([
+    'I/H column web', 'I/H column flange', 'SHS outer face', 'RHS outer face', 'CHS outer face',
+  ]);
+  await attachment.selectOption('chs');
+  await expect(page.getByRole('img', { name: 'Connection plan' }).getByText('CHS outer face')).toBeVisible();
+  await expect(page.locator('#checks')).not.toContainText('notch shoulder');
+  await joint.selectOption('beam-beam');
+  await expect(top).toHaveValue('45');
+  await expect(page.locator('#checks')).toContainText('Bending at notch shoulder');
+});
