@@ -20,30 +20,52 @@ summary { cursor: pointer; font-weight: 650; }
 #bolt-editor table input { width: 6rem; }
 #bolt-editor .fin-table { max-height: 45vh; margin-bottom: 10px; }
 .fin-view-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
-#connection-drawing { display: block; width: 100%; height: clamp(240px, 44vh, 430px); background: #f8fbfd; border-radius: 5px; margin: 9px 0; touch-action: none; cursor: grab; }
-#connection-drawing:active { cursor: grabbing; }
-#connection-drawing text { font: 20px system-ui, sans-serif; fill: #334e6b; }
-#connection-drawing :is(line, rect, path, circle, polygon) { vector-effect: non-scaling-stroke; }
+[aria-labelledby="drawing-title"] { container-type: inline-size; }
+.fin-drawings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.fin-drawings figure { margin: 0; min-width: 0; border: 1px solid #d5dfea; border-radius: 5px; background: #f8fbfd; }
+.fin-drawings figcaption { padding: 6px 8px; font-weight: 650; }
+.fin-drawing { display: block; width: 100%; height: clamp(170px, 27vh, 260px); background: #f8fbfd; border-radius: 5px; touch-action: none; cursor: grab; }
+.fin-drawing:active { cursor: grabbing; }
+.fin-drawing text { font: 24px system-ui, sans-serif; fill: #334e6b; }
+.fin-drawing .bolt-label { font-weight: 700; fill: #9a4900; }
+.fin-drawing :is(line, rect, path, circle, polygon) { vector-effect: non-scaling-stroke; }
+@container (width < 370px) { .fin-drawings { grid-template-columns: 1fr; } }
 .outline, .beam, .bolt { stroke: #405974; }
 .beam { fill: #e2eaf4; }
 .plate { fill: #a8ccd9b3; stroke: #267489; }
 .bolt { fill: #fff; }
 .governing { fill: #ffbf64; stroke: #9a4900; stroke-width: 1.7px; }
 .support { stroke: #183049; stroke-width: 2px; }
+.support.conflict, .beam-overlap { stroke: #b42318; }
+.beam-overlap { fill: #f9706680; }
 .axis { stroke: #657e99; stroke-dasharray: 4 4; }
 .dimension { stroke: #607c9a; }
 .force { stroke: #345cb0; stroke-width: 1.45px; }
 .arrow-head { fill: #345cb0; }
 #status { display: block; font-weight: 700; line-height: 1.4; }
-#status[data-failure="true"], dd[data-failure="true"], #details { color: #a22e27; }
+#status[data-failure="true"], #details, td[data-failure="true"] { color: #a22e27; }
+#plan-warning { margin-left: 4px; padding: 2px 4px; border-radius: 3px; background: #ffe3df; color: #a22e27; font-size: 12px; }
+#detailing-warning { padding: 7px 9px; border-left: 3px solid #b42318; background: #fff0ee; color: #a22e27; }
 #details:empty { display: none; }
-#checks { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; margin-top: 12px; }
-#checks dd { margin: 0; text-align: end; font-variant-numeric: tabular-nums; }
+.fin-checks th:first-child { text-align: start; white-space: normal; }
+#checks th { font-weight: 500; }
+#checks td { font-variant-numeric: tabular-nums; font-weight: 700; }
+#checks small { display: block; font-size: 11px; font-weight: 500; color: #4b5f77; }
+#checks tr[data-failure="true"] { background: #fff0ee; color: #a22e27; }
 .fin-table { overflow: auto; }
 table { border-collapse: collapse; width: 100%; margin-top: 7px; font-size: 13px; }
 th, td { padding: 5px; border-bottom: 1px solid #d5dfea; text-align: end; white-space: nowrap; }
 tr[data-governing="true"] { background: #fff3da; }
 dialog { width: min(560px, 85vw); border: 1px solid #aebdd0; border-radius: 8px; color: inherit; }
 dialog::backdrop { background: #142b4460; }
+#section-browser { width: min(640px, calc(100vw - 52px)); }
+#section-browser .fin-table { max-height: min(52vh, 440px); }
+#section-browser thead { position: sticky; top: 0; background: white; }
+#section-browser th:first-child, #section-browser td:first-child { text-align: start; }
+#section-browser td button { text-align: start; padding: 4px 5px; border-color: transparent; }
+#section-browser td button:hover, #section-browser td button[aria-current] { background: #edf5ff; border-color: #aebdd0; }
+.section-filters, .section-actions { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; }
+.section-filters label { display: grid; gap: 4px; }
+.section-actions { margin-top: 10px; }
 @media (max-width: 950px) { .fin-layout { grid-template-columns: minmax(220px, .8fr) minmax(300px, 1.2fr); } .fin-layout > :last-child { grid-column: 2; } }
 @media (max-width: 660px) { .fin-layout { grid-template-columns: minmax(0, 1fr); } .fin-layout > :last-child { grid-column: auto; } .fin-header { align-items: start; flex-direction: column; } }

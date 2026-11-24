@@ -32,7 +32,9 @@ function elevation(s, beam, input, result, options) {
   const maximum = Math.max(1, ...group.bolts.map(b => b.force));
   for (const b of group.bolts) {
     const y = height - b.y;
-    s.add('circle', { cx: b.x, cy: y, r: bolt.hole / 2, class: b.id === options.governing ? 'governing' : 'bolt' });
+    const isGoverning = b.id === options.governing;
+    s.add('circle', { cx: b.x, cy: y, r: bolt.hole / 2, class: isGoverning ? 'governing' : 'bolt' });
+    if (isGoverning) s.label(b.x + bolt.hole / 2 + 7, y - bolt.hole / 2, String(b.id), 'start').classList.add('bolt-label');
     if (!options.forces || !b.force) continue;
     const length = Math.min(52, input.pitch / 2) / maximum;
     const x2 = b.x + length * b.fx;
@@ -58,14 +60,20 @@ function plan(s, beam, input, result, options) {
   const t = Math.sin(angle);
   const end = Math.max(result.width + 60, result.z + 65);
   const point = (x, y) => [c * x - t * y, t * x + c * y];
-  const polygon = (corners, style) => s.add('polygon', {
-    points: corners.map(([x, y]) => point(x, y).join(',')).join(' '), class: style,
+  const polygon = (corners, style, attrs = {}) => s.add('polygon', {
+    points: corners.map(([x, y]) => point(x, y).join(',')).join(' '), class: style, ...attrs,
   });
   const b = beam.b / 2;
-  polygon([[input.gap, -b], [end, -b], [end, b], [input.gap, b]], 'beam');
+  const beamOutline = [[input.gap, -b], [end, -b], [end, b], [input.gap, b]];
+  polygon(beamOutline, 'beam');
   polygon([[0, 0], [result.width, 0], [result.width, input.thickness], [0, input.thickness]], 'plate');
   const depth = Math.max(120, Math.abs(t * end) + b + 24);
-  s.line(0, -depth, 0, depth, 'support');
+  if (result.supportClearance < 0) {
+    const clip = s.add('clipPath', { id: 'fin-overlap-clip' });
+    scene(clip).rect(-b - 54, -depth, b + 54, 2 * depth, '');
+    polygon(beamOutline, 'beam-overlap', { 'clip-path': 'url(#fin-overlap-clip)' });
+  }
+  s.line(0, -depth, 0, depth, result.supportClearance < 0 ? 'support conflict' : 'support');
   s.line(0, 0, ...point(end, 0), 'axis');
   s.line(0, 0, end, 0, 'axis');
   const [actualX, actualY] = point(result.group.centroid.x, 0);
@@ -104,9 +112,11 @@ function section(s, beam, result, options) {
 
 export function draw(node, beam, input, result, options) {
   node.replaceChildren();
-  const marker = scene(node).add('marker', { id: 'fin-arrow', viewBox: '0 0 10 10', refX: 8, refY: 5,
-    markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' });
-  scene(marker).add('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrow-head' });
+  if (options.view === 'elevation') {
+    const marker = scene(node).add('marker', { id: 'fin-arrow', viewBox: '0 0 10 10', refX: 8, refY: 5,
+      markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' });
+    scene(marker).add('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'arrow-head' });
+  }
   const render = { elevation, plan, section }[options.view];
   return render(scene(node), beam, input, result, options);
 }
