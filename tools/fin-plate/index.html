@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fin Plate Connection · mFinPlate</title>
+</head>
+<body>
+  <header class="fin-header">
+    <div><h1>Fin Plate Connection</h1><p>mFinPlate · Eurocode 3 · Component assessment</p></div>
+    <div><button type="button" id="preset">Load 50° skew preset</button> <button type="button" id="help-open">Help</button></div>
+  </header>
+  <main class="fin-layout">
+    <form id="connection-inputs" aria-label="Connection inputs">
+      <div id="fields"></div>
+    </form>
+    <section class="fin-panel" aria-labelledby="drawing-title">
+      <h2 id="drawing-title">Connection drawing</h2>
+      <div class="fin-view-tools">
+        <label>View <select id="view"><option value="elevation">Elevation</option><option value="plan">Plan</option><option value="section">Section</option></select></label>
+        <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+        <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+        <button type="button" id="fit">Fit</button>
+        <label><input type="checkbox" id="show-forces" checked> Forces</label>
+        <label><input type="checkbox" id="show-dimensions" checked> Dimensions</label>
+      </div>
+      <svg id="connection-drawing" role="img" aria-label="Scaled drawing of the fin plate connection"></svg>
+      <p id="geometry-summary"></p>
+      <details>
+        <summary>Bolt forces and utilization</summary>
+        <div class="fin-table"><table>
+          <thead><tr><th>Bolt</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Resultant (kN)</th><th>Shear</th><th>Web bearing*</th><th>Plate bearing*</th></tr></thead>
+          <tbody id="bolt-results"></tbody>
+        </table></div>
+        <p>* Directional linear interaction screening.</p>
+      </details>
+      <details id="layout-study">
+        <summary>Compare bolt columns</summary>
+        <div class="fin-table"><table>
+          <thead><tr><th>Columns</th><th>Plate width (mm)</th><th>Axis eccentricity (mm)</th><th>Bolt shear</th><th>Web bearing*</th><th>Plate bearing*</th><th>Detailing</th></tr></thead>
+          <tbody id="layout-results"></tbody>
+        </table></div>
+        <p>Each option keeps the current loads, spacing, bolt size and eccentricity mode. * Bearing is screened.</p>
+      </details>
+    </section>
+    <section class="fin-panel" aria-labelledby="checks-title">
+      <h2 id="checks-title">Design checks</h2>
+      <output id="status" aria-live="polite"></output>
+      <ul id="details"></ul>
+      <dl id="checks"></dl>
+      <p>Complete connection assessment requires the applicable weld, support, stability, tying and rotational checks.</p>
+    </section>
+  </main>
+  <dialog id="help">
+    <h2>Calculation basis</h2>
+    <p>The elastic bolt group distributes the direct forces equally and distributes moment in proportion to each bolt’s distance from the centroid. Plan skew leaves vertical shear unchanged. Normal eccentricity is projected onto the beam axis.</p>
+    <p>Bolt shear is a fastener check. Beam-web and plate bearing use separate thicknesses, strengths and boundaries. The per-bolt bearing interaction is a screening calculation. Eligible standard layouts also show the SCI P358 component results separately.</p>
+    <p>Coordinates start at the support face in elevation. Positive x points away from the support, positive y points up. The geometry mode uses the bolt centroid measured along the beam axis. The idealized plan shows the reference lines and skew.</p>
+    <p><a href="https://steelconstruction.info/upload/Wiki-Files/a/a9/SCI_P358.pdf" target="_blank" rel="noopener">SCI P358 §5.5 and §5.6</a></p>
+    <form method="dialog"><button>Close</button></form>
+  </dialog>
+  <dialog id="bolt-editor">
+    <h2>Edit bolt coordinates</h2>
+    <p>Coordinates are in millimetres from the support face and the bottom of the fin plate.</p>
+    <form method="dialog">
+      <div class="fin-table"><table>
+        <thead><tr><th>Bolt</th><th>X (mm)</th><th>Y (mm)</th></tr></thead>
+        <tbody id="bolt-coordinates"></tbody>
+      </table></div>
+      <button value="apply">Apply positions</button>
+      <button value="cancel" formnovalidate>Cancel</button>
+    </form>
+  </dialog>
+  <script type="module" src="/platform/tools/fin-plate/src/page.mjs"></script>
+</body>
+</html>

@@ -2,6 +2,8 @@
 
 The hub discovers manifests. The Design SDK owns IndexedDB, the design and project models, the shell, and the portable ZIP format. Each route supplies an adapter for its complete inputs. Saved reports reopen as editable Canvas worksheets. Saving from the report view updates its snapshot while retaining the originating calculation inputs and the hash of the generated snapshot. The package viewer reuses the Canvas print geometry to assemble saved reports in project order.
 
+mFinPlate uses the shared steel catalogue and the Design SDK for `.mfp` designs and `.mcalc` projects. Its component assessment is labelled WIP. See the [fin plate calculation and benchmark notes](FIN_PLATE.md).
+
 Two pinned Git submodules retain upstream history. The build stages their native entry points and integration changes in a disposable directory. The small asset and UI packages supply the steel catalogue reader and drawing components shared by Steel and Composite. The build copies the upstream catalogue and notices with the IDs intact. Extraction of the full engine, report, and visualization packages remains a separate migration. The boundary checker covers platform source. Existing Canvas imports remain inside the pinned dependency.
 
 mConcreteRecCol uses the copied MBColumn Lite numerical core inside a browser worker. The registry keeps the `mbcolumn-lite` ID and route so existing design packages and drafts reopen. The platform saves column and optional shear inputs. The worksheet adapter copies calculated results and interaction diagrams into a Canvas document. Native HTML and PDF exports include the directional shear results when enabled.

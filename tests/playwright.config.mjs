@@ -3,7 +3,7 @@ import { defineConfig } from '../vendor/calccanvas/node_modules/@playwright/test
 
 export default defineConfig({
   testDir: '.',
-  testMatch: ['workspace.spec.mjs', 'tool-library.spec.mjs'],
+  testMatch: ['workspace.spec.mjs', 'tool-library.spec.mjs', 'fin-plate.spec.mjs'],
   timeout: 90000,
   workers: 1,
   use: { baseURL: 'http://localhost:4180/mCalcPlatform/', trace: 'retain-on-failure' },

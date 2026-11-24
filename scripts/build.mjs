@@ -13,7 +13,7 @@ const dev = process.argv.includes('--dev');
 const flags = process.argv.slice(2).filter(arg => arg !== '--dev');
 const entries = ['index.html', 'calc/index.html', 't/steel-beam-column/index.html', 't/composite-beam/index.html',
   't/mbcolumn-lite/index.html', 'package/index.html', 't/rc-circular-column/index.html', 't/punching-shear/index.html', 't/punching-shear/help.html',
-  't/conc-breakout/index.html', 't/conc-breakout/help.html'];
+  't/conc-breakout/index.html', 't/conc-breakout/help.html', 't/fin-plate/index.html'];
 
 async function put(from, to) {
   const file = join(stage, to);
@@ -51,6 +51,7 @@ async function prepare() {
   await put(join(root, 'tools/punching-shear/help.html'), entries[8]);
   await put(join(root, 'tools/conc-breakout/index.html'), entries[9]);
   await put(join(root, 'tools/conc-breakout/help.html'), entries[10]);
+  await put(join(root, 'tools/fin-plate/index.html'), entries[11]);
   await stageSharedSources(stage, canvas);
   await integrateCanvas(stage);
   await integrateSteel(stage);

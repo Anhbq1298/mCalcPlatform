@@ -1,0 +1,49 @@
+:root { font: 15px system-ui, sans-serif; color: #183049; background: #f2f5f9; }
+body { margin: 0; }
+button, input, select { font: inherit; }
+button, select, input:not([type="checkbox"]) { border: 1px solid #aebdd0; border-radius: 5px; background: #fff; color: inherit; padding: 5px 8px; }
+button:not(:disabled) { cursor: pointer; }
+h1 { margin: 0; font-size: 24px; }
+h2 { margin: 0 0 12px; font-size: 16px; }
+p { margin: 7px 0; color: #4b5f77; }
+.fin-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 18px clamp(12px, 2vw, 26px); }
+.fin-layout { display: grid; grid-template-columns: minmax(235px, .8fr) minmax(320px, 1.6fr) minmax(230px, .8fr); align-items: start; gap: 14px; padding: 0 clamp(12px, 2vw, 26px) 24px; }
+.fin-panel, #fields > details { border: 1px solid #d5dfea; border-radius: 8px; padding: 13px; background: #fff; min-width: 0; }
+#fields > details { margin-bottom: 8px; }
+summary { cursor: pointer; font-weight: 650; }
+#fields label { display: grid; grid-template-columns: minmax(0, 1fr) minmax(76px, .9fr); align-items: center; gap: 8px; margin-top: 7px; }
+#fields label.section-picker { grid-template-columns: 0.6fr 1.4fr; }
+#fields input, #fields select { min-width: 0; }
+#fields input:read-only:not([type="checkbox"]) { background: #f0f4f7; }
+#fields option { background: #fff; }
+#fields details > button { margin: 8px 5px 0 0; }
+#bolt-editor table input { width: 6rem; }
+#bolt-editor .fin-table { max-height: 45vh; margin-bottom: 10px; }
+.fin-view-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+#connection-drawing { display: block; width: 100%; height: clamp(240px, 44vh, 430px); background: #f8fbfd; border-radius: 5px; margin: 9px 0; touch-action: none; cursor: grab; }
+#connection-drawing:active { cursor: grabbing; }
+#connection-drawing text { font: 20px system-ui, sans-serif; fill: #334e6b; }
+#connection-drawing :is(line, rect, path, circle, polygon) { vector-effect: non-scaling-stroke; }
+.outline, .beam, .bolt { stroke: #405974; }
+.beam { fill: #e2eaf4; }
+.plate { fill: #a8ccd9b3; stroke: #267489; }
+.bolt { fill: #fff; }
+.governing { fill: #ffbf64; stroke: #9a4900; stroke-width: 1.7px; }
+.support { stroke: #183049; stroke-width: 2px; }
+.axis { stroke: #657e99; stroke-dasharray: 4 4; }
+.dimension { stroke: #607c9a; }
+.force { stroke: #345cb0; stroke-width: 1.45px; }
+.arrow-head { fill: #345cb0; }
+#status { display: block; font-weight: 700; line-height: 1.4; }
+#status[data-failure="true"], dd[data-failure="true"], #details { color: #a22e27; }
+#details:empty { display: none; }
+#checks { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; margin-top: 12px; }
+#checks dd { margin: 0; text-align: end; font-variant-numeric: tabular-nums; }
+.fin-table { overflow: auto; }
+table { border-collapse: collapse; width: 100%; margin-top: 7px; font-size: 13px; }
+th, td { padding: 5px; border-bottom: 1px solid #d5dfea; text-align: end; white-space: nowrap; }
+tr[data-governing="true"] { background: #fff3da; }
+dialog { width: min(560px, 85vw); border: 1px solid #aebdd0; border-radius: 8px; color: inherit; }
+dialog::backdrop { background: #142b4460; }
+@media (max-width: 950px) { .fin-layout { grid-template-columns: minmax(220px, .8fr) minmax(300px, 1.2fr); } .fin-layout > :last-child { grid-column: 2; } }
+@media (max-width: 660px) { .fin-layout { grid-template-columns: minmax(0, 1fr); } .fin-layout > :last-child { grid-column: auto; } .fin-header { align-items: start; flex-direction: column; } }
