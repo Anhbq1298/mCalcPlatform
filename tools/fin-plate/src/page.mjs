@@ -2,7 +2,8 @@ import { registerPage } from '../../../apps/tool-page.mjs';
 import { sections } from '../../../packages/assets/src/index.ts';
 import { grid } from './bolt-group.mjs';
 import { calculate } from './connection.mjs';
-import { columnSupports, defaults, highSkew, jointForSupport, jointNames, supportNames, validateInputs } from './inputs.mjs';
+import { columnSupports, defaults, highSkew, jointForSupport, jointNames, supportNames } from './inputs.mjs';
+import { supportingControls } from './supporting-controls.mjs';
 import { beamFields, groups } from './fields.mjs';
 import { drawingViews } from './drawing-view.mjs';
 import { sectionBrowser } from './section-browser.mjs';
@@ -21,21 +22,17 @@ const controls = new Map();
 const detailedCalculation = calculationTabs();
 let state = { ...defaults };
 let notchGroup;
-const browseSection = sectionBrowser(sections, id => {
-  state.section = id;
-  setControls();
-  refresh();
-});
+const supporting = supportingControls(bySectionId, controls, () => state);
+const activeInputs = () => ({ ...state, supportingProfile: supporting.profile() });
+const browseSection = sectionBrowser(sections);
 const editLayout = node('button', 'Edit bolt coordinates');
 const resetLayout = node('button', 'Use regular grid');
 editLayout.type = resetLayout.type = 'button';
-
 function node(tag, text) {
   const element = document.createElement(tag);
   if (text !== undefined) element.textContent = text;
   return element;
 }
-
 function beam() {
   if (state.section === 0) return { ...Object.fromEntries(beamFields.map(([key]) => [key, state[key]])), name: 'Custom I-section' };
   const section = bySectionId.get(state.section);
@@ -47,6 +44,7 @@ for (const [title, rows] of groups) {
   const group = node('details');
   group.open = !['Fin plate and clearance', 'Weld and support resistance', 'Skew and eccentricity'].includes(title);
   group.append(node('summary', title));
+  if (title === 'Supporting beam') supporting.attach(group);
   if (title === 'Supported beam notch') {
     notchGroup = group;
     group.append(node('p', 'Use zero depths for a full-depth beam. Enter both depths for a double notch with a common length.'));
@@ -68,17 +66,20 @@ for (const [title, rows] of groups) {
     controls.set(key, input);
     group.append(row);
     if (kind === 'catalogue') {
-      const browse = node('button', 'Browse sections');
+      const browse = node('button', key === 'supportSection' ? 'Browse supporting sections' : 'Browse sections');
       browse.type = 'button';
       browse.setAttribute('aria-haspopup', 'dialog');
-      browse.onclick = () => browseSection(state.section);
+      browse.onclick = () => browseSection(state[key], id => {
+        state[key] = id;
+        setControls();
+        refresh();
+      });
       group.append(browse);
     }
   }
   if (title === 'Bolt arrangement') group.append(editLayout, resetLayout);
   byId('fields').append(group);
 }
-
 function setControls() {
   const section = bySectionId.get(state.section);
   for (const [key, input] of controls) {
@@ -88,7 +89,6 @@ function setControls() {
   }
   updateControls();
 }
-
 function updateControls() {
   const joint = jointForSupport(state.support);
   const jointControl = controls.get('joint');
@@ -100,6 +100,7 @@ function updateControls() {
   supportControl.replaceChildren(...columnSupports.map(value => new Option(supportNames[value], value)));
   supportControl.value = state.support;
   notchGroup.hidden = joint !== 'beam-beam';
+  supporting.update();
   controls.get('notchLength').disabled = !state.notchTop && !state.notchBottom;
   for (const [key] of beamFields) {
     const input = controls.get(key);
@@ -113,12 +114,11 @@ function updateControls() {
   controls.get('eccentricity').disabled = state.eccentricityMode === 'geometry';
   resetLayout.hidden = !state.coordinates;
 }
-
 function renderStudy(section) {
   const table = byId('layout-results');
   table.replaceChildren();
   if (!byId('layout-study').open) return;
-  for (const option of compareColumns(state, section)) {
+  for (const option of compareColumns(activeInputs(), section)) {
     const row = node('tr');
     row.dataset.governing = String(option.columns === state.columns);
     for (const value of [option.columns, option.width.toFixed(1), option.eccentricity.toFixed(1)]) {
@@ -138,7 +138,6 @@ function renderStudy(section) {
     table.append(row);
   }
 }
-
 function refresh() {
   const status = byId('status');
   const table = byId('bolt-results');
@@ -155,13 +154,13 @@ function refresh() {
   byId('layout-results').replaceChildren();
   try {
     const section = beam();
-    const result = calculate(state, section);
+    const result = calculate(activeInputs(), section);
     const governing = result.checks.reduce((worst, check) => check.ratio > worst.ratio ? check : worst);
     const governingBolt = result.checks.filter(check => check.bolt)
       .reduce((worst, check) => check.ratio > worst.ratio ? check : worst).bolt;
     status.textContent = result.status;
     status.dataset.failure = String(governing.ratio > 1 || result.details.length > 0);
-    if (result.supportClearance < 0) {
+    if (!result.beamLayout && result.supportClearance < 0) {
       const overlap = (-result.supportClearance).toFixed(1) + ' mm';
       warning.textContent = 'Beam end overlaps the support face by ' + overlap + ' in plan.';
       planWarning.textContent = 'Overlap ' + overlap;
@@ -194,7 +193,8 @@ function refresh() {
     }
     summary.textContent = 'Axis eccentricity ' + result.z.toFixed(1) + ' mm · Normal projection ' + result.normal.toFixed(1)
       + ' mm · Bolt-group moment ' + (result.moment / 1000).toFixed(2) + ' kNm · Hole Ø' + result.bolt.hole + ' mm'
-      + ' · Normal end clearance ' + result.supportClearance.toFixed(1) + ' mm';
+      + (result.beamLayout ? ' · Web face to beam end (axis) ' + result.beamGap.toFixed(1) + ' mm'
+        : ' · Normal end clearance ' + result.supportClearance.toFixed(1) + ' mm');
     drawings.render(section, state, result, { governing: governingBolt,
       forces: byId('show-forces').checked, dimensions: byId('show-dimensions').checked });
     renderStudy(section);
@@ -210,9 +210,12 @@ function refresh() {
 byId('connection-inputs').addEventListener('submit', event => event.preventDefault());
 byId('connection-inputs').addEventListener('input', ({ target }) => {
   const key = target.id;
-  if (!controls.has(key) || key === 'section') return;
+  if (!controls.has(key) || ['section', 'supportSection'].includes(key)) return;
   if (['columns', 'rows'].includes(key) && Number(target.value) !== state[key]) state.coordinates = null;
-  if (key === 'joint') state.support = target.value === 'beam-beam' ? 'beam-web' : 'column-flange';
+  if (key === 'joint') {
+    state.support = target.value === 'beam-beam' ? 'beam-web' : 'column-flange';
+    if (state.support === 'beam-web') state.supportSection ??= -1;
+  }
   else if (target.type === 'checkbox') state[key] = target.checked;
   else if (target.type === 'number') state[key] = target.valueAsNumber;
   else state[key] = typeof defaults[key] === 'number' ? Number(target.value) : target.value;
@@ -226,7 +229,8 @@ for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', 0.8]]) byId(id).oncl
 };
 byId('fit').onclick = () => drawings.fit();
 byId('preset').onclick = () => {
-  state = { ...state, ...highSkew, support: state.support };
+  const supportInputs = Object.fromEntries(Object.entries(state).filter(([key]) => key.startsWith('support') || key === 'beamLayout'));
+  state = { ...state, ...highSkew, ...supportInputs };
   setControls();
   refresh();
 };
@@ -234,9 +238,10 @@ byId('help-open').onclick = () => byId('help').showModal();
 resetLayout.onclick = () => { state.coordinates = null; updateControls(); refresh(); };
 const editor = byId('bolt-editor');
 editLayout.onclick = () => {
-  try { validateInputs(state, beam()); }
+  let result;
+  try { result = calculate(activeInputs(), beam()); }
   catch (error) { byId('status').textContent = error.message; return; }
-  const rows = (state.coordinates ?? grid(state)).map(point => {
+  const rows = (state.coordinates ?? grid({ ...state, gap: result.beamGap })).map(point => {
     const row = node('tr');
     row.append(node('td', point.id));
     for (const axis of ['x', 'y']) {
@@ -262,7 +267,6 @@ editor.addEventListener('close', () => {
   updateControls();
   refresh();
 });
-
 function openEditor(inputs) {
   state = { ...defaults, ...inputs };
   templates.close();
@@ -271,7 +275,7 @@ function openEditor(inputs) {
 }
 
 const templates = jointTemplatePicker(support => {
-  openEditor({ support });
+  openEditor({ support, supportSection: support === 'beam-web' ? -1 : null });
   byId('drawing-title').focus();
 });
 if (!new URLSearchParams(window.location.search).get('design')) templates.open();
@@ -279,7 +283,7 @@ if (!new URLSearchParams(window.location.search).get('design')) templates.open()
 registerPage('fin-plate', {
   snapshot: () => {
     if (!templates.editing) throw new Error('Choose and open a joint template first.');
-    validateInputs(state, beam());
+    calculate(activeInputs(), beam());
     return { ...state };
   },
   reset: () => templates.open(),
@@ -287,6 +291,6 @@ registerPage('fin-plate', {
   report: () => {
     if (!templates.editing) throw new Error('Choose and open a joint template first.');
     const section = beam();
-    return report(state, section, calculate(state, section));
+    return report(state, section, calculate(activeInputs(), section));
   },
 });

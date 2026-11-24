@@ -1,3 +1,4 @@
+import { beamLayouts } from './beam-layout.mjs';
 import { calculationSteps } from './calculation-steps.mjs';
 import { jointForSupport, jointNames, supportNames } from './inputs.mjs';
 
@@ -56,13 +57,20 @@ export function calculationSheet(input, beam, result) {
     key: Number(key), title, status: applicability[key][0], explanation: applicability[key][1],
     steps: steps.filter(step => step.check === Number(key)),
   }));
+  const supportThickness = result.beamLayout?.profile.tw ?? input.supportThickness;
   const groups = [
     ['Members and geometry', [
       ['Supported beam', beam.name ?? 'Custom I-section'],
       ['Supporting face', supportNames[input.support]],
+      ...(result.beamLayout ? [
+        ['Supporting beam', result.beamLayout.profile.name],
+        ['Supporting beam depth / flange width', mm(result.beamLayout.profile.h) + ' / ' + mm(result.beamLayout.profile.b)],
+        ['Beam-to-beam arrangement', beamLayouts[result.beamLayout.layout]],
+        ['Supporting top above supported top', mm(result.beamLayout.offset)],
+      ] : []),
       ['Supported beam depth / web thickness', mm(beam.h) + ' / ' + mm(beam.tw)],
       ['Fin plate height × width × thickness', [result.height, result.width, input.thickness].join(' × ') + ' mm'],
-      ['Beam end gap / skew angle', mm(input.gap) + ' / ' + input.skew + '°'],
+      ['Web face to beam end along axis / skew', mm(result.beamGap) + ' / ' + input.skew + '°'],
       ...(notch ? [['Notch top / bottom / length', [notch.top, notch.bottom, notch.length].map(mm).join(' / ')]] : []),
       ['Lateral restraint', input.restrained ? 'Specified' : 'Unrestrained'],
     ]],
@@ -72,7 +80,7 @@ export function calculationSheet(input, beam, result) {
       ['Additional moment', input.appliedMoment + ' kN·m'],
       ['Fin plate yield / ultimate strength', strength(input.plateFy, input.plateFu)],
       ['Supported beam ' + (notch ? 'yield / ultimate strength' : 'ultimate strength'), notch ? strength(input.beamFy ?? 355, input.beamFu) : input.beamFu + ' MPa'],
-      ['Support thickness / yield / ultimate strength', input.supportThickness ? mm(input.supportThickness) + ' / ' + strength(input.supportFy, input.supportFu) : 'Thickness not entered'],
+      ['Support thickness / yield / ultimate strength', supportThickness ? mm(supportThickness) + ' / ' + strength(input.supportFy, input.supportFu) : 'Thickness not entered'],
       ['Bolts / normal hole', result.group.bolts.length + ' × M' + result.bolt.diameter + ', grade ' + input.grade + ' / Ø' + result.bolt.hole + ' mm'],
       ['Weld leg length', mm(input.weldLeg)],
     ]],

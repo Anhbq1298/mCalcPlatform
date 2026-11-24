@@ -1,4 +1,5 @@
 import { boltProperties, grid, solveGroup } from './bolt-group.mjs';
+import { beamToBeamLayout, checkBeamFit } from './beam-layout.mjs';
 import { notchChecks, notchGeometry } from './notched-beam.mjs';
 import { validateInputs } from './inputs.mjs';
 import { bearingTerms, sciBoltChecks, sciPlateChecks, sciPlateStability, sciSupportChecks, sciWeldThickness } from './sci-p358.mjs';
@@ -24,6 +25,8 @@ function bearingAt(point, points, bounds, bolt, thickness, fu, reaction) {
 
 export function calculate(input, beam) {
   validateInputs(input, beam);
+  const beamLayout = beamToBeamLayout(input, beam);
+  if (beamLayout) input = { ...input, gap: beamLayout.gap, supportThickness: beamLayout.profile.tw };
   const { columns, rows, pitch, gauge, secondGauge, thickness, beamEnd, plateEdge, gap,
     vertical, horizontal, appliedMoment, top, bottom, offset, skew } = input;
   const bolt = boltProperties(input.diameter, input.grade, input.threaded);
@@ -54,7 +57,7 @@ export function calculate(input, beam) {
     plate: input.coordinates ? null : bearingAt(point, points, plateBounds, bolt, thickness, input.plateFu, -1),
     web: input.coordinates ? null : bearingAt(point, points, webBounds, bolt, beam.tw, input.beamFu, 1),
   }));
-  const details = [];
+  const details = checkBeamFit(beamLayout, beam, beamCentre, height, notch);
   const d0 = bolt.hole;
   const edge = 1.2 * d0;
   if (points.some(p => Math.min(p.y, height - p.y, p.x - gap, width - p.x) < edge)) {
@@ -80,7 +83,7 @@ export function calculate(input, beam) {
   if (Math.abs(offset) + height / 2 > beam.h / 2 - beam.tf) {
     details.push('The fin plate intersects a beam flange in elevation.');
   }
-  if (supportClearance < 0) {
+  if (!beamLayout && supportClearance < 0) {
     details.push('The square beam end crosses the idealized support face in plan. Check the end cut and support clearance.');
   }
   const metrics = [['Bolt shear', p => p.shear]];
@@ -92,12 +95,15 @@ export function calculate(input, beam) {
       ...(name === 'Bolt shear' ? { demand: governing.force, resistance: shearResistance } : {}) };
   });
 
-  const standard = !input.coordinates && input.type === 'standard' && columns <= 2 && skew === 0
+  const orthogonal = !input.coordinates && columns <= 2 && skew === 0
     && vertical >= 0 && horizontal === 0 && appliedMoment === 0 && input.eccentricityMode === 'geometry' && details.length === 0;
+  const extended = beamLayout?.layout === 'outside';
+  const standard = orthogonal && input.type === 'standard' && !extended;
   const openChecks = [];
+  if (extended) openChecks.push('Extended fin plate. Verify plate bending and stability, welds and support resistance for the increased eccentricity.');
   let notchedBeam;
   if (notch) {
-    if (standard && Math.max(...xs) <= notch.shoulder) {
+    if ((standard || (orthogonal && extended && ['standard', 'extended'].includes(input.type))) && Math.max(...xs) <= notch.shoulder) {
       notchedBeam = notchChecks(input, beam, notch, bolt, group);
       checks.push(...notchedBeam.checks);
       if (points[0].x > thickness / 0.15) {
@@ -116,7 +122,7 @@ export function calculate(input, beam) {
   if (weld) checks.push({ name: 'P358 double fillet weld sizing', ratio: weld.ratio, demand: weld.minimum, resistance: weld.throat, unit: 'mm' });
   let support;
   if (standard && input.supportThickness > 0 && ['beam-web', 'column-web', 'rhs', 'shs', 'chs'].includes(input.support)) {
-    support = sciSupportChecks({ ...input, height });
+    support = { ...sciSupportChecks({ ...input, height }), thickness: input.supportThickness };
     checks.push({ name: 'P358 support local shear', ratio: vertical / support.localShear, demand: vertical, resistance: support.localShear },
       { name: 'P358 support punching shear', ratio: support.punching, demand: thickness, resistance: support.punchLimit, unit: 'mm' });
   }
@@ -145,7 +151,7 @@ export function calculate(input, beam) {
     }
   }
   return {
-    height, width, beamCentre, clear, supportClearance, z, normal: z * cosine, moment, bolt, shearResistance, longJoint, jointLength,
+    height, width, beamLayout, beamGap: gap, beamCentre, clear, supportClearance, z, normal: z * cosine, moment, bolt, shearResistance, longJoint, jointLength,
     group: { ...group, bolts }, details, openChecks, checks, sci, weld, support, notch, notchedBeam, customLayout: Boolean(input.coordinates),
     complete: false,
     status: details.length ? 'Detailing requires revision' : 'Partial assessment',

@@ -72,6 +72,11 @@ export function calculationSteps(input, beam, result) {
     tex`F_{x,i}=\frac{H_{Ed}}{n}-\frac{M_{Ed}\Delta y_i}{J}=\frac{${n(input.horizontal)}}{${total}}-\frac{${n(result.moment, 2)}\times(${n(critical.dy)})}{${n(group.polar)}}=${n(critical.fx, 3)}${kn}`,
     tex`F_{y,i}=\frac{V_{Ed}}{n}+\frac{M_{Ed}\Delta x_i}{J}=\frac{${n(input.vertical)}}{${total}}+\frac{${n(result.moment, 2)}\times(${n(critical.dx)})}{${n(group.polar)}}=${n(critical.fy, 3)}${kn}`,
   ];
+  const layout = result.beamLayout;
+  const gapEquation = layout ? (layout.layout === 'outside'
+    ? tex`g_{\mathrm{axis}}=g+\frac{p+(b/2)|\sin\theta|}{\cos\theta}=${n(input.gap)}+\frac{${n(layout.projection)}+(${n(beam.b)}/2)|\sin(${angle})|}{\cos(${angle})}=${n(result.beamGap, 1)}${mm}`
+    : tex`g_{\mathrm{axis}}=g=${n(result.beamGap, 1)}${mm},\quad p=(b_s-t_{w,s})/2=(${n(layout.profile.b)}-${n(layout.profile.tw)})/2=${n(layout.projection, 1)}${mm}`)
+    : tex`c_n=g\cos\theta-\frac{b}{2}|\sin\theta|=${n(input.gap)}\cos(${angle})-\frac{${n(beam.b)}}{2}|\sin(${angle})|=${n(result.supportClearance, 1)}${mm}`;
   const steps = [
     {
       title: 'Geometry and load eccentricity',
@@ -84,17 +89,21 @@ export function calculationSteps(input, beam, result) {
           axis: 'Use the entered distance along the beam axis directly as the shear lever arm z.',
         }[input.eccentricityMode],
         'Multiply vertical design shear VEd by the lever arm z, then add the entered moment Madd. Divide by 1,000 to convert the shear contribution from kN·mm to kN·m.',
-        'Check the closest corner of the square-cut beam end. g is the beam-end gap along the beam axis and b is the flange width.',
+        layout ? (layout.layout === 'outside'
+          ? 'Set the beam beyond the outer flange. The setback adds the supporting flange projection p, plus the supported flange corner allowance for skew, to the entered axial clearance g.'
+          : 'Measure the beam end from the supporting web face. The supporting flange projection p is half the difference between flange width and web thickness.')
+          : 'Check the closest corner of the square-cut beam end. g is the beam-end gap along the beam axis and b is the flange width.',
       ],
       outcome: 'The bolt-group moment is ' + n(result.moment / 1000, 2) + ' kN·m. '
-        + (result.supportClearance < 0
+        + (layout ? 'The web face to supported beam end distance along the axis is ' + n(result.beamGap, 1) + ' mm.'
+          : result.supportClearance < 0
           ? 'The negative clearance means the beam end crosses the support face in plan by ' + n(-result.supportClearance, 1) + ' mm.'
           : 'The minimum normal clearance to the support face is ' + n(result.supportClearance, 1) + ' mm.'),
       equations: [
       tex`(\bar{x},\bar{y})=\left(\frac{\sum x_i}{n},\frac{\sum y_i}{n}\right)=\left(\frac{${n(xSum)}}{${total}},\frac{${n(ySum)}}{${total}}\right)=(${n(group.centroid.x)},${n(group.centroid.y)})${mm}`,
       eccentricity,
       tex`M_{Ed}=V_{Ed}z/10^3+M_{\mathrm{add}}=\frac{${n(input.vertical)}\times ${n(result.z)}}{10^3}+(${n(input.appliedMoment)})=${(result.moment / 1000).toFixed(2)}\,\mathrm{kN\,m}`,
-      tex`c_n=g\cos\theta-\frac{b}{2}|\sin\theta|=${n(input.gap)}\cos(${angle})-\frac{${n(beam.b)}}{2}|\sin(${angle})|=${n(result.supportClearance, 1)}${mm}`,
+      gapEquation,
     ] },
     {
       check: 2,

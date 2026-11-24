@@ -1,5 +1,9 @@
 import { expect, test } from '../vendor/calccanvas/node_modules/@playwright/test/index.mjs';
 
+async function selectSupportingSection(page) {
+  await page.getByRole('button', { name: 'Browse supporting sections' }).click();
+  await page.getByRole('dialog', { name: 'Steel section library' }).getByRole('button', { name: 'Custom I/H section' }).click();
+}
 async function openTemplate(page, name, attachment) {
   const picker = page.getByRole('region', { name: 'Choose a joint template' });
   await picker.getByRole('radio', { name }).check();
@@ -14,9 +18,10 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Fin Plate Connection' }) });
   await card.getByRole('link', { name: /Open tool|New design/ }).click();
   await openTemplate(page, /^Beam to beam/);
+  await selectSupportingSection(page);
   const section = page.getByRole('textbox', { name: 'Section', exact: true });
   await expect(section).toHaveValue('UB 533x210x92');
-  await expect(page.getByLabel('Web thickness (mm)')).toHaveValue('10.1');
+  await expect(page.getByLabel('Web thickness (mm)', { exact: true })).toHaveValue('10.1');
   await page.getByRole('button', { name: 'Browse sections' }).click();
   const library = page.getByRole('dialog', { name: 'Steel section library' });
   const family = library.getByLabel('Section family');
@@ -29,16 +34,15 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   await library.getByRole('button', { name: 'UB 457x191x74', exact: true }).click();
   await expect(library).toBeHidden();
   await expect(section).toHaveValue('UB 457x191x74');
-  await expect(page.getByLabel('Web thickness (mm)')).toHaveValue('9');
+  await expect(page.getByLabel('Web thickness (mm)', { exact: true })).toHaveValue('9');
   await page.getByRole('button', { name: 'Load 50° skew preset' }).click();
   await expect(page.locator('#geometry-summary')).toContainText('70.01 kNm');
   await expect(page.locator('#connection-drawing circle')).toHaveCount(10);
   await expect(page.getByRole('img', { name: 'Connection plan' })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Connection elevation' })).toBeVisible();
   await expect(page.getByText('Beam cross-section', { exact: true })).toHaveCount(0);
-  await expect(page.locator('#connection-plan .beam-overlap')).toBeAttached();
-  await expect(page.locator('#plan-warning')).toContainText('Overlap');
-  await expect(page.locator('#detailing-warning')).toBeVisible();
+  await expect(page.locator('#connection-plan .support-beam')).toBeAttached();
+  await expect(page.locator('#details')).toContainText('intersects the supporting web');
   await page.getByLabel('Vertical bolt columns').selectOption('3');
   await expect(page.locator('#connection-drawing circle')).toHaveCount(15);
   await expect(page.locator('#checks')).toContainText('43.0%');
@@ -48,7 +52,7 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   await expect(calculation.getByRole('heading', { name: /Fin-plate bearing/ })).toBeVisible();
   await expect(calculation.getByRole('heading', { name: /Bolt shear/ })).toBeVisible();
   await expect(calculation.getByText(/UR means utilization ratio/)).toBeVisible();
-  await expect(calculation.getByText(/The negative clearance means the beam end crosses/)).toBeVisible();
+  await expect(calculation.getByText(/The web face to supported beam end distance/)).toBeVisible();
   await expect(calculation.getByText(/Calculate bolt shear resistance using bolt strength/)).toBeVisible();
   await expect(calculation.getByText(/Bolt \d+ governs with .*kN demand and .*kN resistance/)).toBeVisible();
   await expect(calculation.locator('.fin-calculation-list li:not(:has(p))')).toHaveCount(0);
@@ -101,6 +105,7 @@ test('switches support families and draws and checks a beam notch', async ({ pag
   await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Fin Plate Connection' }) })
     .getByRole('link', { name: /Open tool|New design/ }).click();
   await openTemplate(page, /^Beam to beam/);
+  await selectSupportingSection(page);
   const joint = page.getByLabel('Joint type');
   const attachment = page.getByLabel('Column attachment');
   const top = page.getByLabel('Top notch depth (mm)');
@@ -142,6 +147,7 @@ test('formats and prints the live calculation worksheet with the correct applica
   await page.getByLabel('Column attachment').selectOption('column-web');
   await expect(sheet.locator('[data-check="10"]')).toContainText('Open');
   await page.getByLabel('Joint type').selectOption('beam-beam');
+  await selectSupportingSection(page);
   await page.getByLabel('Horizontal bolt rows').fill('4');
   await page.getByLabel('Top notch depth (mm)').fill('45');
   await page.getByLabel('Bottom notch depth (mm)').fill('45');
@@ -185,4 +191,26 @@ test('opens a new joint template only after selection and restores saved inputs 
   await openTemplate(page, /^Beam to beam/);
   await expect(editor.getByLabel('Joint type')).toHaveValue('beam-beam');
   await expect(editor.getByLabel('Top notch depth (mm)')).toBeVisible();
+});
+
+test('beam-to-beam needs a supporting section and draws the wider outside layout', async ({ page }) => {
+  await page.goto('./t/fin-plate/');
+  await openTemplate(page, /^Beam to beam/);
+  await expect(page.locator('#status')).toHaveText('Choose a supporting beam section.');
+  await selectSupportingSection(page);
+  const plan = page.getByRole('img', { name: 'Connection plan' });
+  const elevation = page.getByRole('img', { name: 'Connection elevation' });
+  await expect(plan.getByText('b 229.0 mm', { exact: true })).toBeVisible();
+  await expect(elevation.getByText('h 610.0 mm', { exact: true })).toBeVisible();
+  await expect(elevation.getByText('h 533.1 mm', { exact: true })).toBeVisible();
+  await expect(elevation.getByText('g 10.0 mm', { exact: true })).toBeVisible();
+  await page.getByLabel('Beam-to-beam arrangement').selectOption('outside');
+  await expect(elevation.getByText('g 118.0 mm', { exact: true })).toBeVisible();
+  await expect(elevation.getByText('308.0 mm', { exact: true })).toBeVisible();
+  await page.getByLabel('Horizontal bolt rows').fill('4');
+  await page.getByLabel('Top notch depth (mm)').fill('45');
+  await page.getByLabel('Notch length from beam end (mm)').fill('180');
+  await expect(elevation.getByText('Top notch 45.0 mm')).toBeVisible();
+  await expect(page.locator('#details')).toContainText('Extended fin plate');
+  await expect(page.locator('#checks')).toContainText('Bending at notch shoulder');
 });

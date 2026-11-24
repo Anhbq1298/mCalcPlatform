@@ -61,3 +61,12 @@ Published benchmark targets for the notch checks:
 | Check 6 notch length limit (mm) | 413 | 533 |
 
 The worked two-column case uses a 120 mm notch length in the Check 4 applicability calculation and a 110 mm notch length in the Check 5 sketch and demand calculation. The latter reproduces the published 42 kNm.
+
+## Beam-to-beam profiles and clearance
+
+New beam-to-beam templates require a supporting I/H section in addition to the supported beam section. Both can use a catalogue or a custom profile. The top level offset is measured from the supported beam top to the supporting beam top. The plan projects both members and the elevation shows the supporting I-section along the supported beam axis. Profile dimensions are reported at their actual section values.
+
+- **Fit between supporting flanges.** Set the end gap along the supported beam axis from the near face of the supporting web. The geometry screens for contact with the supporting flanges and web and for a plate weld line outside the clear supporting web.
+- **Outside supporting flange.** The tool adds the near flange projection and the skew corner allowance to the beam setback. The regular bolt grid and plate width follow the resulting setback. Geometry-based eccentricity uses the actual bolt locations. The standard short-plate method is not applied to this layout. Extended plate, weld and supporting-member verifications are flagged.
+
+Both options allow a top, bottom or double notch on the supported beam. The flange check uses the entered notch depth and length. Existing designs without a supporting section still open using the original support-face reference and can be updated by choosing a profile.
