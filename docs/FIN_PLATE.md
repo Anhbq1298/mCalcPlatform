@@ -6,6 +6,8 @@ Choose a beam from the shared steel catalogue or enter a custom I-section. The t
 
 **Compare bolt columns** shows one, two and three columns under the current inputs. The comparison includes the plate width, axis eccentricity, component utilization and detailing findings for each regular grid.
 
+Open **Detailed calculation** below the workspace for formulas, substituted values and utilization. The tab updates with the design and shows the bolt governing each component check.
+
 ## Calculation basis
 
 | Component | Source | Implementation |

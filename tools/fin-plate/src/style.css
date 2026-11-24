@@ -69,3 +69,12 @@ dialog::backdrop { background: #142b4460; }
 .section-actions { margin-top: 10px; }
 @media (max-width: 950px) { .fin-layout { grid-template-columns: minmax(220px, .8fr) minmax(300px, 1.2fr); } .fin-layout > :last-child { grid-column: 2; } }
 @media (max-width: 660px) { .fin-layout { grid-template-columns: minmax(0, 1fr); } .fin-layout > :last-child { grid-column: auto; } .fin-header { align-items: start; flex-direction: column; } }
+
+.fin-calculation { margin: 0 clamp(12px, 2vw, 26px) 24px; }
+#calculation-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #d5dfea; padding-bottom: 6px; }
+#calculation-tabs [aria-selected="true"] { color: #133e72; background: #edf5ff; border-color: #4676ad; font-weight: 650; }
+#calculation-steps > section { padding: 10px 0; border-bottom: 1px solid #d5dfea; }
+#calculation-steps h3 { margin: 0 0 8px; font-size: 15px; }
+.fin-equation { overflow-x: auto; padding: 4px 0; }
+.fin-equation .katex-display { margin: 0; text-align: left; }
+.fin-equation .katex-display > .katex { text-align: left; }

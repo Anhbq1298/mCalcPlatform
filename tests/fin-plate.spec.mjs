@@ -34,6 +34,17 @@ test('opens Fin Plate, updates the drawing and reopens an exported design', asyn
   await page.getByLabel('Vertical bolt columns').selectOption('3');
   await expect(page.locator('#connection-drawing circle')).toHaveCount(15);
   await expect(page.locator('#checks')).toContainText('43.0%');
+  await page.getByRole('tab', { name: 'Detailed calculation' }).click();
+  const calculation = page.getByRole('tabpanel', { name: 'Detailed calculation' });
+  await expect(calculation.locator('.katex-html').filter({ hasText: '70.01' })).not.toHaveCount(0);
+  await expect(calculation.getByRole('heading', { name: /Fin-plate bearing/ })).toBeVisible();
+  await expect(calculation.getByRole('heading', { name: /Bolt shear/ })).toBeVisible();
+  await expect(calculation.locator('.katex-error')).toHaveCount(0);
+  await page.getByLabel('ULS shear (kN)').fill('250');
+  await expect(calculation.locator('.katex-html').filter({ hasText: '58.34' })).not.toHaveCount(0);
+  await page.getByLabel('ULS shear (kN)').fill('300');
+  await page.getByRole('tab', { name: 'Detailed calculation' }).press('ArrowLeft');
+  await expect(page.getByRole('tabpanel', { name: 'Bolt forces and utilization' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'UR' })).toBeVisible();
   await expect(page.locator('#checks tr[data-governing="true"]')).toContainText('Fin-plate bearing');
   await page.getByText('Compare bolt columns', { exact: true }).click();

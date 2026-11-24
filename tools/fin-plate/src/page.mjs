@@ -8,6 +8,7 @@ import { drawingViews } from './drawing-view.mjs';
 import { sectionBrowser } from './section-browser.mjs';
 import { compareColumns } from './layout-study.mjs';
 import { percent, report } from './report.mjs';
+import { calculationTabs } from './calculation-tabs.mjs';
 import './style.css';
 
 const byId = id => document.getElementById(id);
@@ -16,6 +17,7 @@ const drawings = drawingViews({
   plan: byId('connection-plan'), elevation: byId('connection-drawing'),
 });
 const controls = new Map();
+const detailedCalculation = calculationTabs();
 let state = { ...defaults };
 const browseSection = sectionBrowser(sections, id => {
   state.section = id;
@@ -178,10 +180,12 @@ function refresh() {
     drawings.render(section, state, result, { governing: governingBolt,
       forces: byId('show-forces').checked, dimensions: byId('show-dimensions').checked });
     renderStudy(section);
+    detailedCalculation.render(state, section, result);
   } catch (error) {
     status.textContent = error.message;
     status.dataset.failure = 'true';
     drawings.clear();
+    detailedCalculation.clear();
   }
 }
 
