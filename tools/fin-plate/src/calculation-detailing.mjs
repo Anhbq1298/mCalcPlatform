@@ -3,7 +3,7 @@ const tex = String.raw;
 export function detailingStep(input, result, n) {
   const d0 = result.bolt.hole;
   const edge = Math.min(...result.group.bolts.map(({ x, y }) =>
-    Math.min(y, result.height - y, x - input.gap, result.width - x)));
+    Math.min(y, result.height - y, x - result.beamGap, result.width - x)));
   const pitch = input.columns > 1 ? Math.min(input.gauge, input.columns === 3 ? input.secondGauge : Infinity) : null;
   const entries = [
     ['Smallest distance from a bolt centre to the plate top, bottom, free edge or beam end. The minimum is 1.2 times the hole diameter.',

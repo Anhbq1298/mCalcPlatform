@@ -1,3 +1,4 @@
+import { drawSupportedWidth, drawSupportingElevation, drawSupportingPlan } from './beam-drawing.mjs';
 import { supportNames } from './inputs.mjs';
 
 const svg = 'http://www.w3.org/2000/svg';
@@ -20,23 +21,24 @@ function scene(node) {
 }
 
 function elevation(s, beam, input, result, options) {
-  const { height, width, beamCentre, clear, group, bolt, notch } = result;
+  const { height, width, beamCentre, clear, group, bolt, notch, beamLayout, beamGap: gap } = result;
   const top = height - beamCentre - beam.h / 2;
   const span = Math.max(width, notch?.shoulder ?? 0) + Math.max(80, beam.h * 0.15);
-  const widthDimension = Math.max(height, top + beam.h) + 40;
+  const supporting = beamLayout ? drawSupportingElevation(s, beamLayout, top, options.dimensions) : null;
+  const widthDimension = Math.max(height, top + beam.h, supporting?.bottom ?? 0) + 45;
   const lower = top + beam.h;
-  const shoulder = notch?.shoulder ?? input.gap;
+  const shoulder = notch?.shoulder ?? gap;
   const nt = notch?.top ?? 0;
   const nb = notch?.bottom ?? 0;
-  const outline = [[input.gap, top + nt], [shoulder, top + nt], [shoulder, top], [span, top],
-    [span, lower], [shoulder, lower], [shoulder, lower - nb], [input.gap, lower - nb]];
+  const outline = [[gap, top + nt], [shoulder, top + nt], [shoulder, top], [span, top],
+    [span, lower], [shoulder, lower], [shoulder, lower - nb], [gap, lower - nb]];
   s.add('polygon', { points: outline.map(point => point.join(',')).join(' '), class: 'beam' });
-  s.line(nt ? shoulder : input.gap, top + beam.tf, span, top + beam.tf);
-  s.line(nb ? shoulder : input.gap, lower - beam.tf, span, lower - beam.tf);
-  s.line(nt ? shoulder : input.gap, height - beamCentre - clear / 2, span, height - beamCentre - clear / 2, 'axis');
-  s.line(nb ? shoulder : input.gap, height - beamCentre + clear / 2, span, height - beamCentre + clear / 2, 'axis');
+  s.line(nt ? shoulder : gap, top + beam.tf, span, top + beam.tf);
+  s.line(nb ? shoulder : gap, lower - beam.tf, span, lower - beam.tf);
+  s.line(nt ? shoulder : gap, height - beamCentre - clear / 2, span, height - beamCentre - clear / 2, 'axis');
+  s.line(nb ? shoulder : gap, height - beamCentre + clear / 2, span, height - beamCentre + clear / 2, 'axis');
   s.rect(0, 0, width, height, 'plate');
-  s.line(0, -20, 0, height + 20, 'support');
+  if (!supporting) s.line(0, -20, 0, height + 20, 'support');
   const maximum = Math.max(1, ...group.bolts.map(b => b.force));
   for (const b of group.bolts) {
     const y = height - b.y;
@@ -53,18 +55,35 @@ function elevation(s, beam, input, result, options) {
     s.line(0, widthDimension, width, widthDimension, 'dimension');
     for (const x of [0, width]) s.line(x, widthDimension - 7, x, widthDimension + 7, 'dimension');
     s.label(width / 2, widthDimension - 9, mm(width));
-    const heightDimension = span + 28;
+    const heightDimension = span + (supporting ? 155 : 28);
     s.line(heightDimension, 0, heightDimension, height, 'dimension');
     for (const y of [0, height]) s.line(heightDimension - 7, y, heightDimension + 7, y, 'dimension');
     s.label(heightDimension + 12, height / 2, mm(height), 'start');
     if (notch) {
       const dimY = Math.min(top, 0) - 30;
-      s.line(input.gap, dimY, shoulder, dimY, 'dimension');
-      s.label((input.gap + shoulder) / 2, dimY - 8, mm(notch.length));
-      for (const x of [input.gap, shoulder]) s.line(x, dimY - 5, x, dimY + 5, 'dimension');
+      s.line(gap, dimY, shoulder, dimY, 'dimension');
+      s.label((gap + shoulder) / 2, dimY - 8, mm(notch.length));
+      for (const x of [gap, shoulder]) s.line(x, dimY - 5, x, dimY + 5, 'dimension');
       if (nt) s.label(shoulder + 8, top + nt / 2, 'Top notch ' + mm(nt), 'start');
       if (nb) s.label(shoulder + 8, lower - nb / 2, 'Bottom notch ' + mm(nb), 'start');
-    } else s.label(input.gap, top - 12, 'Supported beam', 'start');
+    }
+    if (supporting) {
+      const x = span + 24;
+      s.line(x, top, x, lower, 'dimension');
+      for (const y of [top, lower]) s.line(x - 6, y, x + 6, y, 'dimension');
+      s.label(x + 12, (top + lower) / 2 + 24, 'h ' + mm(beam.h), 'start');
+      s.label(span, top - 15, 'Supported · ' + (beam.name ?? 'I-section'), 'end');
+      s.label(span, lower + 30, 'tw ' + mm(beam.tw) + ' · tf ' + mm(beam.tf), 'end');
+      const gapY = widthDimension + 27;
+      s.line(0, gapY, gap, gapY, 'dimension');
+      for (const x of [0, gap]) s.line(x, gapY - 6, x, gapY + 6, 'dimension');
+      s.label(gap / 2, gapY + 25, 'g ' + mm(gap));
+    } else if (!notch) s.label(gap, top - 12, 'Supported beam', 'start');
+  }
+  if (supporting) {
+    const left = supporting.left - 165;
+    const y = Math.min(top, supporting.top, 0) - 75;
+    return [left, y, span - left + 290, widthDimension - y + 75];
   }
   return [-78, Math.min(top, -20) - 45, span + 240, widthDimension - Math.min(top, -20) + 75];
 }
@@ -73,22 +92,29 @@ function plan(s, beam, input, result, options) {
   const angle = input.skew * Math.PI / 180;
   const c = Math.cos(angle);
   const t = Math.sin(angle);
-  const end = Math.max(result.width + 60, result.z + 65);
+  const { beamLayout, beamGap: gap, notch } = result;
+  const end = Math.max(result.width + 60, result.z + 65, (notch?.shoulder ?? 0) + 50);
   const point = (x, y) => [c * x - t * y, t * x + c * y];
   const polygon = (corners, style, attrs = {}) => s.add('polygon', {
     points: corners.map(([x, y]) => point(x, y).join(',')).join(' '), class: style, ...attrs,
   });
   const b = beam.b / 2;
-  const beamOutline = [[input.gap, -b], [end, -b], [end, b], [input.gap, b]];
+  const start = notch?.top ? notch.shoulder : gap;
+  const depth = Math.max(120, Math.abs(t * (end + 65)) + b + 44);
+  const left = beamLayout ? drawSupportingPlan(s, beamLayout, depth, options.dimensions) : -b - 54;
+  const beamOutline = [[start, -b], [end, -b], [end, b], [start, b]];
   polygon(beamOutline, 'beam');
+  if (notch?.bottom) {
+    s.line(...point(notch.shoulder, -b), ...point(notch.shoulder, b), 'axis');
+  }
+  polygon([[gap, -beam.tw / 2], [end, -beam.tw / 2], [end, beam.tw / 2], [gap, beam.tw / 2]], 'projected-web');
   polygon([[0, 0], [result.width, 0], [result.width, input.thickness], [0, input.thickness]], 'plate');
-  const depth = Math.max(120, Math.abs(t * end) + b + 24);
-  if (result.supportClearance < 0) {
+  if (!beamLayout && result.supportClearance < 0) {
     const clip = s.add('clipPath', { id: options.idPrefix + '-overlap-clip' });
     scene(clip).rect(-b - 54, -depth, b + 54, 2 * depth, '');
     polygon(beamOutline, 'beam-overlap', { 'clip-path': `url(#${options.idPrefix}-overlap-clip)` });
   }
-  s.line(0, -depth, 0, depth, result.supportClearance < 0 ? 'support conflict' : 'support');
+  if (!beamLayout) s.line(0, -depth, 0, depth, result.supportClearance < 0 ? 'support conflict' : 'support');
   s.line(0, 0, ...point(end, 0), 'axis');
   s.line(0, 0, end, 0, 'axis');
   const [actualX, actualY] = point(result.group.centroid.x, 0);
@@ -98,10 +124,12 @@ function plan(s, beam, input, result, options) {
     if (Math.abs(result.z - result.group.centroid.x) > 0.01) s.add('circle', { cx: x, cy: y, r: 5, class: 'bolt' });
     s.line(0, y, x, y, 'dimension');
     s.label(Math.max(45, x / 2), y - 10, mm(result.normal));
-    s.label(20, -depth - 12, supportNames[input.support], 'start');
+    if (beamLayout) drawSupportedWidth(s, point, beam, end);
+    else s.label(20, -depth - 12, supportNames[input.support], 'start');
     s.label(x + 12, y + 24, input.skew + '°', 'start');
   }
-  return [-b - 54, -depth - 40, end + 2 * b + 108, 2 * depth + 80];
+  const bound = Math.min(left, ...beamOutline.map(p => point(...p)[0])) - 60;
+  return [bound, -depth - 40, end + b - bound + (beamLayout ? 265 : 54), 2 * depth + 106];
 }
 
 export function draw(node, beam, input, result, options) {

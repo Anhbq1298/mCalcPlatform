@@ -136,3 +136,6 @@ body:has(#joint-template:not([hidden])) .mcalc-shell :is(label, [data-save], [da
 .fin-template button:disabled { opacity: .55; }
 @media (max-width: 720px) { .fin-template { margin-inline: 12px; } }
 @media (max-width: 500px) { .fin-template-options { grid-template-columns: minmax(0, 1fr); } }
+
+.support-beam { fill: #d1dfed; stroke: #344b68; }
+.projected-web { fill: none; stroke: #637e99; stroke-dasharray: 4 3; }

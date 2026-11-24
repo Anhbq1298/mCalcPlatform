@@ -4,7 +4,8 @@ const tex = String.raw;
 export function sciSteps(input, result, { n, kn, times, ur }) {
   const steps = [];
   const { sci, weld, support, height } = result;
-  const { vertical, thickness: t, plateFy: fy, plateFu: fu, rows, supportThickness: ts } = input;
+  const { vertical, thickness: t, plateFy: fy, plateFu: fu, rows } = input;
+  const ts = support?.thickness ?? input.supportThickness;
   const factor = (value, divisor) => tex`\frac{${n(value)}}{${divisor}}`;
   const check = (check, name, capacity, explanation, equation) => ({
     check,

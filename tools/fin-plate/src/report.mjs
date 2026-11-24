@@ -1,3 +1,4 @@
+import { beamLayouts } from './beam-layout.mjs';
 import { sciSource } from './sci-p358.mjs';
 import { supportNames, connectionNames, jointForSupport, jointNames } from './inputs.mjs';
 
@@ -11,7 +12,7 @@ export function report(input, beam, result) {
     ['Basis · BS EN 1993-1-8:2005 and SCI P358 component assessment'],
     ['Beam · ' + beam.name + ' · web thickness ' + beam.tw + ' mm · fu ' + input.beamFu + ' MPa'],
     ['Joint · ' + (jointNames[jointForSupport(input.support)] ?? 'Legacy support')],
-    ['Support · ' + supportNames[input.support] + ' · Layout · ' + connectionNames[input.type]],
+    ['Support · ' + supportNames[input.support] + ' · Layout · ' + (result.beamLayout?.layout === 'outside' ? 'Extended' : connectionNames[input.type])],
     ...(result.notch ? [['Notch · Top ' + result.notch.top + ' mm · Bottom ' + result.notch.bottom
       + ' mm · Length ' + result.notch.length + ' mm']] : []),
     ['Fin plate · ' + result.height + ' × ' + result.width + ' × ' + input.thickness + ' mm'],
@@ -21,7 +22,10 @@ export function report(input, beam, result) {
     ['Vertical shear · ' + input.vertical + ' kN · Horizontal force · ' + input.horizontal + ' kN'],
     ['Skew · ' + input.skew + '° · Reference · ' + input.eccentricityMode],
     ['Axis eccentricity · ' + decimal(result.z) + ' mm · Normal projection · ' + decimal(result.normal) + ' mm'],
-    ['Minimum normal clearance for square beam end · ' + decimal(result.supportClearance) + ' mm'],
+    ...(result.beamLayout ? [
+      ['Supporting beam · ' + result.beamLayout.profile.name + ' · ' + beamLayouts[result.beamLayout.layout]],
+      ['Web face to supported beam end along axis · ' + decimal(result.beamGap) + ' mm'],
+    ] : [['Minimum normal clearance for square beam end · ' + decimal(result.supportClearance) + ' mm']]),
     ['Elastic bolt-group moment · ' + decimal(result.moment / 1000) + ' kNm'],
     ['Group polar property · ' + decimal(result.group.polar) + ' mm²'],
     ['Bolt design shear resistance · ' + decimal(result.shearResistance) + ' kN'],

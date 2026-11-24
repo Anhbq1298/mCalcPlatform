@@ -1,10 +1,12 @@
 import { boltGrades, boltSizes } from './bolt-group.mjs';
+import { beamLayouts } from './beam-layout.mjs';
 import { supportNames, connectionNames, jointNames } from './inputs.mjs';
 
 export const beamFields = [
   ['h', 'Depth h (mm)'], ['b', 'Flange width b (mm)'], ['tw', 'Web thickness (mm)'],
   ['tf', 'Flange thickness (mm)'], ['r', 'Root radius (mm)'],
 ];
+export const supportingFields = beamFields.map(([key, label]) => ['support' + key[0].toUpperCase() + key.slice(1), key, label]);
 export const groups = [
   ['Supported beam', [
     ['section', 'Section', 'catalogue'], ...beamFields, ['beamFu', 'Web ultimate strength (MPa)'],
@@ -14,6 +16,12 @@ export const groups = [
     ['joint', 'Joint type', Object.entries(jointNames)],
     ['support', 'Column attachment', Object.entries(supportNames)], ['type', 'Fin plate', Object.entries(connectionNames)],
     ['vertical', 'ULS shear (kN)'], ['horizontal', 'In-plane horizontal (kN)'], ['appliedMoment', 'Additional moment (kNm)'],
+  ]],
+  ['Supporting beam', [
+    ['supportSection', 'Supporting section', 'catalogue'],
+    ...supportingFields.map(([key, , label]) => [key, 'Supporting ' + label.toLowerCase()]),
+    ['beamLayout', 'Beam-to-beam arrangement', Object.entries(beamLayouts)],
+    ['supportLevel', 'Supporting top above supported top (mm)', null],
   ]],
   ['Supported beam notch', [
     ['beamFy', 'Beam yield strength (MPa)'],

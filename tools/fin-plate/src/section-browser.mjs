@@ -32,9 +32,9 @@ export function sectionBrowser(catalogue, select) {
   for (const name of families.filter(name => items.some(section => section.family === name))) {
     family.add(new Option(name, name));
   }
-  let currentId;
+  let currentId, onSelect;
   function choose(id) {
-    select(id);
+    onSelect(id);
     dialog.close();
   }
   function render() {
@@ -56,7 +56,8 @@ export function sectionBrowser(catalogue, select) {
   }
   family.onchange = search.oninput = render;
   dialog.querySelector('#use-custom-section').onclick = () => choose(0);
-  return id => {
+  return (id, callback = select) => {
+    onSelect = callback;
     currentId = id;
     family.value = '';
     search.value = '';
