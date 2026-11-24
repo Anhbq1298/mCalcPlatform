@@ -4,23 +4,24 @@ import { grid } from './bolt-group.mjs';
 import { calculate } from './connection.mjs';
 import { defaults, highSkew, validateInputs } from './inputs.mjs';
 import { beamFields, groups } from './fields.mjs';
-import { draw } from './drawing.mjs';
+import { drawingViews } from './drawing-view.mjs';
+import { sectionBrowser } from './section-browser.mjs';
 import { compareColumns } from './layout-study.mjs';
 import { percent, report } from './report.mjs';
 import './style.css';
 
 const byId = id => document.getElementById(id);
-const catalogue = sections.filter(s => ['UB', 'UC', 'IPE', 'HEA', 'HEB'].includes(s.family));
-const bySectionId = new Map(catalogue.map(s => [s.id, s]));
-const normalizeSection = value => value.toLowerCase().replaceAll('×', 'x').replace(/\s+/g, '');
-const bySectionName = new Map(catalogue.map(s => [normalizeSection(s.name), s.id]));
-const drawing = byId('connection-drawing');
+const bySectionId = new Map(sections.map(s => [s.id, s]));
+const drawings = drawingViews({
+  plan: byId('connection-plan'), elevation: byId('connection-drawing'), section: byId('connection-section'),
+});
 const controls = new Map();
 let state = { ...defaults };
-let viewBox;
-let zoom = 1;
-let pan = [0, 0];
-let drag;
+const browseSection = sectionBrowser(sections, id => {
+  state.section = id;
+  setControls();
+  refresh();
+});
 const editLayout = node('button', 'Edit bolt coordinates');
 const resetLayout = node('button', 'Use regular grid');
 editLayout.type = resetLayout.type = 'button';
@@ -51,26 +52,23 @@ for (const [title, rows] of groups) {
       for (const [value, name] of kind) input.add(new Option(name, value));
     } else if (kind === 'catalogue') {
       row.className = 'section-picker';
-      const choices = node('datalist');
-      choices.id = 'section-options';
-      for (const name of ['Custom I-section', ...catalogue.map(s => s.name)]) choices.append(new Option(name));
-      input.setAttribute('list', choices.id);
-      input.autocomplete = 'off';
-      row.append(choices);
+      input.readOnly = true;
     } else {
       input.type = kind === 'checkbox' ? kind : 'number';
       input.step = 'any';
     }
     controls.set(key, input);
     group.append(row);
+    if (kind === 'catalogue') {
+      const browse = node('button', 'Browse sections');
+      browse.type = 'button';
+      browse.setAttribute('aria-haspopup', 'dialog');
+      browse.onclick = () => browseSection(state.section);
+      group.append(browse);
+    }
   }
   if (title === 'Bolt arrangement') group.append(editLayout, resetLayout);
   byId('fields').append(group);
-}
-
-function applyViewBox() {
-  const [x, y, w, h] = viewBox;
-  drawing.setAttribute('viewBox', [x + (w - w / zoom) / 2 + pan[0], y + (h - h / zoom) / 2 + pan[1], w / zoom, h / zoom].join(' '));
 }
 
 function setControls() {
@@ -104,11 +102,20 @@ function renderStudy(section) {
   for (const option of compareColumns(state, section)) {
     const row = node('tr');
     row.dataset.governing = String(option.columns === state.columns);
-    for (const value of [option.columns, option.width.toFixed(1), option.eccentricity.toFixed(1),
-      percent(option.shear), percent(option.web), percent(option.plate), option.details.length ? 'Review' : 'Screened']) {
+    for (const value of [option.columns, option.width.toFixed(1), option.eccentricity.toFixed(1)]) {
       row.append(node('td', value));
     }
-    if (option.details.length) row.lastElementChild.title = option.details.join(' ');
+    for (const ratio of [option.shear, option.web, option.plate]) {
+      const cell = node('td', percent(ratio));
+      cell.dataset.failure = String(ratio > 1);
+      row.append(cell);
+    }
+    const detailing = node('td', option.details.length ? 'Review' : 'Screened');
+    if (option.details.length) {
+      detailing.dataset.failure = 'true';
+      detailing.title = option.details.join(' ');
+    }
+    row.append(detailing);
     table.append(row);
   }
 }
@@ -119,6 +126,9 @@ function refresh() {
   const checks = byId('checks');
   const details = byId('details');
   const summary = byId('geometry-summary');
+  const warning = byId('detailing-warning');
+  const planWarning = byId('plan-warning');
+  warning.hidden = planWarning.hidden = true;
   table.replaceChildren();
   checks.replaceChildren();
   details.replaceChildren();
@@ -130,14 +140,30 @@ function refresh() {
     const governing = result.checks.reduce((worst, check) => check.ratio > worst.ratio ? check : worst);
     const governingBolt = result.checks.filter(check => check.bolt)
       .reduce((worst, check) => check.ratio > worst.ratio ? check : worst).bolt;
-    status.textContent = result.status + ' · ' + governing.name + ' ' + percent(governing.ratio);
+    status.textContent = result.status;
     status.dataset.failure = String(governing.ratio > 1 || result.details.length > 0);
-    for (const item of result.details) details.append(node('li', item));
+    if (result.supportClearance < 0) {
+      const overlap = (-result.supportClearance).toFixed(1) + ' mm';
+      warning.textContent = 'Beam end overlaps the support face by ' + overlap + ' in plan.';
+      planWarning.textContent = 'Overlap ' + overlap;
+      warning.hidden = planWarning.hidden = false;
+    }
+    for (const item of result.details) {
+      if (warning.hidden || !item.startsWith('The square beam end crosses')) details.append(node('li', item));
+    }
     if (result.customLayout) details.append(node('li', 'Coordinate layout uses elastic bolt forces and shear. Bearing and pitch checks require a regular grid.'));
-    for (const { name, ratio, bolt, resistance } of result.checks) {
-      const value = node('dd', percent(ratio) + (bolt ? ' · bolt ' + bolt : '') + (resistance ? ' · ' + resistance.toFixed(1) + ' kN' : ''));
-      value.dataset.failure = String(ratio > 1);
-      checks.append(node('dt', name), value);
+    for (const check of result.checks) {
+      const { name, ratio, bolt, resistance } = check;
+      const row = node('tr');
+      row.dataset.governing = String(check === governing);
+      row.dataset.failure = String(ratio > 1);
+      const label = node('th', name);
+      label.scope = 'row';
+      if (check === governing) label.append(node('small', 'Governing'));
+      const value = node('td', percent(ratio));
+      if (bolt || resistance) value.append(node('small', bolt ? 'Bolt ' + bolt : resistance.toFixed(1) + ' kN'));
+      row.append(label, value);
+      checks.append(row);
     }
     for (const b of result.group.bolts) {
       const row = node('tr');
@@ -149,27 +175,22 @@ function refresh() {
     summary.textContent = 'Axis eccentricity ' + result.z.toFixed(1) + ' mm · Normal projection ' + result.normal.toFixed(1)
       + ' mm · Bolt-group moment ' + (result.moment / 1000).toFixed(2) + ' kNm · Hole Ø' + result.bolt.hole + ' mm'
       + ' · Normal end clearance ' + result.supportClearance.toFixed(1) + ' mm';
-    viewBox = draw(drawing, section, state, result, { view: byId('view').value, governing: governingBolt,
+    drawings.render(section, state, result, { governing: governingBolt,
       forces: byId('show-forces').checked, dimensions: byId('show-dimensions').checked });
-    applyViewBox();
     renderStudy(section);
   } catch (error) {
     status.textContent = error.message;
     status.dataset.failure = 'true';
-    drawing.replaceChildren();
-    viewBox = undefined;
+    drawings.clear();
   }
 }
 
 byId('connection-inputs').addEventListener('submit', event => event.preventDefault());
 byId('connection-inputs').addEventListener('input', ({ target }) => {
   const key = target.id;
-  if (!controls.has(key)) return;
+  if (!controls.has(key) || key === 'section') return;
   if (['columns', 'rows'].includes(key) && Number(target.value) !== state[key]) state.coordinates = null;
-  if (key === 'section') {
-    const value = normalizeSection(target.value);
-    state.section = value === 'customi-section' ? 0 : bySectionName.get(value);
-  } else if (target.type === 'checkbox') state[key] = target.checked;
+  if (target.type === 'checkbox') state[key] = target.checked;
   else if (target.type === 'number') state[key] = target.valueAsNumber;
   else state[key] = typeof defaults[key] === 'number' ? Number(target.value) : target.value;
   updateControls();
@@ -178,28 +199,9 @@ byId('connection-inputs').addEventListener('input', ({ target }) => {
 for (const key of ['show-forces', 'show-dimensions']) byId(key).addEventListener('change', refresh);
 byId('layout-study').addEventListener('toggle', refresh);
 for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', 0.8]]) byId(id).onclick = () => {
-  if (!viewBox) return;
-  zoom = Math.max(0.5, Math.min(8, zoom * factor));
-  applyViewBox();
+  drawings.zoom(factor);
 };
-for (const event of ['view', 'fit']) byId(event).addEventListener(event === 'fit' ? 'click' : 'change', () => {
-  zoom = 1;
-  pan = [0, 0];
-  refresh();
-});
-drawing.onpointerdown = event => {
-  if (!viewBox) return;
-  const scale = drawing.getScreenCTM()?.a;
-  if (!scale) return;
-  drag = { pointer: event.pointerId, x: event.clientX, y: event.clientY, pan, scale };
-  drawing.setPointerCapture(event.pointerId);
-};
-drawing.onpointermove = event => {
-  if (!viewBox || drag?.pointer !== event.pointerId) return;
-  pan = [drag.pan[0] - (event.clientX - drag.x) / drag.scale, drag.pan[1] - (event.clientY - drag.y) / drag.scale];
-  applyViewBox();
-};
-drawing.onlostpointercapture = () => { drag = undefined; };
+byId('fit').onclick = () => drawings.fit();
 byId('preset').onclick = () => {
   state = { ...state, ...highSkew };
   setControls();

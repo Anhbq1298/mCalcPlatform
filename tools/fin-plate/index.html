@@ -17,15 +17,27 @@
     <section class="fin-panel" aria-labelledby="drawing-title">
       <h2 id="drawing-title">Connection drawing</h2>
       <div class="fin-view-tools">
-        <label>View <select id="view"><option value="elevation">Elevation</option><option value="plan">Plan</option><option value="section">Section</option></select></label>
         <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
         <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
         <button type="button" id="fit">Fit</button>
         <label><input type="checkbox" id="show-forces" checked> Forces</label>
         <label><input type="checkbox" id="show-dimensions" checked> Dimensions</label>
       </div>
-      <svg id="connection-drawing" role="img" aria-label="Scaled drawing of the fin plate connection"></svg>
+      <div class="fin-drawings">
+        <figure>
+          <figcaption>Plan <span id="plan-warning" hidden></span></figcaption>
+          <svg id="connection-plan" class="fin-drawing" role="img" aria-label="Connection plan"></svg>
+        </figure>
+        <figure>
+          <figcaption>Elevation</figcaption>
+          <svg id="connection-drawing" class="fin-drawing" role="img" aria-label="Connection elevation"></svg>
+        </figure>
+      </div>
       <p id="geometry-summary"></p>
+      <details id="section-drawing">
+        <summary>Beam cross-section</summary>
+        <svg id="connection-section" class="fin-drawing" role="img" aria-label="Beam cross-section"></svg>
+      </details>
       <details>
         <summary>Bolt forces and utilization</summary>
         <div class="fin-table"><table>
@@ -46,8 +58,12 @@
     <section class="fin-panel" aria-labelledby="checks-title">
       <h2 id="checks-title">Design checks</h2>
       <output id="status" aria-live="polite"></output>
+      <p id="detailing-warning" role="status" hidden></p>
       <ul id="details"></ul>
-      <dl id="checks"></dl>
+      <table class="fin-checks">
+        <thead><tr><th scope="col">Check</th><th scope="col">UR</th></tr></thead>
+        <tbody id="checks"></tbody>
+      </table>
       <p>Complete connection assessment requires the applicable weld, support, stability, tying and rotational checks.</p>
     </section>
   </main>
