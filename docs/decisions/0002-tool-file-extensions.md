@@ -11,6 +11,7 @@ Each tool declares a lowercase `fileExtension` in its manifest. The master proje
 | mSteelBeamColumn | `.msbc` | Inputs and results. |
 | mPunchingShear | `.mpsh` | Inputs and results. |
 | mConcBreakout | `.mcbo` | Inputs and results. |
+| mFinPlate | `.mfp` | Inputs and results. |
 
 Open accepts both upper and lower case extensions. Save writes lowercase.
 

@@ -1,0 +1,36 @@
+{
+  "id": "fin-plate",
+  "name": "mFinPlate",
+  "title": "Fin Plate Connection",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "schema": 1,
+  "fileExtension": "mfp",
+  "folder": "connections",
+  "labels": [
+    "connection.fin-plate",
+    "status.wip"
+  ],
+  "entry": "t/fin-plate/",
+  "category": "steel",
+  "code": "EC3",
+  "description": "Interactive fin plate geometry, eccentric bolt forces, and component checks.",
+  "keywords": [
+    "steel",
+    "eurocode 3",
+    "bolt shear",
+    "web bearing",
+    "fin plate"
+  ],
+  "inputs": {
+    "type": "object"
+  },
+  "outputs": {},
+  "permissions": [],
+  "designCodes": [
+    {
+      "id": "EN-1993-1-8",
+      "label": "EC3 · EN 1993-1-8"
+    }
+  ]
+}

@@ -11,7 +11,7 @@ const cases = [
 test('opens, saves and reopens each integrated tool under a Pages project path', async ({ page }) => {
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Engineering Design Tools' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(7);
+  await expect(page.getByRole('link', { name: 'New design' })).toHaveCount(8);
   const beamIcon = module => page.locator('.thumbnail[data-module="' + module + '"] i:nth-child(2)');
   const profileStyle = element => {
     const { width, height, clipPath, backgroundColor } = getComputedStyle(element);

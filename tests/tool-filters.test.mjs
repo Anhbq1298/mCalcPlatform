@@ -13,7 +13,7 @@ test('lists registered tools under All and their declared category', () => {
   assert.deepEqual(filterTools(tools), tools);
   for (const [category, expected] of [
     ['concrete', ['conc-breakout', 'mbcolumn-lite', 'punching-shear', 'rc-circular-column']],
-    ['steel', ['steel-beam-column']],
+    ['steel', ['fin-plate', 'steel-beam-column']],
     ['composite', ['composite-beam']],
     ['general', ['calccanvas']],
   ]) {
@@ -27,7 +27,7 @@ test('searches names, IDs, categories and explicit codes with case and punctuati
     ['punching-SHEAR', ['punching-shear']],
     ['gEnErAl', ['calccanvas']],
     ['EC2 · EN 1992-1-1', ['conc-breakout', 'mbcolumn-lite', 'punching-shear', 'rc-circular-column']],
-    ['en-1993-1-1', ['conc-breakout', 'steel-beam-column']], // terms match EN 1993-1-8 too
+    ['en-1993-1-1', ['conc-breakout', 'fin-plate', 'steel-beam-column']], // terms match EN 1993-1-8 too
     ['en-1992-4', ['conc-breakout']],
     ['ec4', ['composite-beam']],
     ['RC COLUMN', ['mbcolumn-lite', 'rc-circular-column']],

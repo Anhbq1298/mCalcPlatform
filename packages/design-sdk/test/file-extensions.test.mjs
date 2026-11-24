@@ -13,6 +13,7 @@ const expected = {
   calccanvas: 'mccv',
   'conc-breakout': 'mcbo',
   'composite-beam': 'mcb',
+  'fin-plate': 'mfp',
   'mbcolumn-lite': 'mrcol',
   'punching-shear': 'mpsh',
   'rc-circular-column': 'mccol',

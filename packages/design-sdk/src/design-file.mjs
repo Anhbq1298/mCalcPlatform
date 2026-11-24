@@ -6,7 +6,7 @@ import { hashReport } from './package-file.mjs';
 const FORMAT = 'mcalc-design';
 const VERSION = 1;
 const decoder = new TextDecoder('utf-8', { fatal: true });
-const DESIGN_EXTENSIONS = new Set(['mrcol', 'mcb', 'mccol', 'msbc', 'mpsh', 'mcbo']);
+const DESIGN_EXTENSIONS = new Set(['mrcol', 'mcb', 'mccol', 'msbc', 'mpsh', 'mcbo', 'mfp']);
 
 export function isDesignExtension(extension) {
   return DESIGN_EXTENSIONS.has(extension);
@@ -36,6 +36,10 @@ export async function importDesignFile(file, tools) {
     data = JSON.parse(decoder.decode(await file.arrayBuffer()));
   } catch {
     throw new Error('Invalid design file.');
+  }
+  if (extension === 'mfp' && data?.format === FORMAT && data.version === VERSION && data.design?.tool === 'fin-plate'
+    && tools.some(tool => tool.id === 'fin-plate' && tool.fileExtension === extension)) {
+    return parseDesign(data.design);
   }
   if (data?.format !== FORMAT || data.version !== VERSION || data.extension !== extension) {
     throw new Error('Invalid design file.');
