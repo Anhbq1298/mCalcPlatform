@@ -60,6 +60,7 @@ export function schedulePage(sections){
     const criteria={...c,supportProfile:sections.find(s=>s.id===c.supportId)};
     const profile=profiles.find(s=>s.name===worst.profile), x=assess(criteria,g,profile,cell.V);
     host.append(el('p','Governing '+worst.profile+' · '+worst.name+' · UR '+fmt(worst.ratio)+' · family component shear resistance '+fmt(cell.choice.capacity)+' kN · minimum component tying resistance '+fmt(tie)+' kN'));
+    const deriv=el('div');host.append(deriv);table(deriv,[['Calculation','Substitution','Value','Unit'],...x.derivation]);
     const rows=[['Profile','Check','Reference','Action','Resistance','Unit','UR']];
     for(const s of profiles)for(const q of assess(criteria,g,s,cell.V).checks)rows.push([s.name,q.name,q.ref,q.action,q.resistance,q.unit,q.ratio]);
     const div=el('div');div.className='fin-table';host.append(div);table(div,rows);
@@ -115,6 +116,7 @@ export function schedulePage(sections){
     if(current)for(const s of current.choice.profiles){
       const x=assess({...c,supportProfile:sections.find(p=>p.id===c.supportId)},current.choice.g,s,current.V);
       rows.push([s.name+' · '+current.mark,2]);
+      for(const [name,expr,value,unit] of x.derivation)rows.push([name+' = '+expr+' = '+fmt(value)+' '+unit]);
       for(const q of x.checks)rows.push([q.ref+' · '+q.name+' · '+fmt(q.action)+' / '+fmt(q.resistance)+' = '+fmt(q.ratio)]);
     }
     return rows;

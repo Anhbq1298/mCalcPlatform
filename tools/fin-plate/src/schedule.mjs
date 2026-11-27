@@ -35,7 +35,11 @@ export function assess(c,g,section,V) {
   const r=calculate(input,b), bolt={...r.bolt,hole:c.hole}, d0=c.hole, checks=[];
   function add(name,action,resistance,ref,unit='kN') {
     if(!Number.isFinite(action)||!(resistance>0)||!Number.isFinite(resistance))throw Error('Invalid resistance: '+name);
-    checks.push({name,action,resistance,ref,unit,ratio:action/resistance,profile:section.name,
+    checks.push({checkId:name.toLowerCase().replaceAll(' ','-'),checkName:name,name,action,resistance,ref,unit,
+      codeReference:ref,designAction:action,designResistance:resistance,utilizationRatio:action/resistance,
+      applicability:'Applicable',governingSection:section.name,failureReason:action>resistance?'Action exceeds resistance':null,
+      equation:'UR = Ed / Rd',inputParameters:{V,rows:g.nr,columns:g.nc},intermediateResults:{zp:g.zp,zg:g.zg},
+      ratio:action/resistance,profile:section.name,
       verificationStatus:action<=resistance?'PASS':'FAIL'});
   }
   const args={group:r.group,bolt,shearResistance:r.shearResistance*1.25/c.gammaFastener,z:g.zg,pitch:c.pitch,
@@ -94,7 +98,19 @@ export function assess(c,g,section,V) {
   ties.push(weldFu*area/(Math.SQRT2*.85*c.gammaTie*1000));
   const tie=Math.min(...ties);
   if(c.tie>0)add('Component tying',c.tie,tie,'P358 §5.5 Checks 11–13');
-  return {input,r,checks,tie,stability,le,area,modulus,sigma,tau};
+  return {input,r,checks,tie,stability,le,area,modulus,sigma,tau,
+    derivation:[
+      ['Plate height', '2 × '+c.end+' + ('+g.nr+' − 1) × '+c.pitch, g.hp,'mm'],
+      ['Bolt shear resistance per shear plane',bolt.coefficient+' × '+bolt.fub+' × '+bolt.area+' × '+r.longJoint+' / ('+c.gammaFastener+' × 1000)',args.shearResistance,'kN'],
+      ['Plate gross shear',g.hp+' × '+g.tp+' × '+c.plateFy+' / (1.27 × √3 × '+c.gamma0+' × 1000)',plate.gross,'kN'],
+      ['Plate net shear area',g.tp+' × ('+g.hp+' − '+g.nr+' × '+d0+')',g.tp*(g.hp-g.nr*d0),'mm²'],
+      ['Web gross shear area','max(A − 2btf + (tw + 2r)tf, hw tw)',A,'mm²'],
+      ['Web BC design shear',V+' × '+L+' / '+b.h,V*L/b.h,'kN'],
+      ['Weld throat',g.sw+' / √2',g.aw,'mm'],
+      ['Effective weld length',g.hp+' − 2 × '+g.aw,le,'mm'],
+      ['Weld shear',V+' × 1000 / '+area,tau,'MPa'],
+      ['Weld normal stress',V+' × 1000 × '+g.zg+' / ('+modulus+' × √2)',sigma,'MPa'],
+    ]};
 }
 
 export function generate(c,catalogue) {
@@ -119,10 +135,14 @@ export function generate(c,catalogue) {
     const cost=g=>g.n*c.boltCost+g.hp*g.bp*g.tp*7.85e-6*c.plateCost+2*g.hp/1000*c.weldCost;
     candidates.sort((a,b)=>(c.objective==='bolts'?a.n-b.n:c.objective==='area'?a.bp*a.hp-b.bp*b.hp:c.objective==='weld'?a.hp-b.hp:c.objective==='cost'?cost(a)-cost(b):0)||a.nc-b.nc||a.nr-b.nr);
     for(const V of c.loads){
+      let unverified=false;
       let choice, reason='No common plate height', pending=false;
       for(const g of candidates){
         const deep=Number(f.match(/\d+/)[0])>610;
         if(deep&&(c.gap<20||(g.nr-1)*c.pitch>530||(c.span?profiles.some(p=>c.span/p.values.h>20):c.spanRatio>20))){reason='Deep beam detailing outside P358';pending=true;continue;}
+        if((deep&&!c.span&&!c.spanRatio)||(g.tp/g.zp<.15&&c.restraint==='unknown')){
+          unverified=true;reason='Required restraint or span information missing';continue;
+        }
         if((deep&&!c.span&&!c.spanRatio)||c.E!==210000||c.axial!==0||c.rotation>0||c.hole!==22||g.tp>16||!['UB','UC','IPE','HEA','HEB'].includes(profiles[0].family)||c.diameter!==20||c.grade!=='8.8'||c.plateFy!==275||!c.threaded||
           (g.tp/g.zp<.15 && c.restraint!=='restrained')){
           reason='Outside verified material, restraint or detailing scope';pending=true;continue;
@@ -155,7 +175,7 @@ export function generate(c,catalogue) {
         choice={g,worst,capacity:capacities.get(key),tie:Math.min(...evaluated.map(x=>x.tie)),profiles};
         marks.set(g.nc+'/'+g.nr,g);break;
       }
-      cells.push({f,V,choice,status:choice?'Component screening':pending?'Outside scope':'Infeasible',reason});
+      cells.push({f,V,choice,status:choice?'Component screening':unverified?'Not verified':pending?'Outside scope':'Infeasible',reason});
     }
   }
   const details=[...marks.values()].sort((a,b)=>a.nc-b.nc||a.nr-b.nr), count=[0,0,0];

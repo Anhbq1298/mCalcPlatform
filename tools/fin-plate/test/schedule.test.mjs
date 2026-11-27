@@ -42,3 +42,27 @@ test('P358 Example 2 Check 14, 305x305x137 UKC web governs tying at 412 kN',()=>
   const x=assess(c,geometry(c,4,1),section,50);
   assert.ok(Math.abs(x.tie-412)<2, String(x.tie));
 });
+test('independent high shear branch of P358 Check 4 and two-column lever arm',()=>{
+  const b=data.find(s=>s.name==='UB 406x178x74');
+  const g=geometry(initial,4,2),V=600;
+  const a=assess(initial,g,b,V);
+  const L=210,t=b.values.tw,h=b.values.h,fy=355;
+  const stress=V*1000/(h*t),shearRatio=stress/(fy/Math.sqrt(3));
+  assert.ok(shearRatio>.5);
+  const moment=(fy*t*L**2/6*(1-(2*shearRatio-1)**2)+fy*t*100*L/Math.sqrt(3))/1e6;
+  const q=a.checks.find(q=>q.name==='ABCD web interaction');
+  assert.equal(q.action,V*.15);
+  assert.ok(Math.abs(q.resistance-moment)<1e-9);
+});
+test('default objective rejects every smaller eligible layout on at least one included section',()=>{
+  const r=generate(initial,data);
+  for(const {choice,V} of r.cells.filter(x=>x.choice)){
+    for(const nc of initial.columns)for(let nr=2;nr<=30;nr++){
+      const g=geometry(initial,nr,nc);
+      if(nc>choice.g.nc||(nc===choice.g.nc&&nr>=choice.g.nr))continue;
+      if(!choice.profiles.every(({values:b})=>g.hp>=.6*b.h&&g.hp<=b.h-2*(b.tf+b.r+10)))continue;
+      if(Number(choice.profiles[0].name.match(/\d+/)[0])>610&&(nr-1)*70>530)continue;
+      assert.ok(choice.profiles.some(p=>assess(initial,g,p,V).checks.some(q=>q.ratio>1)));
+    }
+  }
+});

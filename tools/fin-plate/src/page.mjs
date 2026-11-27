@@ -277,10 +277,8 @@ function openEditor(inputs) {
   refresh();
 }
 
-const templates = jointTemplatePicker(support => {
-  openEditor({ support, autoNotch: true, supportAlignment: 'mid', supportSection: support === 'beam-web' ? -1 : null });
-  byId('drawing-title').focus();
-});
+const templates = jointTemplatePicker(support => openEditor({ support, autoNotch: true,
+  supportAlignment: 'mid', supportSection: support === 'beam-web' ? -1 : null }));
 const schedule = schedulePage(sections);
 
 registerPage('fin-plate', {
