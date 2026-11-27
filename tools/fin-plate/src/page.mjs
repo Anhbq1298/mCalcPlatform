@@ -1,3 +1,4 @@
+import { schedulePage } from './schedule-page.mjs';
 import { registerPage } from '../../../apps/tool-page.mjs';
 import { sections } from '../../../packages/assets/src/index.ts';
 import { grid } from './bolt-group.mjs';
@@ -280,17 +281,19 @@ const templates = jointTemplatePicker(support => {
   openEditor({ support, autoNotch: true, supportAlignment: 'mid', supportSection: support === 'beam-web' ? -1 : null });
   byId('drawing-title').focus();
 });
-if (!new URLSearchParams(window.location.search).get('design')) templates.open();
+const schedule = schedulePage(sections);
 
 registerPage('fin-plate', {
   snapshot: () => {
+    if (schedule.active) return schedule.snapshot();
     if (!templates.editing) throw new Error('Choose and open a joint template first.');
     calculate(activeInputs(), beam());
     return { ...state };
   },
-  reset: () => templates.open(),
-  restore: openEditor,
+  reset: () => { templates.open(); schedule.reset(); },
+  restore: data => { if(data.workflow === "schedule") { templates.open(); schedule.open(data); } else { schedule.hide(); openEditor(data); } },
   report: () => {
+    if(schedule.active) return schedule.report();
     if (!templates.editing) throw new Error('Choose and open a joint template first.');
     const section = beam();
     return report(state, section, calculate(activeInputs(), section));

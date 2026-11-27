@@ -44,11 +44,15 @@ export function report(input, beam, result) {
       + ' · Resultant ' + decimal(b.force) + ' · Shear ' + percent(b.shear)
       + (b.web ? ' · Web ' + percent(b.web.utilization) + ' · Plate ' + percent(b.plate.utilization) : '')]),
   ];
+  return worksheet('Fin Plate Connection', lines);
+}
+
+export function worksheet(title, lines) {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const perPage = 31;
   return {
-    format: 'calccanvas', version: 3, id, title: 'Fin Plate Connection', createdAt: now, updatedAt: now,
+    format: 'calccanvas', version: 3, id, title, createdAt: now, updatedAt: now,
     settings: { unitSystem: 'SI', canvasMode: 'page', pageOrientation: 'portrait', pages: Math.ceil(lines.length / perPage) },
     shapes: lines.map(([label, heading], index) => ({
       id: id + '_' + index, type: 'text', x: 60,

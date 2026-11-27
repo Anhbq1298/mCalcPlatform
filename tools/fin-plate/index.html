@@ -10,6 +10,15 @@
     <div><h1>Fin Plate Connection</h1><p>mFinPlate · Eurocode 3 · Component assessment</p></div>
     <div data-joint-editor hidden><button type="button" id="preset">Load 50° skew preset</button> <button type="button" id="help-open">Help</button></div>
   </header>
+  <section class="fin-panel" id="schedule-start"><h2>Schedule Generator</h2><button id="open-schedule"><strong>No notch</strong> · Shear tab for an unnotched beam</button></section>
+  <main id="schedule-app" class="fin-panel" hidden>
+    <nav aria-label="Schedule generator"><button data-pane="criteria">Global Design Criteria</button> <button data-pane="schedule">Connection Schedule</button> <button data-pane="typical">Typical Details</button></nav>
+    <section id="criteria"><h2>Global Design Criteria</h2><p>BS EN 1993-1-1:2005 and BS EN 1993-1-8:2005 · UK NA · SCI P358. Check the assumed permanent restraint and beam span before using the schedule.</p><fieldset><legend>Regular shear bands (kN)</legend><label>First <input type="number" id="lo" value="50"></label> <label>Last <input type="number" id="hi" value="550"></label> <label>Increment <input type="number" id="inc" value="50"></label> <button id="apply-range">Apply range</button></fieldset><div id="schedule-fields"></div><button id="generate">Generate Schedule</button></section>
+    <section id="schedule" hidden><h2>Combined Connection Schedule</h2><p>Preliminary component screening · UK National Annex. Support, installation clearance and rotation require separate verification.</p>
+    <div class="fin-table" id="matrix"></div><h2>Parametric Connection Details</h2><div class="fin-table" id="params"></div><button id="excel">Export Excel XML</button> <button id="print-results">Print / PDF</button><div id="inspection"></div></section>
+    <section id="typical" hidden><h2>Typical Details</h2><select aria-label="Connection marking" id="mark"></select> <label><input id="symbolic" type="checkbox"> Symbolic dimensions</label> <button id="save-plan">Export plan SVG</button> <button id="save-elevation">Export elevation SVG</button><figure><figcaption>Elevation</figcaption><svg class="fin-drawing" id="sheet-elevation"></svg></figure><figure><figcaption>Plan</figcaption><svg class="fin-drawing" id="sheet-plan"></svg></figure></section>
+    <output id="schedule-error" role="status"></output>
+  </main>
   <section class="fin-panel fin-template" id="joint-template" aria-labelledby="joint-template-title" hidden>
     <h2 id="joint-template-title" tabindex="-1">Choose a joint template</h2>
     <form id="joint-template-form">
