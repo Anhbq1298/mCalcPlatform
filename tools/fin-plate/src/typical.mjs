@@ -41,6 +41,6 @@ export function typical(svg,c,g,b,result,plan,symbolic){
     dim(0,b.h+38,g.bp,b.h+38,'bp',g.bp);dim(0,-22,c.gap,-22,'g',c.gap);
     dim(c.gap,-22,g.zp,-22,'eb',c.beamEnd);const last=g.zp+(g.nc-1)*c.gauge;
     if(g.nc===2)dim(g.zp,-22,last,-22,'p2',c.gauge);dim(last,-22,g.bp,-22,'e2',c.plateEdge);
-    txt(length/2,b.h+58,g.nr+' rows × '+g.nc+' columns · M'+c.diameter);
+    txt(length/2,b.h+58,symbolic?'nr rows × nc columns · Ød':g.nr+' rows × '+g.nc+' columns · M'+c.diameter);
   }
 }

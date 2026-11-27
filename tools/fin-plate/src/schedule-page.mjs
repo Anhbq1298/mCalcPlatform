@@ -1,6 +1,7 @@
 import { assess, family, generate, initial } from './schedule.mjs';
 import { drawBoltGroup } from './drawing.mjs';
-import { typical } from './typical.mjs';
+import { scheduleTypicals } from './schedule-typicals.mjs';
+import { boltSizes } from './bolt-group.mjs';
 import { worksheet } from './report.mjs';
 
 const $=id=>document.getElementById(id);
@@ -20,21 +21,37 @@ function button(label,click){const b=el('button',label);b.type='button';b.onclic
 export function schedulePage(sections){
   let c,result,current,saved;
   const start=$('schedule-start'), app=$('schedule-app');
-  const pane=id=>{for(const key of ['criteria','schedule','typical'])$(key).hidden=id!==key;};
-  function invalidate(){result=current=null;$('inspection').replaceChildren();$('schedule-error').textContent='';}
+
+  function invalidate(){
+    $('schedule').hidden=true;
+    result=current=null;
+    $('inspection').replaceChildren();
+    $('schedule-error').textContent='';
+    const scope=$('schedule-input-scope');
+    scope.hidden=c.diameter===20 && c.grade==='8.8' && c.plateFy===275 && c.hole===22 && c.threaded;
+    scope.textContent='Automatic marking currently covers M20 class 8.8, Ø22 normal holes, threads in shear, and S275 fin plates.';
+  }
   function fields(){
-    const host=$('schedule-fields');host.replaceChildren();
-    function field(title,input){const label=el('label',title+' ');label.append(input);host.append(label);}
+    const host=$('schedule-fields'), basics=$('schedule-basics');
+    host.replaceChildren();basics.replaceChildren();
+    function field(title,input,target=host){const label=el('label',title+' ');label.append(input);target.append(label);}
     for(const [key,title] of Object.entries(labels)){
-      const input=el('input');input.type='number';input.step='any';input.value=c[key];input.oninput=()=>{c[key]=input.valueAsNumber;invalidate();};field(title,input);
+      if(['diameter','plateFy','plateFu'].includes(key))continue;
+      const input=el('input');input.type='number';input.step='any';input.value=c[key];input.oninput=()=>{c[key]=input.valueAsNumber;invalidate();};field(title,input,['thickness','weldLeg','gap'].includes(key)?basics:host);
     }
-    function list(key,title,choices){
+    function list(key,title,choices,target=host,update=value=>{c[key]=value;}){
       const s=el('select');for(const [value,text] of choices)s.add(new Option(text,value));s.value=c[key];
-      s.onchange=()=>{c[key]=s.value;invalidate();};field(title,s);
+      s.onchange=()=>{update(s.value);invalidate();};field(title,s,target);
     }
     list('restraint','Permanent lateral restraint',[['restrained','Restrained'],['unknown','Unknown'],['unrestrained','Unrestrained']]);
     list('objective','Selection priority',[['single','Single column first'],['bolts','Fewest bolts'],['area','Smallest plate area'],['weld','Minimum weld length'],['cost','Estimated fabrication cost']]);
-    list('grade','Bolt class',['4.6','5.6','8.8','10.9'].map(x=>[x,x]));
+    list('diameter','Bolt size',[...boltSizes.keys()].map(d=>[d,'M'+d]),basics,value=>{
+      c.diameter=Number(value);c.hole=boltSizes.get(c.diameter)[0];fields();
+    });
+    list('grade','Bolt class',['4.6','5.6','8.8','10.9'].map(x=>[x,x]),basics);
+    list('plateFy','Fin plate grade',[[275,'S275'],[355,'S355']],basics,value=>{
+      c.plateFy=Number(value);c.plateFu=c.plateFy===275?410:470;
+    });
     const threaded=el('input');threaded.type='checkbox';threaded.checked=c.threaded;
     threaded.onchange=()=>{c.threaded=threaded.checked;invalidate();};field('Threads in shear plane',threaded);
     list('supportFace','Supporting face',[['web','I-section web'],['flange','I-section flange']]);
@@ -43,18 +60,66 @@ export function schedulePage(sections){
     support.value=c.supportId;support.onchange=()=>{c.supportId=Number(support.value);invalidate();};field('Supporting section',support);
     const allowed=el('select');for(const val of ['1,2','1','2'])allowed.add(new Option(val,val));allowed.value=c.columns.join(',');
     allowed.onchange=()=>{c.columns=allowed.value.split(',').map(Number);invalidate();};field('Permitted bolt columns',allowed);
-    const loads=el('input');loads.value=c.loads.join(', ');loads.oninput=()=>{c.loads=loads.value.split(',').map(Number);invalidate();};field('Upper shear boundaries (kN)',loads);
-    const families=el('details');families.append(el('summary','Beam families and included profiles'));host.append(families);
-    for(const f of [...new Set(sections.map(family))].filter(Boolean).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){
-      const profiles=sections.filter(s=>family(s)===f), group=el('details'), heading=el('summary');
-      const check=(name,checked,fn)=>{const l=el('label'),i=el('input');i.type='checkbox';i.checked=checked;i.onchange=()=>{fn(i.checked);invalidate();};l.append(i,name);return l;};
-      heading.append(check(f,c.families.includes(f),on=>{c.families=c.families.filter(x=>x!==f);if(on)c.families.push(f);}));
-      group.append(heading);for(const p of profiles)group.append(check(p.name,!c.excluded.includes(p.id),on=>{c.excluded=c.excluded.filter(id=>id!==p.id);if(!on)c.excluded.push(p.id);}));
-      families.append(group);
+    const familyFields=$('schedule-families');
+    familyFields.replaceChildren();
+    const updateCount=()=>{$('family-count').textContent='('+c.families.length+' selected)';};
+    updateCount();
+    const otherFamilies=el('details');
+    otherFamilies.append(el('summary','Other beam families'));
+    host.append(otherFamilies);
+    const profileOptions=el('details');
+    profileOptions.append(el('summary','Included sections by family'));
+    host.append(profileOptions);
+    function checkbox(name,checked,change){
+      const label=el('label'), input=el('input');
+      input.type='checkbox';input.checked=checked;
+      input.onchange=()=>{change(input.checked);invalidate();};
+      label.append(input,name);
+      return label;
     }
+    for(const f of [...new Set(sections.map(family))].filter(Boolean)
+      .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){
+      const profiles=sections.filter(s=>family(s)===f), group=el('details');
+      group.append(el('summary',f));
+      const picker=f.startsWith('UB')?familyFields:otherFamilies;
+      picker.append(checkbox(f,c.families.includes(f),on=>{
+        c.families=on?[...c.families,f].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):c.families.filter(x=>x!==f);
+        updateCount();
+      }));
+      for(const p of profiles)group.append(checkbox(p.name,!c.excluded.includes(p.id),on=>{
+        c.excluded=on?c.excluded.filter(id=>id!==p.id):[...c.excluded,p.id];
+      }));
+      profileOptions.append(group);
+    }
+  }
+  const count=$('threshold-count'), step=$('threshold-step'), custom=$('custom-thresholds');
+  function renderThresholds(){
+    const host=$('threshold-values');
+    host.hidden=!custom.checked;
+    step.disabled=custom.checked;
+    host.replaceChildren();
+    if(!custom.checked)return;
+    for(const [index,value] of c.loads.entries()){
+      const label=el('label','Threshold '+(index+1)+' (kN)'), input=el('input');
+      Object.assign(input,{type:'number',min:0.01,step:'any',required:true,value:Number.isFinite(value)?value:''});
+      input.oninput=()=>{c.loads[index]=input.valueAsNumber;invalidate();};
+      label.append(input);host.append(label);
+    }
+  }
+  function resizeThresholds(){
+    if(!count.validity.valid || (!custom.checked&&!step.validity.valid)){invalidate();return;}
+    const spacing=step.valueAsNumber>0?step.valueAsNumber:50;
+    c.loads=Array.from({length:count.valueAsNumber},(_,i)=>custom.checked?(c.loads[i]??(c.loads.at(-1)??0)+(i-c.loads.length+1)*spacing):(i+1)*spacing);
+    renderThresholds();
+    invalidate();
+  }
+  count.oninput=step.oninput=custom.onchange=resizeThresholds;
+  function drawings(){
+    scheduleTypicals($('typical-drawings'),c,result,sections,$('symbolic').checked);
   }
   function inspect(cell){
     const host=$('inspection');host.replaceChildren(el('h3',cell.f+' · '+cell.V+' kN · '+(cell.mark??cell.status)));
+    current=null;
     if(!cell.choice){host.append(el('p',cell.reason));return;}
     current=cell;const {profiles,g,worst,tie}=cell.choice;
     const criteria={...c,supportProfile:sections.find(s=>s.id===c.supportId)};
@@ -64,14 +129,13 @@ export function schedulePage(sections){
     const rows=[['Profile','Check','Reference','Action','Resistance','Unit','UR']];
     for(const s of profiles)for(const q of assess(criteria,g,s,cell.V).checks)rows.push([s.name,q.name,q.ref,q.action,q.resistance,q.unit,q.ratio]);
     const div=el('div');div.className='fin-table';host.append(div);table(div,rows);
-    for(const view of ['plan','elevation']){const svg=$('sheet-'+view);typical(svg,c,g,profile.values,x.r,view==='plan',$('symbolic').checked);}
     const bolts=el('details');bolts.append(el('summary','Bolt group forces and geometry'));
     const diagram=document.createElementNS('http://www.w3.org/2000/svg','svg');diagram.setAttribute('class','fin-drawing');bolts.append(diagram);
     drawBoltGroup(diagram,x.r,x.r.checks[0].bolt);const forces=el('div');bolts.append(forces);
     table(forces,[['Bolt','X (mm)','Y from beam top (mm)','Fx (kN)','Fy (kN)','Resultant (kN)'],...x.r.group.bolts.map(b=>[b.id,b.x,profile.values.tf+profile.values.r+c.clearance+g.hp-b.y,b.fx,b.fy,b.force])]);
     host.append(bolts);
     host.append(el('p','LTB · λLT '+fmt(x.stability.slenderness??0)+' · χLT '+fmt(x.stability.reduction??1)+' · zp '+g.zp+' mm · zg '+g.zg+' mm. Overall joint, supporting member stability and rotation: NOT_VERIFIED.'));
-    $('mark').value=cell.mark;
+
   }
   function run(){
     try{
@@ -82,27 +146,16 @@ export function schedulePage(sections){
       const d=result.details, params=[['Parameter',...d.map(g=>g.mark)]];
       for(const key of ['nr','nc','n','hp','bp','tp','sw','aw','zp','zg'])params.push([key,...d.map(g=>g[key])]);
       for(const [symbol,key] of [['d','diameter'],['d0','hole'],['p1','pitch'],['p2','gauge'],['e1','end'],['e2','plateEdge'],['eb','beamEnd'],['g','gap']])params.push([symbol,...d.map(g=>symbol==='p2'&&g.nc===1?'–':c[key])]);
-      table($('params'),params);$('mark').replaceChildren(...d.map(g=>new Option(g.mark,g.mark)));
-      $('inspection').replaceChildren();for(const v of ['plan','elevation'])$('sheet-'+v).replaceChildren();
-      current=null;const first=result.cells.find(x=>x.choice);if(first)inspect(first);pane('schedule');
-    }catch(e){invalidate();pane('criteria');$('schedule-error').textContent=e.message;}
+      table($('params'),params);
+      $('schedule-materials').textContent='M'+c.diameter+' · Class '+c.grade+' · S'+c.plateFy+' fin plate · Dimensions in mm';
+      $('inspection').replaceChildren();
+      current=null;
+      drawings();
+      $('schedule').hidden=false;
+    }catch(e){invalidate();$('schedule-error').textContent=e.message;}
   }
-  $('symbolic').onchange=()=>{if(current)inspect(current);};
-  for(const view of ['plan','elevation'])$('save-'+view).onclick=()=>{
-    if(!current)return;
-    const a=el('a');a.download=current.mark+'-'+view+'.svg';
-    a.href=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString($('sheet-'+view))],{type:'image/svg+xml'}));
-    a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  };
-  $('apply-range').onclick=()=>{
-    const [first,last,step]=['lo','hi','inc'].map(id=>$(id).valueAsNumber);
-    if(![first,last,step].every(Number.isFinite)||first<=0||last<first||step<=0||(last-first)/step>500){$('schedule-error').textContent='Enter a positive range with at most 501 bands.';return;}
-    c.loads=Array.from({length:Math.floor((last-first)/step)+1},(_,i)=>first+i*step);
-    if(c.loads.at(-1)<last)c.loads.push(last);invalidate();fields();
-  };
-  $('generate').onclick=run;
-  $('mark').onchange=()=>inspect(result.cells.find(x=>x.mark===$('mark').value));
-  app.querySelectorAll('[data-pane]').forEach(b=>b.onclick=()=>{if(b.dataset.pane!=='criteria'&&!result)run();if(result||b.dataset.pane==='criteria')pane(b.dataset.pane);});
+  $('symbolic').onchange=()=>{if(result)drawings();};
+  $('criteria').onsubmit=event=>{event.preventDefault();run();};
   $('print-results').onclick=()=>window.print();
   function reportLines(){
     if(!result)throw Error('Generate the schedule first.');
@@ -130,9 +183,14 @@ export function schedulePage(sections){
     const a=el('a');a.href=URL.createObjectURL(new Blob([xml],{type:'application/xml'}));a.download='fin-plate-schedule.xml';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   };
   function open(data={}){saved=data;c={...structuredClone(initial),...structuredClone(data.criteria??{})};invalidate();
-    $('joint-template').hidden=start.hidden=true;app.hidden=false;fields();pane('criteria');}
+    $('joint-template').hidden=start.hidden=true;app.hidden=false;fields();
+    count.value=c.loads.length;
+    step.value=data.thresholdSpacing ?? (c.loads[0] || 50);
+    custom.checked=data.customThresholds ?? c.loads.some((v,i)=>Math.abs(v-c.loads[0]*(i+1))>1e-8);
+    renderThresholds();}
   $('open-schedule').onclick=()=>open();
   return {open,get active(){return !app.hidden;},reset(){app.hidden=$('joint-template').hidden=true;start.hidden=false;},
-    hide(){app.hidden=start.hidden=true;},snapshot(){return {...saved,workflow:'schedule',criteria:structuredClone(c)};},
+    hide(){app.hidden=start.hidden=true;},snapshot(){return {...saved,workflow:'schedule',criteria:structuredClone(c),
+      customThresholds:custom.checked,thresholdSpacing:step.valueAsNumber};},
     report(){return worksheet('No-notch fin plate schedule',reportLines());}};
 }

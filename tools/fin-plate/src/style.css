@@ -166,3 +166,12 @@ body:has(#joint-template:not([hidden])) .mcalc-shell :is(label, [data-save], [da
   #schedule-app .fin-table {overflow:visible;font-size:9pt}
   #schedule-app figure {break-inside:avoid}
 }
+#schedule-app .schedule-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem 1rem;margin:1rem 0}
+#schedule-app .schedule-fields[hidden] {display:none}
+#schedule-app .schedule-fields>label {display:grid;gap:.3rem;align-content:start}
+#schedule-app :is(fieldset,#schedule-advanced) {margin:0 0 1rem}
+#schedule-families {display:flex;gap:.25rem .8rem;flex-wrap:wrap}
+#typical-drawings {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1rem;margin:1rem 0}
+#typical-drawings article {border:1px solid #bfcbd9;border-radius:.4rem;padding:1rem;min-width:0}
+#typical-drawings svg {display:block;width:100%;height:auto;max-height:430px}
+#typical-drawings button {margin:.4rem .4rem 0 0}
