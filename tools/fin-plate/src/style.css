@@ -175,3 +175,19 @@ body:has(#joint-template:not([hidden])) .mcalc-shell :is(label, [data-save], [da
 #typical-drawings article {border:1px solid #bfcbd9;border-radius:.4rem;padding:1rem;min-width:0}
 #typical-drawings svg {display:block;width:100%;height:auto;max-height:430px}
 #typical-drawings button {margin:.4rem .4rem 0 0}
+
+.schedule-tabs {display:flex;gap:.5rem;flex-wrap:wrap}
+.schedule-tabs [aria-pressed="true"] {background:#194466;color:white}
+#notch-app .schedule-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:.65rem}
+#notch-app .schedule-fields label {display:grid;gap:.25rem;align-content:start}
+#notch-app .fin-table,#project-fin-plates .fin-table {overflow:auto}
+#notch-matrix button {white-space:nowrap}
+.notch-cad {display:block;width:min(100%,565px);height:auto;color:#181818}
+.notch-cad text {font:13px monospace;fill:currentColor}
+.notch-cad .object,.notch-cad .shape,.notch-cad .dimension,.notch-cad .weld,.notch-cad .hidden,.notch-cad .centerline {stroke:currentColor;fill:none}
+.notch-cad .shape {fill:white;stroke-width:1.5}
+.notch-cad .dimension {stroke-width:.65}
+.notch-cad .weld {stroke-width:3}
+.notch-cad .hidden {stroke-dasharray:6 4}
+.notch-cad .centerline {stroke-width:.6;stroke-dasharray:10 3 2 3}
+@media print {.schedule-tabs,#notch-criteria,#notch-print {display:none}}

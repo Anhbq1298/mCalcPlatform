@@ -23,7 +23,7 @@ export function geometry(c,rows,columns) {
     zp,zg:zp+(columns-1)*c.gauge/2,tp:c.thickness,sw:c.weldLeg,aw:c.weldLeg/Math.SQRT2};
 }
 export function assess(c,g,section,V) {
-  const b=section.values, top=b.tf+b.r+c.clearance;
+  const b=section.values, top=c.notchPlateTop??(b.tf+b.r+c.clearance);
   // EN 10025-2 Table 7, web-specific yield strength for standard rolled grades.
   if ([275,355].includes(c.beamFy)) {
     const drop=b.tw<=16?0:b.tw<=40?10:b.tw<=63?20:b.tw<=80?30:b.tw<=100?40:null;
@@ -43,7 +43,7 @@ export function assess(c,g,section,V) {
       verificationStatus:action<=resistance?'PASS':'FAIL'});
   }
   const args={group:r.group,bolt,shearResistance:r.shearResistance*1.25/c.gammaFastener,z:g.zg,pitch:c.pitch,
-    gauge:g.nc===1?Infinity:c.gauge,plateEnd:c.end,plateEdge:c.plateEdge,beamVerticalEnd:Infinity,
+    gauge:g.nc===1?Infinity:c.gauge,plateEnd:c.end,plateEdge:c.plateEdge,beamVerticalEnd:c.notchWebEdge??Infinity,
     beamEnd:c.beamEnd,plateThickness:g.tp,beamThickness:b.tw,plateFu:c.plateFu,beamFu:c.beamFu};
   const bolts=sciBoltChecks(args), plate=sciPlateChecks({height:g.hp,thickness:g.tp,rows:g.nr,columns:g.nc,
     gauge:c.gauge,edge:c.plateEdge,end:c.end,d0,fy:c.plateFy,fu:c.plateFu,z:g.zg});
@@ -59,17 +59,20 @@ export function assess(c,g,section,V) {
     stability.resistance=stability.type==='short'?elastic/c.gamma0:Math.min(elastic/c.gamma0,elastic*stability.reduction/(.6*c.gamma1));
   }
   if(stability.resistance!==null) add('Plate stability',V,stability.resistance,'P358 §5.5 Check 3');
-  const A=Math.max(b.A-2*b.b*b.tf+(b.tw+2*b.r)*b.tf,(b.h-2*b.tf)*b.tw);
-  add('Gross web shear',V,A*c.beamFy/Math.sqrt(3)/c.gamma0/1000,'P358 §5.5 Check 4');
-  add('Net web shear',V,(A-g.nr*d0*b.tw)*c.beamFu/(c.gammaNet*Math.sqrt(3))/1000,'P358 §5.5 Check 4');
   const L=(g.nr-1)*c.pitch, last=(g.nc-1)*c.gauge;
-  if(stability.type==='long'){
-    const shear=V*L/b.h, bc=b.tw*L*c.beamFy/Math.sqrt(3)/c.gamma0/1000;
-    const rho=Math.max(0,2*shear/bc-1)**2;
-    const ab=b.tw*(c.beamEnd+last)*c.beamFy/Math.sqrt(3)/c.gamma0/1000;
-    add('BC shear',shear,bc,'P358 §5.5 Check 4 p.123');
-    add('ABCD web interaction',V*(g.zp+last)/1000,
-      (Math.max(0,1-rho)*c.beamFy*b.tw*L**2/(6000*c.gamma0)+ab*L)/1000,'P358 §5.5 Check 4 p.123','kNm');
+  let A;
+  if(!c.omitUnnotchedWeb){
+    A=Math.max(b.A-2*b.b*b.tf+(b.tw+2*b.r)*b.tf,(b.h-2*b.tf)*b.tw);
+    add('Gross web shear',V,A*c.beamFy/Math.sqrt(3)/c.gamma0/1000,'P358 §5.5 Check 4');
+    add('Net web shear',V,(A-g.nr*d0*b.tw)*c.beamFu/(c.gammaNet*Math.sqrt(3))/1000,'P358 §5.5 Check 4');
+    if(stability.type==='long'){
+      const shear=V*L/b.h, bc=b.tw*L*c.beamFy/Math.sqrt(3)/c.gamma0/1000;
+      const rho=Math.max(0,2*shear/bc-1)**2;
+      const ab=b.tw*(c.beamEnd+last)*c.beamFy/Math.sqrt(3)/c.gamma0/1000;
+      add('BC shear',shear,bc,'P358 §5.5 Check 4 p.123');
+      add('ABCD web interaction',V*(g.zp+last)/1000,
+        (Math.max(0,1-rho)*c.beamFy*b.tw*L**2/(6000*c.gamma0)+ab*L)/1000,'P358 §5.5 Check 4 p.123','kNm');
+    }
   }
   const weld=sciWeldThickness(c.plateFy,g.tp,g.sw);
   if(weld) add('Full strength weld throat',weld.minimum,weld.throat,'P358 §5.5 Check 8','mm');
@@ -104,7 +107,7 @@ export function assess(c,g,section,V) {
       ['Bolt shear resistance per shear plane',bolt.coefficient+' × '+bolt.fub+' × '+bolt.area+' × '+r.longJoint+' / ('+c.gammaFastener+' × 1000)',args.shearResistance,'kN'],
       ['Plate gross shear',g.hp+' × '+g.tp+' × '+c.plateFy+' / (1.27 × √3 × '+c.gamma0+' × 1000)',plate.gross,'kN'],
       ['Plate net shear area',g.tp+' × ('+g.hp+' − '+g.nr+' × '+d0+')',g.tp*(g.hp-g.nr*d0),'mm²'],
-      ['Web gross shear area','max(A − 2btf + (tw + 2r)tf, hw tw)',A,'mm²'],
+      ...(A===undefined?[]:[['Web gross shear area','max(A − 2btf + (tw + 2r)tf, hw tw)',A,'mm²']]),
       ['Web BC design shear',V+' × '+L+' / '+b.h,V*L/b.h,'kN'],
       ['Weld throat',g.sw+' / √2',g.aw,'mm'],
       ['Effective weld length',g.hp+' − 2 × '+g.aw,le,'mm'],

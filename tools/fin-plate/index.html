@@ -10,7 +10,10 @@
     <div><h1>Fin Plate Connection</h1><p>mFinPlate · Eurocode 3 · Component assessment</p></div>
     <div data-joint-editor hidden><button type="button" id="preset">Load 50° skew preset</button> <button type="button" id="help-open">Help</button></div>
   </header>
-  <section class="fin-panel" id="schedule-start"><h2>Schedule Generator</h2><button id="open-schedule"><strong>No notch</strong> · Shear tab for an unnotched beam</button></section>
+  <nav class="fin-panel schedule-tabs" id="schedule-start" aria-label="Connection schedules">
+    <button type="button" id="open-schedule" aria-pressed="false">No Notch Schedule</button>
+    <button type="button" id="open-notch" aria-pressed="false">Beam-to-Beam with Notch</button>
+  </nav>
   <main id="schedule-app" class="fin-panel" hidden>
     <form id="criteria">
       <h2>Schedule inputs</h2>
@@ -31,7 +34,7 @@
       <h2>Combined Connection Schedule</h2>
       <p>Preliminary component screening · SCI P358 · UK National Annex</p>
       <div class="fin-table" id="matrix"></div>
-      <h2>Parametric Connection Details</h2><p id="schedule-materials"></p><div class="fin-table" id="params"></div>
+      <div id="params" hidden></div>
       <section id="typical">
         <h2>Typical Details</h2>
         <label><input id="symbolic" type="checkbox" checked> Symbolic dimensions</label>
@@ -42,6 +45,46 @@
     </section>
     <output id="schedule-error" role="status"></output>
   </main>
+  <section id="notch-app" class="fin-panel" hidden>
+    <h2>Beam-to-Beam with Notch</h2>
+    <p>Perpendicular, top-aligned beams · SCI P358 · Preliminary component screening</p>
+    <form id="notch-criteria">
+      <div class="schedule-fields">
+        <label>Supporting beams <select id="notch-supports" multiple size="7" required></select></label>
+        <label>Supported beams <select id="notch-beams" multiple size="7" required></select></label>
+        <label>Shear thresholds (kN, comma-separated) <input id="notch-loads" required></label>
+        <label>Supported beam restraint <select id="notch-restraint"><option value="unknown">Not confirmed</option><option value="restrained">Laterally restrained</option><option value="unrestrained">Unrestrained</option></select></label>
+      </div>
+      <fieldset><legend>Cope limits</legend>
+        <button type="button" id="notch-standard">Standard 130 × 50</button>
+        <button type="button" id="notch-extended">Extended 160 × 50</button>
+        <div class="schedule-fields" id="notch-limits"></div>
+      </fieldset>
+      <details><summary>Fin plate and bolt grid · S275, M20 8.8</summary><div class="schedule-fields" id="notch-bolt-fields"></div></details>
+      <button id="notch-generate">Generate Notch Schedule</button>
+      <output id="notch-error" role="status"></output>
+    </form>
+    <section id="notch-result" hidden>
+      <h3>Beam Pair Matrix</h3>
+      <label>Shear band <select id="notch-band"></select></label>
+      <div class="fin-table" id="notch-matrix"></div>
+      <section id="notch-pair" hidden>
+        <h3 id="notch-pair-label"></h3><p id="notch-pair-geometry"></p><div id="notch-pair-svg"></div>
+        <details><summary>Connection plan</summary><div id="notch-plan-svg"></div></details>
+        <div class="fin-table" id="notch-pair-bands"></div><div class="fin-table" id="notch-pair-checks"></div>
+        <div class="fin-table" id="notch-edge-checks"></div>
+      </section>
+      <h3>Notch Schedule</h3><div class="fin-table" id="notch-marks"></div>
+      <div id="notch-typical"></div>
+      <button type="button" id="notch-print">Print / PDF</button>
+    </section>
+  </section>
+  <section class="fin-panel" id="project-fin-plates" hidden>
+    <h2>Project Fin Plate Schedule</h2>
+    <div id="project-plate-table" class="fin-table"></div>
+    <label>Fin plate mark <select id="project-plate-detail"></select></label>
+    <div id="project-plate-svg"></div>
+  </section>
   <section class="fin-panel fin-template" id="joint-template" aria-labelledby="joint-template-title" hidden>
     <h2 id="joint-template-title" tabindex="-1">Choose a joint template</h2>
     <form id="joint-template-form">
