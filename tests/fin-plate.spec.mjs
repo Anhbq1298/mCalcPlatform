@@ -93,3 +93,23 @@ test('notched beam pairs share project marks across saved designs and schedules'
   await page.getByRole('button',{name:'Generate Schedule',exact:true}).click();
   await expect(page.locator('#matrix button').first()).toHaveText(first.split(' / ')[1]);
 });
+
+test('notch matrix puts supporting UB/UC families on rows and supported UB/UC families on columns',async({page})=>{
+  await page.goto('./t/fin-plate/');
+  await page.getByRole('button',{name:'Beam-to-Beam with Notch'}).click();
+  const supporting=page.getByLabel('Supporting beam families',{exact:true});
+  const supported=page.getByLabel('Supported beam families',{exact:true});
+  for(const picker of [supporting,supported]){
+    const families=await picker.locator('option').evaluateAll(options=>options.map(option=>option.value));
+    expect(families.every(f=>/^(UB|UC)\d+$/.test(f))).toBe(true);
+    expect(families.some(f=>f.startsWith('UC'))).toBe(true);
+  }
+  await supporting.selectOption(['UB533','UB610']);
+  await supported.selectOption(['UB406','UB457','UB533']);
+  await page.getByRole('button',{name:'Generate Notch Schedule'}).click();
+  const matrix=page.locator('#notch-matrix');
+  await expect(matrix.getByRole('columnheader')).toHaveText(['Supporting ↓ / Supported →','UB406','UB457','UB533']);
+  await expect(matrix.getByRole('rowheader')).toHaveText(['UB533','UB610']);
+  await matrix.locator('tbody tr').nth(1).getByRole('button').nth(1).click();
+  await expect(page.locator('#notch-pair-label')).toHaveText('UB610 → UB457');
+});

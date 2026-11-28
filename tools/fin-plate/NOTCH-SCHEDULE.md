@@ -17,4 +17,6 @@ The project register stores fabrication signatures in project settings. It assig
 
 ## Family selection
 
+The notch schedule offers UB and UC catalogue families. Supporting families are the matrix rows and supported families are the matrix columns.
+
 Each family pair evaluates the Cartesian product of its catalogue sections. A common fabrication detail uses the maximum required value of each cope dimension and one common plate top datum. Those dimensions are then checked on every actual profile pair, including effects of the deeper common cope on shallower supported sections. The schedule selects only a plate layout that passes every pair. It shows the maximum utilization and the minimum capacity with their respective governing profiles, along with the profile pair that governs each cope dimension. Former saved profile selections expand to their catalogue families when reopened.
