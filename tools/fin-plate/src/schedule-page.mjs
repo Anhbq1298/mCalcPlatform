@@ -1,3 +1,5 @@
+import { markDefinition, projectMarks } from './project-marks.mjs';
+import { notchPage, showProjectMarks } from './notch-page.mjs';
 import { assess, family, generate, initial } from './schedule.mjs';
 import { drawBoltGroup } from './drawing.mjs';
 import { scheduleTypicals } from './schedule-typicals.mjs';
@@ -19,10 +21,14 @@ function table(target,rows){
 }
 function button(label,click){const b=el('button',label);b.type='button';b.onclick=click;return b;}
 export function schedulePage(sections){
-  let c,result,current,saved;
+  let c,result,current,saved,serial=0;
+  const register=projectMarks(), notched=notchPage(sections,register);
+  let tab;
+  register.listen(records=>{if(tab)showProjectMarks(records);});
   const start=$('schedule-start'), app=$('schedule-app');
 
   function invalidate(){
+    serial++;
     $('schedule').hidden=true;
     result=current=null;
     $('inspection').replaceChildren();
@@ -137,9 +143,22 @@ export function schedulePage(sections){
     host.append(el('p','LTB · λLT '+fmt(x.stability.slenderness??0)+' · χLT '+fmt(x.stability.reduction??1)+' · zp '+g.zp+' mm · zg '+g.zg+' mm. Overall joint, supporting member stability and rotation: NOT_VERIFIED.'));
 
   }
-  function run(){
+  async function run(){
+    const request=++serial;
     try{
-      result=generate(c,sections);
+      const next=generate(c,sections);
+      const details=next.details.map(g=>markDefinition(c,g));
+      const previous=next.details.map(g=>g.mark);
+      const assigned=await register.assign(details,previous);
+      showProjectMarks(assigned.records);
+      if(request!==serial)return;
+      result=next;
+      result.details.forEach((g,i)=>{g.mark=assigned.marks[i];});
+      const projectMark=new Map(previous.map((mark,i)=>[mark,assigned.marks[i]]));
+      for(const cell of result.cells)if(cell.choice)cell.mark=projectMark.get(cell.mark);
+      const remap=previous.map((mark,i)=>[mark,assigned.marks[i]]).filter(([a,b])=>a!==b);
+      $('schedule-error').textContent=remap.length?'Project marks applied: '+remap.map(([a,b])=>a+' → '+b).join(', '):'';
+
       const rows=[['Beam family',...c.loads.map(v=>'≤'+v+' kN')]];
       for(const f of c.families)rows.push([f,...result.cells.filter(x=>x.f===f).map(x=>button(x.mark??(x.status==='Infeasible'?'–':x.status),()=>inspect(x)))]);
       table($('matrix'),rows);
@@ -147,12 +166,11 @@ export function schedulePage(sections){
       for(const key of ['nr','nc','n','hp','bp','tp','sw','aw','zp','zg'])params.push([key,...d.map(g=>g[key])]);
       for(const [symbol,key] of [['d','diameter'],['d0','hole'],['p1','pitch'],['p2','gauge'],['e1','end'],['e2','plateEdge'],['eb','beamEnd'],['g','gap']])params.push([symbol,...d.map(g=>symbol==='p2'&&g.nc===1?'–':c[key])]);
       table($('params'),params);
-      $('schedule-materials').textContent='M'+c.diameter+' · Class '+c.grade+' · S'+c.plateFy+' fin plate · Dimensions in mm';
       $('inspection').replaceChildren();
       current=null;
       drawings();
       $('schedule').hidden=false;
-    }catch(e){invalidate();$('schedule-error').textContent=e.message;}
+    }catch(e){if(request===serial){invalidate();$('schedule-error').textContent=e.message;}}
   }
   $('symbolic').onchange=()=>{if(result)drawings();};
   $('criteria').onsubmit=event=>{event.preventDefault();run();};
@@ -182,15 +200,34 @@ export function schedulePage(sections){
     const xml='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+tables.join('')+'</Workbook>';
     const a=el('a');a.href=URL.createObjectURL(new Blob([xml],{type:'application/xml'}));a.download='fin-plate-schedule.xml';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   };
-  function open(data={}){saved=data;c={...structuredClone(initial),...structuredClone(data.criteria??{})};invalidate();
-    $('joint-template').hidden=start.hidden=true;app.hidden=false;fields();
+  function select(name){
+    tab=name;
+    app.hidden=name!=='plain';
+    $('notch-app').hidden=name!=='notch';
+    for(const [id,value] of [['open-schedule','plain'],['open-notch','notch']])$(id).setAttribute('aria-pressed',String(value===name));
+  }
+  function open(data={}){
+    saved=data;c={...structuredClone(initial),...structuredClone(data.criteria??{})};invalidate();
+    $('joint-template').hidden=true;start.hidden=false;fields();
     count.value=c.loads.length;
     step.value=data.thresholdSpacing ?? (c.loads[0] || 50);
     custom.checked=data.customThresholds ?? c.loads.some((v,i)=>Math.abs(v-c.loads[0]*(i+1))>1e-8);
-    renderThresholds();}
-  $('open-schedule').onclick=()=>open();
-  return {open,get active(){return !app.hidden;},reset(){app.hidden=$('joint-template').hidden=true;start.hidden=false;},
-    hide(){app.hidden=start.hidden=true;},snapshot(){return {...saved,workflow:'schedule',criteria:structuredClone(c),
-      customThresholds:custom.checked,thresholdSpacing:step.valueAsNumber};},
-    report(){return worksheet('No-notch fin plate schedule',reportLines());}};
+    renderThresholds();
+    register.restore(data.finPlateMarks);showProjectMarks(register.snapshot());
+    register.reload().then(records=>{if(tab&&saved===data)showProjectMarks(records);})
+      .catch(error=>{if(tab&&saved===data)$('schedule-error').textContent=error.message;});
+    notched.open(data.notchCriteria);
+    select(data.scheduleTab==='notch'?'notch':'plain');
+  }
+  function hide(){
+    select(undefined);start.hidden=true;$('project-fin-plates').hidden=true;
+  }
+  for(const [id,name] of [['open-schedule','plain'],['open-notch','notch']])$(id).onclick=()=>{
+    if(!tab)open();
+    select(name);
+  };
+  return {open,get active(){return Boolean(tab);},reset(){hide();$('joint-template').hidden=true;start.hidden=false;},
+    hide,snapshot(){return {...saved,workflow:'schedule',criteria:structuredClone(c),notchCriteria:notched.snapshot(),
+      scheduleTab:tab,finPlateMarks:register.snapshot(),customThresholds:custom.checked,thresholdSpacing:step.valueAsNumber};},
+    report(){return tab==='notch'?notched.report():worksheet('No-notch fin plate schedule',reportLines());}};
 }
