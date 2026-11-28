@@ -191,3 +191,4 @@ body:has(#joint-template:not([hidden])) .mcalc-shell :is(label, [data-save], [da
 .notch-cad .hidden {stroke-dasharray:6 4}
 .notch-cad .centerline {stroke-width:.6;stroke-dasharray:10 3 2 3}
 @media print {.schedule-tabs,#notch-criteria,#notch-print {display:none}}
+#notch-criteria>.schedule-fields>div {display:grid;gap:.25rem;align-content:start;min-width:0}
