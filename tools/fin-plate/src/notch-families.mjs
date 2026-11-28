@@ -1,7 +1,7 @@
 import { generateNotched, notchDefaults, resolveCope } from './notch-schedule.mjs';
 import { family, initial } from './schedule.mjs';
 
-const series=['UB','UC','IPE','HEA','HEB'];
+const series=['UB','UC'];
 const axes=['Lt','dt','Lb','db'];
 const label=pair=>pair.support.name+' → '+pair.beam.name;
 

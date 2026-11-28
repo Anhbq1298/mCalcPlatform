@@ -9,14 +9,19 @@ const el=(tag,text)=>Object.assign(document.createElement(tag),{textContent:text
 const $=id=>document.getElementById(id);
 const fmt=x=>typeof x==='number'?Number(x.toFixed(3)):x;
 
-function table(host,headers,rows){
+function table(host,headers,rows,{rowHeaders=false}={}){
   const t=el('table');
   const top=t.createTHead().insertRow();
   for(const name of headers){const th=el('th',name);th.scope='col';top.append(th);}
   const body=t.createTBody();
   for(const row of rows){
     const tr=body.insertRow();
-    for(const value of row)tr.insertCell().append(value instanceof Node?value:String(fmt(value)));
+    for(const [index,value] of row.entries()){
+      if(rowHeaders&&index===0){
+        const th=el('th',String(fmt(value)));
+        th.scope='row';tr.append(th);
+      }else tr.insertCell().append(value instanceof Node?value:String(fmt(value)));
+    }
   }
   host.replaceChildren(t);
 }
@@ -99,13 +104,13 @@ export function notchPage(sections,register){
   }
   function matrix(){
     const index=Number($('notch-band').value);
-    const rows=result.beams.map((b,i)=>[b.name,...result.supports.map((_,j)=>{
-      const pair=result.pairs[i*result.supports.length+j], cell=pair.cells[index];
+    const rows=result.supports.map((support,i)=>[support.name,...result.beams.map((_,j)=>{
+      const pair=result.pairs[j*result.supports.length+i], cell=pair.cells[index];
       const button=el('button',cell.mark?pair.notchMark+' / '+cell.mark:cell.status);
       button.type='button';button.onclick=()=>inspect(pair,cell);
       return button;
     })]);
-    table($('notch-matrix'),['Supported ↓ / Supporting →',...result.supports.map(s=>s.name)],rows);
+    table($('notch-matrix'),['Supporting ↓ / Supported →',...result.beams.map(b=>b.name)],rows,{rowHeaders:true});
     if(selected)inspect(selected,selected.cells[index]);
   }
   $('notch-band').onchange=matrix;
@@ -135,12 +140,15 @@ export function notchPage(sections,register){
       for(const [key] of [...fields,...boltFields])$('notch-'+key).value=data[key];
       for(const key of ['beamFy','supportFy','restraint'])$('notch-'+key).value=data[key];
       $('notch-loads').value=data.loads.join(', ');
+      const unavailable=new Set();
       for(const [key,field] of [['supports','supportFamilies'],['beams','beamFamilies']]){
         const migrated=sections.filter(section=>data[key]?.includes(section.id)).map(family);
         const selectedFamilies=data[field]??migrated;
+        for(const name of selectedFamilies)if(!catalogue.has(name))unavailable.add(name);
         for(const option of $('notch-'+key).options)option.selected=selectedFamilies.includes(option.value);
       }
       invalidate();panel.hidden=false;
+      if(unavailable.size)error.textContent='Select UB or UC replacements for unavailable families: '+[...unavailable].join(', ')+'.';
     },
     snapshot:values,
     report(){
