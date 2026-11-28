@@ -149,3 +149,29 @@ body:has(#joint-template:not([hidden])) .mcalc-shell :is(label, [data-save], [da
 .fin-bolt-figure .fin-drawing text { font-size: 12px; }
 .level-reference { stroke: #657e99; stroke-dasharray: 10 4 2 4; }
 @media (max-width: 660px) { .fin-bolt-results { grid-template-columns: minmax(0, 1fr); } }
+#schedule-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.65rem 1rem;margin:1rem 0}
+#schedule-fields>label {display:grid;font-size:.9rem;gap:.2rem}
+#schedule-fields>details {grid-column:1/-1}
+#schedule-fields details label {display:inline-flex;align-items:center;margin-right:.65rem}
+#schedule-app nav {display:flex;gap:.4rem;flex-wrap:wrap}
+#schedule-app figure {display:inline-block;width:min(46%,560px)}
+#schedule-app .fin-table {overflow:auto}
+@media print {#schedule-app nav,#schedule-app button:not(td button),#schedule-start {display:none} #schedule-app td button {border:0;background:none;color:black}}
+#schedule-app fieldset input {width:6rem}
+@media print {
+  body:has(#schedule-app:not([hidden])) .mcalc-shell {display:none}
+  #schedule-app #criteria, #schedule-app #typical,#schedule-app #schedule {display:block!important}
+  #schedule-app #schedule-fields {grid-template-columns:repeat(4,1fr)}
+  #schedule-app #schedule-fields>details,#schedule-app #criteria fieldset {display:none}
+  #schedule-app .fin-table {overflow:visible;font-size:9pt}
+  #schedule-app figure {break-inside:avoid}
+}
+#schedule-app .schedule-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem 1rem;margin:1rem 0}
+#schedule-app .schedule-fields[hidden] {display:none}
+#schedule-app .schedule-fields>label {display:grid;gap:.3rem;align-content:start}
+#schedule-app :is(fieldset,#schedule-advanced) {margin:0 0 1rem}
+#schedule-families {display:flex;gap:.25rem .8rem;flex-wrap:wrap}
+#typical-drawings {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1rem;margin:1rem 0}
+#typical-drawings article {border:1px solid #bfcbd9;border-radius:.4rem;padding:1rem;min-width:0}
+#typical-drawings svg {display:block;width:100%;height:auto;max-height:430px}
+#typical-drawings button {margin:.4rem .4rem 0 0}

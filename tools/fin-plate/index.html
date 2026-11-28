@@ -10,6 +10,38 @@
     <div><h1>Fin Plate Connection</h1><p>mFinPlate · Eurocode 3 · Component assessment</p></div>
     <div data-joint-editor hidden><button type="button" id="preset">Load 50° skew preset</button> <button type="button" id="help-open">Help</button></div>
   </header>
+  <section class="fin-panel" id="schedule-start"><h2>Schedule Generator</h2><button id="open-schedule"><strong>No notch</strong> · Shear tab for an unnotched beam</button></section>
+  <main id="schedule-app" class="fin-panel" hidden>
+    <form id="criteria">
+      <h2>Schedule inputs</h2>
+      <div id="schedule-basics" class="schedule-fields"></div>
+      <p id="schedule-input-scope" role="status" hidden></p>
+      <fieldset class="schedule-range">
+        <legend>Shear thresholds</legend>
+        <label>Number of thresholds <input id="threshold-count" type="number" min="1" max="100" required></label>
+        <label>Spacing (kN) <input id="threshold-step" type="number" min="0.01" step="any" required></label>
+        <label><input type="checkbox" id="custom-thresholds"> Custom thresholds</label>
+        <div id="threshold-values" class="schedule-fields" hidden></div>
+      </fieldset>
+      <fieldset><legend>Beam families <span id="family-count"></span></legend><div id="schedule-families"></div></fieldset>
+      <details id="schedule-advanced"><summary>Advanced settings</summary><div class="schedule-fields" id="schedule-fields"></div></details>
+      <button id="generate">Generate Schedule</button>
+    </form>
+    <section id="schedule" hidden>
+      <h2>Combined Connection Schedule</h2>
+      <p>Preliminary component screening · SCI P358 · UK National Annex</p>
+      <div class="fin-table" id="matrix"></div>
+      <h2>Parametric Connection Details</h2><p id="schedule-materials"></p><div class="fin-table" id="params"></div>
+      <section id="typical">
+        <h2>Typical Details</h2>
+        <label><input id="symbolic" type="checkbox" checked> Symbolic dimensions</label>
+        <div id="typical-drawings"></div>
+      </section>
+      <button id="excel">Export Excel XML</button> <button id="print-results">Print / PDF</button>
+      <div id="inspection"></div>
+    </section>
+    <output id="schedule-error" role="status"></output>
+  </main>
   <section class="fin-panel fin-template" id="joint-template" aria-labelledby="joint-template-title" hidden>
     <h2 id="joint-template-title" tabindex="-1">Choose a joint template</h2>
     <form id="joint-template-form">
