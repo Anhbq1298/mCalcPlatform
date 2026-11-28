@@ -65,8 +65,8 @@ test('notched beam pairs share project marks across saved designs and schedules'
   await Promise.all([page.goto(url.href),other.goto(url.href)]);
   for(const tab of [page,other]){
     await tab.getByRole('button',{name:'Beam-to-Beam with Notch'}).click();
-    await tab.getByLabel('Supporting beams',{exact:true}).selectOption({label:'UB 533x210x92'});
-    await tab.getByLabel('Supported beams',{exact:true}).selectOption({label:'UB 406x178x74'});
+    await tab.getByLabel('Supporting beam families',{exact:true}).selectOption('UB533');
+    await tab.getByLabel('Supported beam families',{exact:true}).selectOption('UB406');
     await tab.getByLabel('Supported beam restraint').selectOption('restrained');
   }
   await other.getByText('Fin plate and bolt grid').click();
@@ -77,6 +77,7 @@ test('notched beam pairs share project marks across saved designs and schedules'
   const first=await page.locator('#notch-matrix button').textContent();
   const second=await other.locator('#notch-matrix button').textContent();
   expect(first).not.toBe(second);
+  await expect(page.locator('#notch-family-count')).toContainText('72 catalogue profile pairs checked');
   await page.locator('#notch-matrix button').click();
   await expect(page.getByRole('img',{name:'Selected beam pair section'})).toContainText('100 × 40 mm');
   await expect(page.getByRole('img',{name:'Typical parametric notch detail'})).toBeVisible();

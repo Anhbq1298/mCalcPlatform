@@ -1,7 +1,8 @@
-import { generateNotched, notchDefaults } from './notch-schedule.mjs';
+import { notchDefaults } from './notch-schedule.mjs';
 import { markDefinition } from './project-marks.mjs';
 import { notchTypical, pairPlan, pairSection, plateTypical } from './notch-drawings.mjs';
-import { initial } from './schedule.mjs';
+import { generateNotchFamilies, notchFamilies } from './notch-families.mjs';
+import { family, initial } from './schedule.mjs';
 import { worksheet } from './report.mjs';
 
 const el=(tag,text)=>Object.assign(document.createElement(tag),{textContent:text??''});
@@ -47,10 +48,9 @@ const boltFields=[['thickness','Plate thickness (mm)'],['weldLeg','Weld leg (mm)
 export function notchPage(sections,register){
   let data,result,selected,serial=0;
   const panel=$('notch-app'), form=$('notch-criteria'), out=$('notch-result'), error=$('notch-error');
-  const profiles=sections.filter(s=>['UB','UC','IPE','HEA','HEB'].includes(s.family));
+  const catalogue=notchFamilies(sections);
   for(const id of ['notch-supports','notch-beams']){
-    const select=$(id);
-    select.append(...profiles.map(s=>new Option(s.name,s.id)));
+    $(id).append(...[...catalogue].map(([name,profiles])=>new Option(name+' ('+profiles.length+')',name)));
   }
   for(const [key,label] of [...fields,...boltFields]){
     const item=el('label',label+' '), input=el('input');
@@ -68,23 +68,26 @@ export function notchPage(sections,register){
   $('notch-extended').onclick=()=>{$('notch-maxTopLength').value=160;$('notch-maxTopDepth').value=50;invalidate();};
   function values(){
     const number=key=>Number($('notch-'+key).value);
-    const ids=id=>[...$(id).selectedOptions].map(o=>Number(o.value));
+    const series=id=>[...$(id).selectedOptions].map(o=>o.value);
     const beamFy=number('beamFy'),supportFy=number('supportFy');
     return {...data,...Object.fromEntries([...fields,...boltFields].map(([key])=>[key,number(key)])),beamFy,supportFy,
       beamFu:beamFy===275?410:470,supportFu:supportFy===275?410:470,
       restraint:$('notch-restraint').value,loads:$('notch-loads').value.split(',').map(Number),
-      supports:ids('notch-supports'),beams:ids('notch-beams')};
+      supportFamilies:series('notch-supports'),beamFamilies:series('notch-beams')};
   }
   function inspect(pair,cell){
     selected=pair;
     $('notch-pair-label').textContent=pair.support.name+' → '+pair.beam.name;
-    const delta=pair.support.values.h-pair.beam.values.h;
-    $('notch-pair-geometry').textContent=(Math.abs(delta)<1e-8?'Equal depths':delta>0?'Supporting beam deeper':'Supporting beam shallower')
-      +' · '+(pair.notchMark??'Cope exceeds limits')+' · '+cell.status;
-    table($('notch-pair-bands'),['Shear (kN)','Fin plate','Capacity (kN)','Governing UR','Status / reason'],
-      pair.cells.map(row=>[row.V,row.mark??'–',row.capacity??'–',row.worst?.ratio??'–',row.reason||row.status]));
-    pairSection($('notch-pair-svg'),pair,cell,result.criteria);
-    pairPlan($('notch-plan-svg'),pair,cell,result.criteria);
+    const example=cell.governingPair;
+    $('notch-pair-geometry').textContent=pair.count+' profile pairs checked · '+(pair.notchMark??'Cope exceeds limits')
+      +' · '+cell.status+' · Section shown: '+example.support.name+' → '+example.beam.name;
+    table($('notch-pair-bands'),['Shear (kN)','Fin plate','Min. capacity (kN)','Max. UR','Status / governing check','Capacity-governing profiles'],
+      pair.cells.map(row=>[row.V,row.mark??'–',row.capacity??'–',row.worst?.ratio??'–',row.reason||row.status,
+        row.capacityPair?row.capacityPair.support.name+' → '+row.capacityPair.beam.name:'–']));
+    table($('notch-cope-drivers'),['Cope dimension','Common size (mm)','Required by'],
+      Object.entries(pair.dimensions).map(([key,p])=>[key,pair.cope[key],pair.cope[key] ? p.support.name+' → '+p.beam.name:'–']));
+    pairSection($('notch-pair-svg'),example,cell,result.criteria);
+    pairPlan($('notch-plan-svg'),example,cell,result.criteria);
     const checks=cell.checks??[];
     table($('notch-pair-checks'),['Check','Demand','Resistance','Unit','UR'],
       checks.map(q=>[q.name,q.action,q.resistance,q.unit,q.ratio]));
@@ -110,13 +113,14 @@ export function notchPage(sections,register){
     event.preventDefault();invalidate();
     const request=serial;
     try{
-      const next=generateNotched(values(),sections);
+      const next=generateNotchFamilies(values(),sections);
       const selectedCells=next.pairs.flatMap(pair=>pair.cells.filter(cell=>cell.g));
       const assigned=await register.assign(selectedCells.map(cell=>markDefinition(next.criteria,cell.g)));
       showProjectMarks(assigned.records);
       if(request!==serial)return;
       selectedCells.forEach((cell,i)=>{cell.mark=assigned.marks[i];});
       result=next;
+      $('notch-family-count').textContent=result.pairs.length+' family pairs · '+result.combinationsChecked+' catalogue profile pairs checked';
       $('notch-band').replaceChildren(...result.criteria.loads.map((load,i)=>new Option('≤'+load+' kN',i)));
       matrix();
       table($('notch-marks'),['Mark','Lt','dt','Lb','db'],result.notches.map(n=>[n.mark,n.Lt,n.dt,n.Lb,n.db]));
@@ -131,7 +135,11 @@ export function notchPage(sections,register){
       for(const [key] of [...fields,...boltFields])$('notch-'+key).value=data[key];
       for(const key of ['beamFy','supportFy','restraint'])$('notch-'+key).value=data[key];
       $('notch-loads').value=data.loads.join(', ');
-      for(const key of ['supports','beams'])for(const option of $('notch-'+key).options)option.selected=data[key].includes(Number(option.value));
+      for(const [key,field] of [['supports','supportFamilies'],['beams','beamFamilies']]){
+        const migrated=sections.filter(section=>data[key]?.includes(section.id)).map(family);
+        const selectedFamilies=data[field]??migrated;
+        for(const option of $('notch-'+key).options)option.selected=selectedFamilies.includes(option.value);
+      }
       invalidate();panel.hidden=false;
     },
     snapshot:values,
@@ -139,7 +147,7 @@ export function notchPage(sections,register){
       if(!result)throw Error('Generate the notched schedule first.');
       const lines=[['Beam-to-beam notch schedule',1],['Dimensions in mm · Preliminary component screening']];
       for(const p of result.pairs){
-        lines.push([p.support.name+' → '+p.beam.name,2],[p.notchMark?'Cope '+p.notchMark+' · '+[p.cope.Lt,p.cope.dt,p.cope.Lb,fmt(p.cope.db)].join(' / '):p.cope.issues.join(' ')]);
+        lines.push([p.support.name+' → '+p.beam.name,2],[p.notchMark?'Cope '+p.notchMark+' · '+[p.cope.Lt,p.cope.dt,p.cope.Lb,fmt(p.cope.db)].join(' / '):p.cells[0].reason]);
         for(const c of p.cells)lines.push([c.V+' kN · '+(c.mark??c.status)+' · '+(c.reason||c.worst?.name||'')]);
       }
       return worksheet('Beam-to-beam notch schedule',lines);

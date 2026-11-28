@@ -58,3 +58,26 @@ test('project marks are reused by fabrication identity with explicit legacy coll
   assert.deepEqual(second.marks,['S2','S1','D1']);
   assert.deepEqual(allocateMarks(second.records,[d,s]).marks,['D1','S1']);
 });
+
+test('family schedule checks every real pair with a common cope and bolt layout',async()=>{
+  const {generateNotchFamilies,notchFamilies}=await import('../src/notch-families.mjs');
+  const groups=notchFamilies(catalogue);
+  const options={supportFamilies:['UB533'],beamFamilies:['UB406'],loads:[100,200,300],restraint:'restrained'};
+  const m=generateNotchFamilies(options,catalogue), pair=m.pairs[0];
+  assert.equal(m.combinationsChecked,72);
+  assert.deepEqual(pair.cope,{Lt:100,dt:40,Lb:0,db:0});
+  assert.notEqual(pair.cells[0].governingPair.support.id,pair.cells[1].governingPair.support.id);
+  const all=generateNotched({...options,supports:groups.get('UB533').map(s=>s.id),
+    beams:groups.get('UB406').map(s=>s.id),commonCope:pair.cope,
+    commonPlateTop:pair.cells[0].governingPair.plateTop,collectLayouts:true},catalogue);
+  for(const [i,cell] of pair.cells.entries()){
+    const key=cell.g.nc+'/'+cell.g.nr;
+    assert.ok(all.pairs.every(p=>p.cells[i].passing.has(key)));
+    assert.equal(cell.worst.ratio,Math.max(...all.pairs.map(p=>p.cells[i].passing.get(key).worst.ratio)));
+    assert.equal(cell.capacity,Math.min(...all.pairs.map(p=>p.cells[i].passing.get(key).capacityAt())));
+  }
+  const clash=generateNotchFamilies({...options,supportFamilies:['UB610'],beamFamilies:['UB533']},catalogue);
+  assert.equal(clash.combinationsChecked,216);
+  assert.equal(clash.pairs[0].cope.Lt,160);
+  assert.ok(clash.pairs[0].cells.every(cell=>cell.status==='Clash'&&!cell.g));
+});

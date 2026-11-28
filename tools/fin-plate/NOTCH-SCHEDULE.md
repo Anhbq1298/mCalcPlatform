@@ -14,3 +14,7 @@ The numerical suite reproduces P358 §5.6 Example 1 Checks 4–6 for the single-
 | UB457×191×74 → UB610×229×101 | 95 × 40 | 95 × 172.6 |
 
 The project register stores fabrication signatures in project settings. It assigns marks inside a read/write project transaction, so two design tabs cannot claim the same number for different details. The standalone tool retains marks in its design snapshot until attached to a project. Existing No Notch numbering is preferred when a mark is free; conflicting numbers are remapped and reported in the schedule.
+
+## Family selection
+
+Each family pair evaluates the Cartesian product of its catalogue sections. A common fabrication detail uses the maximum required value of each cope dimension and one common plate top datum. Those dimensions are then checked on every actual profile pair, including effects of the deeper common cope on shallower supported sections. The schedule selects only a plate layout that passes every pair. It shows the maximum utilization and the minimum capacity with their respective governing profiles, along with the profile pair that governs each cope dimension. Former saved profile selections expand to their catalogue families when reopened.
