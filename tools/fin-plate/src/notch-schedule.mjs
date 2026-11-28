@@ -70,12 +70,16 @@ export function generateNotched(input, sections) {
   if(!supports.length||!beams.length||[...supports,...beams].includes(undefined))throw Error('Select supporting and supported catalogue profiles.');
   const pairs=[], notches=new Map();
   for(const beam of beams) for(const support of supports){
-    const b=beam.values, main=support.values, cope=resolveCope(main,b,c);
+    const b=beam.values, main=support.values, required=resolveCope(main,b,c);
+    const cope=c.commonCope ? {...c.commonCope,issues:[...required.issues]} : required;
+    if(c.commonCope && cope.dt+cope.db>=b.h && !cope.issues.includes('No web remains between the copes.')) {
+      cope.issues.push('No web remains between the common family copes.');
+    }
     const {Lt,dt,Lb,db}=cope;
     const occupied=dt||db;
     const tuple=[Lt,dt,Lb,db].map(v=>Number(v.toFixed(7))).join('/');
     if(!cope.issues.length && !notches.has(tuple))notches.set(tuple,{...cope,mark:occupied?'N'+(1+[...notches.values()].filter(n=>n.mark!=='N0').length):'N0'});
-    const plateTop=Math.max(main.tf+main.r+c.weldLeg, dt, b.tf+b.r+c.clearance);
+    const plateTop=Math.max(c.commonPlateTop??0,main.tf+main.r+c.weldLeg,dt,b.tf+b.r+c.clearance);
     const plateBottom=Math.min(main.h-main.tf-main.r-c.weldLeg,b.h-Math.max(db,b.tf+b.r));
     const variants=[], capacityByPlate=new Map();
     for(const nc of [...c.columns].sort((a,b)=>a-b)) for(let nr=c.minRows;nr<=c.maxRows;nr++){
@@ -85,6 +89,7 @@ export function generateNotched(input, sections) {
     }
     const cells=c.loads.map(V=>{
       const row={V, status:'No passing layout',reason:'No plate height fits the clear supporting web',edge:[]};
+      const passing=new Map();
       if(cope.issues.length)return {...row,status:'Clash',reason:cope.issues.join(' ')};
       let openReason;
       for(const {g,edge} of variants){
@@ -122,20 +127,32 @@ export function generateNotched(input, sections) {
         try { checks=checksAt(V); } catch(error){openReason=error.message;continue;}
         const worst=checks.reduce((a,b)=>a.ratio>=b.ratio?a:b);
         if(!Number.isFinite(worst.ratio)||worst.ratio>c.maxUR){row.reason=worst.name;row.checks=checks;continue;}
+        if(c.collectLayouts) {
+          passing.set(g.nc+'/'+g.nr,{...row,g,checks,worst,capacityAt:()=>{
+            if(!capacityByPlate.has(g))capacityByPlate.set(g,findCapacity(V,checks,checksAt));
+            return Math.max(V,capacityByPlate.get(g));
+          },edge:[],reason:worst.name,status:'Component screening'});
+          continue;
+        }
         if(!capacityByPlate.has(g)){
-          let low=V,high=checks.find(q=>q.name==='Bolt shear').resistance;
-          for(let i=0;i<26;i++){
-            const middle=(low+high)/2;
-            if(checksAt(middle).every(q=>q.ratio<=1))low=middle;else high=middle;
-          }
-          capacityByPlate.set(g,low);
+          capacityByPlate.set(g,findCapacity(V,checks,checksAt));
         }
         return {...row,g,checks,worst,capacity:Math.max(V,capacityByPlate.get(g)),edge:[],reason:worst.name,status:'Component screening'};
       }
-      if(openReason)return {...row,status:'Not verified',reason:openReason};
-      return row;
+      if(openReason)Object.assign(row,{status:'Not verified',reason:openReason});
+      return c.collectLayouts ? {...row,passing} : row;
     });
     pairs.push({support,beam,cope,notchMark:notches.get(tuple)?.mark,plateTop,cells});
   }
   return {pairs,notches:[...notches.values()],supports,beams,criteria:c};
+}
+
+function findCapacity(V,checks,checksAt){
+  let low=V,high=checks.find(q=>q.name==='Bolt shear').resistance;
+  for(let i=0;i<26;i++){
+    const middle=(low+high)/2;
+    if(checksAt(middle).every(q=>q.ratio<=1))low=middle;
+    else high=middle;
+  }
+  return low;
 }

@@ -50,8 +50,8 @@
     <p>Perpendicular, top-aligned beams · SCI P358 · Preliminary component screening</p>
     <form id="notch-criteria">
       <div class="schedule-fields">
-        <div><label for="notch-supports">Supporting beams</label><select id="notch-supports" multiple size="7" required></select></div>
-        <div><label for="notch-beams">Supported beams</label><select id="notch-beams" multiple size="7" required></select></div>
+        <div><label for="notch-supports">Supporting beam families</label><select id="notch-supports" multiple size="7" required></select></div>
+        <div><label for="notch-beams">Supported beam families</label><select id="notch-beams" multiple size="7" required></select></div>
         <label>Shear thresholds (kN, comma-separated) <input id="notch-loads" required></label>
         <div><label for="notch-restraint">Supported beam restraint</label><select id="notch-restraint"><option value="unknown">Not confirmed</option><option value="restrained">Laterally restrained</option><option value="unrestrained">Unrestrained</option></select></div>
       </div>
@@ -65,13 +65,14 @@
       <output id="notch-error" role="status"></output>
     </form>
     <section id="notch-result" hidden>
-      <h3>Beam Pair Matrix</h3>
+      <h3>Beam Family Pair Matrix</h3>
+      <p id="notch-family-count"></p>
       <label>Shear band <select id="notch-band"></select></label>
       <div class="fin-table" id="notch-matrix"></div>
       <section id="notch-pair" hidden>
         <h3 id="notch-pair-label"></h3><p id="notch-pair-geometry"></p><div id="notch-pair-svg"></div>
         <details><summary>Connection plan</summary><div id="notch-plan-svg"></div></details>
-        <div class="fin-table" id="notch-pair-bands"></div><div class="fin-table" id="notch-pair-checks"></div>
+        <div class="fin-table" id="notch-pair-bands"></div><div class="fin-table" id="notch-cope-drivers"></div><div class="fin-table" id="notch-pair-checks"></div>
         <div class="fin-table" id="notch-edge-checks"></div>
       </section>
       <h3>Notch Schedule</h3><div class="fin-table" id="notch-marks"></div>
